@@ -1,0 +1,151 @@
+module Lingara
+  VERSION: String
+  GEM_VERSION: String
+  GENERATED_FOR_VERSION: String
+  OPERATIONS: Hash[String, Hash[Symbol, untyped]]
+
+  type seconds = Integer | Float
+  type event = untyped
+
+  interface _TokenSource
+    def token: () -> AccessToken
+    def invalidate: (AccessToken token) -> void
+  end
+
+  interface _Logger
+    def warn: (String message) -> untyped
+    def debug: (String message) -> untyped
+  end
+
+  class Client
+    DEFAULT_BASE_URL: String
+    DEFAULT_TOKEN_URL: String
+
+    attr_reader token_source: _TokenSource?
+
+    def initialize: (
+      ?client_id: String?,
+      ?client_secret: String?,
+      ?auth: (:basic | :post)?,
+      ?scopes: Array[String]?,
+      ?token_source: _TokenSource?,
+      ?base_url: String,
+      ?token_url: String,
+      ?version: String?,
+      ?on_deprecation: (^(DeprecationNotice) -> void)?,
+      ?logger: _Logger,
+      ?max_attempts: Integer,
+      ?retry_after_cap: seconds,
+      ?stream_idle_timeout: seconds,
+      ?token_request_timeout: seconds,
+      ?user_agent_suffix: String?,
+      ?clock: ^() -> Time,
+      ?sleeper: ^(seconds) -> void,
+      ?net_http_options: Hash[Symbol, untyped]
+    ) -> void
+
+    def generate_vocabulary: (**untyped body) { (event) -> void } -> StreamResult
+                           | (**untyped body) -> EventStream
+    def create_lesson_plan: (**untyped body) { (event) -> void } -> StreamResult
+                          | (**untyped body) -> EventStream
+    def get_lesson_plan: (String plan_id) -> Response
+    def stream_lesson_plan: (String plan_id) { (event) -> void } -> StreamResult
+                          | (String plan_id) -> EventStream
+    def send_tutor_message: (**untyped body) { (event) -> void } -> StreamResult
+                          | (**untyped body) -> EventStream
+    def get_usage: () -> Response
+    def get_open_api_document: () -> Response
+    def list_api_versions: () -> Response
+    def get_api_version: (String version_id) -> Response
+  end
+
+  class Response
+    attr_reader value: untyped
+    attr_reader served_version: String?
+  end
+
+  class StreamResult
+    attr_reader served_version: String?
+  end
+
+  class EventStream
+    include Enumerable[event]
+
+    attr_reader served_version: String?
+
+    def each: () { (event) -> void } -> self
+            | () -> Enumerator[event, self]
+    def next: () -> event
+    def close: () -> nil
+  end
+
+  class AccessToken
+    def initialize: (String raw) -> void
+    def expose_secret: () -> String
+  end
+
+  class ClientCredentials
+    attr_reader client_id: String
+
+    def token: () -> AccessToken
+    def invalidate: (AccessToken token) -> void
+    def expose_secret: () -> String
+  end
+
+  class DeprecationLink
+    attr_reader raw: String
+    attr_reader target: untyped
+  end
+
+  class DeprecationNotice
+    attr_reader version: String?
+    attr_reader deprecated_at: Time?
+    attr_reader sunset_at: Time?
+    attr_reader link: DeprecationLink?
+    attr_reader headers: Hash[String, String]
+  end
+
+  class DefaultLogger
+    def warn: (String message) -> void
+    def debug: (String message) -> void
+  end
+
+  class Error < StandardError
+  end
+
+  class ApiError < Error
+    attr_reader status: Integer
+    attr_reader code: String
+    attr_reader retry_after: Integer?
+    attr_reader plan_id: String?
+    attr_reader served_version: String?
+  end
+
+  class OAuthError < Error
+    attr_reader status: Integer
+    attr_reader error: String
+    attr_reader description: String?
+    attr_reader retry_after: Integer?
+  end
+
+  class MaintenanceError < Error
+    attr_reader body: String
+    attr_reader retry_after: Integer?
+  end
+
+  class TransportError < Error
+    KINDS: Array[Symbol]
+
+    attr_reader kind: :connect | :tls | :reset | :timeout | :stream_ended_early | :malformed_response | :malformed_event
+  end
+
+  class SSEDecoder
+    class Frame
+      attr_reader event: String
+      attr_reader data: String
+    end
+
+    def feed: (String bytes) -> Array[Frame]
+    def finish: () -> Array[Frame]
+  end
+end

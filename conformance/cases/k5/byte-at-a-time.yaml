@@ -1,0 +1,25 @@
+id: k5.byte-at-a-time
+title: A stream written one byte per write, a multi-byte character included, decodes exactly as when written whole
+behaviours: [K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: sendTutorMessage
+      body: { message: 你好, source_lang: en, target_lang: zh }
+    expect:
+      outcome: completed
+      events: [ { event: delta, data: { text: hi你 } } ]
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k5byte, token_type: Bearer, expires_in: 3600, scope: "tutor:converse" } }
+    - request: { method: POST, path: /v1/tutor/message }
+      response:
+        status: 200
+        sse:
+          # "event: delta\ndata: {"text":"hi你"}\n\n: keepalive\n\nevent: done\ndata: {}\n\n", one byte per write
+          chunks: ["e", "v", "e", "n", "t", ":", " ", "d", "e", "l", "t", "a", "\n", "d", "a", "t", "a", ":", " ", "{", "\"", "t", "e", "x", "t", "\"", ":", "\"", "h", "i",
+                   { hex: e4 }, { hex: bd }, { hex: a0 },
+                   "\"", "}", "\n", "\n", ":", " ", "k", "e", "e", "p", "a", "l", "i", "v", "e", "\n", "\n", "e", "v", "e", "n", "t", ":", " ", "d", "o", "n", "e", "\n", "d", "a", "t", "a", ":", " ", "{", "}", "\n", "\n"]
+          then: close

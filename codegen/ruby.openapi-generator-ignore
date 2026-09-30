@@ -1,0 +1,12 @@
+# The four stream unions are ruby/codegen/generate.rb's, not
+# openapi-generator's (ADR 29.9.26t D2): one exact file name per union, never
+# a name glob, because `*_event*.rb` would also drop the branch files
+# (generate_vocabulary_event_item.rb …), which stay generated. The leading
+# `**/` is the pin's price: it matches a root-relative
+# `lib/lingara/models/<file>` against nothing, measured at 7.14.0.
+# generate.rb refuses a models directory holding a union file, so a fifth
+# stream this file does not name fails codegen-ruby.
+**/lingara/models/generate_vocabulary_event.rb
+**/lingara/models/create_lesson_plan_event.rb
+**/lingara/models/stream_lesson_plan_event.rb
+**/lingara/models/send_tutor_message_event.rb

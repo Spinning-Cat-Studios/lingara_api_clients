@@ -1,0 +1,33 @@
+id: op.tutor-stream
+title: A tutor turn yields each delta and the notice, and ends on done without yielding it
+behaviours: [K1, K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: sendTutorMessage
+      body: { message: 荔枝多少钱？, source_lang: en, target_lang: zh, level: 2 }
+    expect:
+      outcome: completed
+      events:
+        - { event: delta, data: { text: 两斤荔枝， } }
+        - { event: delta, data: { text: 一共三十块。 } }
+        - { event: notice, data: { code: history_trimmed, message: Older turns were left out of this reply. } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_optutor, token_type: Bearer, expires_in: 3600, scope: "tutor:converse" } }
+    - request:
+        method: POST
+        path: /v1/tutor/message
+        headers: { authorization: { equals: Bearer lgr_at_optutor }, accept: { contains: text/event-stream } }
+        json: { message: 荔枝多少钱？, source_lang: en, target_lang: zh, level: 2 }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: delta\ndata: {\"text\":\"两斤荔枝，\"}\n\n"
+            - "event: delta\ndata: {\"text\":\"一共三十块。\"}\n\n"
+            - "event: notice\ndata: {\"code\":\"history_trimmed\",\"message\":\"Older turns were left out of this reply.\"}\n\n"
+            - "event: done\ndata: {}\n\n"
+          then: close

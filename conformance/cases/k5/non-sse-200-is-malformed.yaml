@@ -1,0 +1,20 @@
+id: k5.non-sse-200-is-malformed
+title: A 200 to a stream request whose Content-Type is not text/event-stream is TransportError malformed_response
+behaviours: [K5, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: generateVocabulary
+      body: { level: 2, source_lang: en, target_lang: zh }
+    expect:
+      outcome: error
+      events: []
+      error: { variant: TransportError, fields: { kind: malformed_response } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k5json, token_type: Bearer, expires_in: 3600, scope: "vocab:generate" } }
+    - request: { method: POST, path: /v1/vocab/stream }
+      response: { status: 200, json: { items: [] } }

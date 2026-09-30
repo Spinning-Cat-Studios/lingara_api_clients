@@ -1,0 +1,9 @@
+# The four stream unions and their per-event branch components are
+# StreamsCodegen's Kotlin emitter's, not openapi-generator's (ADR 29.9.26s
+# D2): one glob per union. The emitter refuses a staged file named after a
+# union or a branch, so a fifth stream this file does not name fails
+# generateKotlin.
+**/model/GenerateVocabularyEvent*.kt
+**/model/CreateLessonPlanEvent*.kt
+**/model/StreamLessonPlanEvent*.kt
+**/model/SendTutorMessageEvent*.kt

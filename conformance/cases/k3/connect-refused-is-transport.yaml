@@ -1,0 +1,11 @@
+id: k3.connect-refused-is-transport
+title: A refused connection is TransportError connect, and is not retried
+behaviours: [K3, K4]
+client:
+  base_url: unreachable
+steps:
+  - call: { operation: listApiVersions }
+    expect:
+      outcome: error
+      error: { variant: TransportError, fields: { kind: connect } }
+      sleeps_s: []

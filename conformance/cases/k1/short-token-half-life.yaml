@@ -1,0 +1,25 @@
+id: k1.short-token-half-life
+title: A 40 s token's skew is half its life, so it is reused at 19 s and replaced at 21 s
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: getUsage }
+    expect: { outcome: completed, status: 200, body: { allowance: [] } }
+  - advance_clock_s: 19
+  - call: { operation: getUsage }
+    expect: { outcome: completed, status: 200, body: { allowance: [] } }
+  - advance_clock_s: 2
+  - call: { operation: getUsage }
+    expect: { outcome: completed, status: 200, body: { allowance: [] } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k1short, token_type: Bearer, expires_in: 40, scope: "usage:read" } }
+    - times: 2
+      request: { method: GET, path: /v1/usage, headers: { authorization: { equals: Bearer lgr_at_k1short } } }
+      response: { status: 200, json: { allowance: [] } }
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k1short2, token_type: Bearer, expires_in: 40, scope: "usage:read" } }
+    - request: { method: GET, path: /v1/usage, headers: { authorization: { equals: Bearer lgr_at_k1short2 } } }
+      response: { status: 200, json: { allowance: [] } }

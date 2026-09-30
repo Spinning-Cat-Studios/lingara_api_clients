@@ -1,0 +1,31 @@
+# frozen_string_literal: true
+
+require "rake/testtask"
+
+# The unit, codegen and snippet tests: minitest, an in-process TCPServer
+# fake, and nothing that reaches a live endpoint.
+Rake::TestTask.new(:test) do |t|
+  t.libs << "lib" << "test"
+  t.test_files = FileList["test/**/*_test.rb"]
+  t.warning = false
+end
+
+# The hand-written Ruby the budgets cover (ADR 29.9.26t D7): lib/ but its
+# generated files, codegen/, conformance/ and test/.
+GENERATED = FileList["lib/lingara/models/*.rb", "lib/lingara/operations.rb", "lib/lingara/streams.rb", "lib/lingara/version.rb"]
+HAND_WRITTEN = FileList["lib/**/*.rb", "codegen/**/*.rb", "conformance/**/*.rb", "test/**/*.rb"] - GENERATED
+
+namespace :budget do
+  # RuboCop has no file-length cop, and two classes can share a file, so the
+  # 600-line-per-file limit is checked here.
+  desc "Fail when a hand-written Ruby file is longer than 600 lines"
+  task :file_length do
+    limit = 600
+    long = HAND_WRITTEN.map { |path| [path, File.foreach(path).count] }.select { |_, lines| lines > limit }
+    long.each { |path, lines| warn "#{path}: #{lines} lines (limit #{limit})" }
+    abort "✗ #{long.size} file(s) over the file-length budget" unless long.empty?
+    puts "✓ every hand-written Ruby file is at most #{limit} lines"
+  end
+end
+
+task default: :test

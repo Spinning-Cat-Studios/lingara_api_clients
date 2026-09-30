@@ -1,0 +1,8 @@
+# The four stream unions and their per-event branch components are
+# StreamsCodegen's, not openapi-generator's (ADR 29.9.26r D3): one glob per
+# union. StreamsCodegen refuses a staged file named after a union or a
+# branch, so a fifth stream this file does not name fails generateJava.
+**/model/GenerateVocabularyEvent*.java
+**/model/CreateLessonPlanEvent*.java
+**/model/StreamLessonPlanEvent*.java
+**/model/SendTutorMessageEvent*.java

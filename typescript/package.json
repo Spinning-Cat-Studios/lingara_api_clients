@@ -1,0 +1,59 @@
+{
+  "name": "@lingara/api",
+  "version": "0.1.0-alpha.6",
+  "description": "The official Lingara API library for Node, Deno and Bun. No runtime dependencies.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Spinning-Cat-Studios/lingara_api_clients.git",
+    "directory": "typescript"
+  },
+  "homepage": "https://getlingara.com",
+  "keywords": [
+    "lingara",
+    "api",
+    "language-learning",
+    "sse"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.mjs"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "codegen": "openapi-typescript ../spec/generator/openapi.3.1.json -o src/generated/schema.ts && node scripts/codegenStreams.mjs ../spec/generator/openapi.3.1.json src/generated/streams.ts",
+    "check": "eslint . && tsc --noEmit"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^22.20.4",
+    "eslint": "^10.11.0",
+    "openapi-typescript": "^7.13.0",
+    "publint": "^0.3.24",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^3.2.7"
+  }
+}

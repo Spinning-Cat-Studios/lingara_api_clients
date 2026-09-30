@@ -1,0 +1,14 @@
+# php/ is the root of the lingara-php split mirror that Packagist reads, and
+# both GitHub's archive of a mirror tag and `composer archive` honour
+# export-ignore: the generator, the harness, the tests, the development
+# lockfile and the tool configs never reach a caller's vendor/ (ADR 29.9.26u
+# D7). LICENSE is not listed: the dist carries it.
+/codegen export-ignore
+/conformance export-ignore
+/tests export-ignore
+/composer.lock export-ignore
+/.gitattributes export-ignore
+/phpunit.xml.dist export-ignore
+/phpstan.neon export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/phpcs.xml.dist export-ignore

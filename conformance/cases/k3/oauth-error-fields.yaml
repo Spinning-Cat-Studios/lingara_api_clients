@@ -1,0 +1,21 @@
+id: k3.oauth-error-fields
+title: A token-endpoint RFC 6749 error is OAuthError with status, error and description, and a non-RFC body is http_<status>
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+  scopes: ["vocab:generate", "admin:everything"]
+steps:
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: OAuthError, fields: { status: 400, error: invalid_scope, description: "The scope admin:everything is not allowed for this client.", retry_after: null } }
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: OAuthError, fields: { status: 502, error: http_502, description: null } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials, scope: "vocab:generate admin:everything" } }
+      response: { status: 400, json: { error: invalid_scope, error_description: "The scope admin:everything is not allowed for this client." } }
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials, scope: "vocab:generate admin:everything" } }
+      response: { status: 502, headers: { content-type: text/html }, text: "<html>Bad Gateway</html>" }

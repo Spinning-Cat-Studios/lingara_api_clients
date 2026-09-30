@@ -1,0 +1,16 @@
+[package]
+name = "lingara-xtask"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Generates the lingara crate's models and stream routes from the generator view"
+
+[dependencies]
+prettyplease = "0.2"
+proc-macro2 = "1"
+quote = "1"
+schemars = "0.8"
+serde_json = "1"
+syn = { version = "2", features = ["full"] }
+typify = { version = "0.8", default-features = false }

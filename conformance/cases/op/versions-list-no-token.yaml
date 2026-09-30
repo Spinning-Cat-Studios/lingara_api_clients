@@ -1,0 +1,27 @@
+id: op.versions-list-no-token
+title: Listing API versions needs no token, so no exchange is made and no Authorization is sent
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: listApiVersions }
+    expect:
+      outcome: completed
+      status: 200
+      body:
+        current: 2026-09-knowing-tenpounder
+        development: 2026-09-glowing-hoatzin
+        versions:
+          - { id: 2026-09-affable-cat, state: deprecated, lts: false, minted_at: "2026-09-01T09:00:00Z", sunset_at: "2027-03-01T00:00:00Z" }
+          - { id: 2026-09-knowing-tenpounder, state: supported, lts: false, minted_at: "2026-09-20T09:00:00Z" }
+exchanges:
+  items:
+    - request: { method: GET, path: /v1/versions, headers: { authorization: { absent: true } } }
+      response:
+        status: 200
+        json:
+          current: 2026-09-knowing-tenpounder
+          development: 2026-09-glowing-hoatzin
+          versions:
+            - { id: 2026-09-affable-cat, state: deprecated, lts: false, minted_at: "2026-09-01T09:00:00Z", sunset_at: "2027-03-01T00:00:00Z" }
+            - { id: 2026-09-knowing-tenpounder, state: supported, lts: false, minted_at: "2026-09-20T09:00:00Z", sunset_at: null }

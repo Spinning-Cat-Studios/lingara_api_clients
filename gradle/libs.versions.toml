@@ -1,0 +1,37 @@
+# Every JVM pin, once (ADR 29.9.26r D2, D3, D9, D10). The openapi-generator
+# pin serves Java, Kotlin, Ruby and PHP alike, so an upgrade is one line here
+# and one check-codegen diff per language to review together.
+
+[versions]
+jackson = "2.22.3"
+junit = "5.14.4"
+openapi-generator = "7.14.0"
+spotless = "8.10.3"
+google-java-format = "1.28.0"
+checkstyle = "10.26.1"
+# 29.9.26v D6a: Maven Central publishing through the Central Portal API.
+maven-publish = "0.37.0"
+# 29.9.26s D10: Kotlin. The Kotlin Gradle plugin pins the compiler.
+kotlin = "2.4.10"
+# The kotlin-stdlib the published POM declares: the apiVersion's, not the
+# compiler's, so a caller's Kotlin 2.2 compiler can read it (29.9.26s D1).
+kotlin-stdlib-floor = "2.2.0"
+kotlinx-serialization = "1.10.0"
+kotlinx-coroutines = "1.10.2"
+ktlint = "1.7.1"
+
+[libraries]
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+spotless-plugin = { module = "com.diffplug.spotless:spotless-plugin-gradle", version.ref = "spotless" }
+maven-publish-plugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "maven-publish" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+kotlin-serialization-plugin = { module = "org.jetbrains.kotlin:kotlin-serialization", version.ref = "kotlin" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+
+[plugins]
+openapi-generator = { id = "org.openapi.generator", version.ref = "openapi-generator" }

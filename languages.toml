@@ -1,0 +1,77 @@
+# languages.toml — what a release publishes (roadmap D7; release ADR D1).
+#
+# One [[language]] per library a release ships. A language joins in the commit
+# that lands it, with `since = "next"`; `make bump-version` writes the version.
+# `tools/release-manifest check` holds every entry to the tree, and
+# `check-publish` to publish/.
+#
+# Write each `id` on its own line, `id = "<id>"`, with nothing after it: that
+# makes this list readable with grep -E '^id = "[a-z]+"$' as well as a TOML
+# parser, and `check` refuses any other spelling.
+
+[[language]]
+id = "typescript"
+registry = "npm"
+package = "@lingara/api"
+version_files = [
+  { path = "typescript/package.json", kind = "json", keys = ["/version"] },
+  { path = "typescript/package-lock.json", kind = "json", keys = ["/version", "/packages//version"] },
+]
+artefact = { built = "typescript/lingara-api-{semver}.tgz", uploaded = "lingara-typescript-{version}.tgz" }
+since = "0.1.0-alpha.1"
+
+[[language]]
+id = "rust"
+registry = "crates.io"
+package = "lingara"
+version_files = [{ path = "rust/Cargo.toml", kind = "toml", keys = ["package.version"] }]
+artefact = { built = "target/package/lingara-{semver}.crate", uploaded = "lingara-rust-{version}.crate" }
+since = "0.1.0-alpha.1"
+
+# Versioned by tag alone: go/vX.Y.Z beside vX.Y.Z. So no version_files and no
+# artefact, and the [[manifest]] at go/go.mod answers for the manifest.
+[[language]]
+id = "go"
+registry = "go"
+package = "github.com/Spinning-Cat-Studios/lingara_api_clients/go"
+since = "0.1.0-alpha.1"
+
+# One artifact on Maven Central, versioned from VERSION by the shared Gradle
+# root, so no version_files; Central serves the signed bundle, so no artefact.
+# Gradle has no settings file inside java/, so `manifest` names the root one
+# publish/snapshot.toml reads (ADR 29.9.26r D12).
+[[language]]
+id = "java"
+registry = "maven-central"
+package = "com.getlingara:lingara-java"
+manifest = "settings.gradle.kts"
+since = "0.1.0-alpha.1"
+
+# The Kotlin library shares Java's Gradle root, registry and manifest: one
+# artifact on Maven Central, versioned from VERSION, with Java's `gradle`
+# [[manifest]] yielding kotlin/ from its include (ADR 29.9.26s D13).
+[[language]]
+id = "kotlin"
+registry = "maven-central"
+package = "com.getlingara:lingara-kotlin"
+manifest = "settings.gradle.kts"
+since = "0.1.0-alpha.1"
+
+# The gem: RubyGems serves it, so no artefact; version.rb is generated from
+# VERSION by make codegen-ruby, so no version_files; the [[manifest]] at
+# ruby/lingara.gemspec answers for the manifest (ADR 29.9.26t D9).
+[[language]]
+id = "ruby"
+registry = "rubygems"
+package = "lingara"
+since = "0.1.0-alpha.1"
+
+# The Composer package: Packagist reads git, through the lingara-php split
+# mirror of php/, so it is versioned by tag alone, with no version_files and
+# no artefact; the one [[manifest]] under php/ answers for the manifest
+# (ADR 29.9.26u D9).
+[[language]]
+id = "php"
+registry = "packagist"
+package = "spinningcatstudios/lingara"
+since = "0.1.0-alpha.1"

@@ -1,0 +1,32 @@
+# oapi-codegen, types only (ADR 29.9.26q D2), run from the repository root.
+# Every option below keeps models_gen.go on the standard library: the
+# module's require block is empty.
+package: lingara
+generate:
+  models: true
+compatibility:
+  # A bare `Started` or `User` constant would read as the package's own API.
+  always-prefix-enum-values: true
+output-options:
+  # The stream request bodies and branch schemas are referenced only from
+  # x-lingara-streams or from the excluded unions; the default prune drops them.
+  skip-prune: true
+  # oapi-codegen's oneOf output imports its runtime package. go/codegen writes
+  # these four as sealed interfaces in streams_gen.go instead.
+  exclude-schemas:
+    - GenerateVocabularyEvent
+    - CreateLessonPlanEvent
+    - StreamLessonPlanEvent
+    - SendTutorMessageEvent
+  # The default maps format uuid to a type from the runtime package.
+  type-mapping:
+    string:
+      formats:
+        uuid:
+          type: string
+  # Go's initialisms: PlanID, ImageURL, VersionID.
+  name-normalizer: ToCamelCaseWithInitialisms
+  # Renames the envelope schema `Error`, which the package's error interface
+  # owns. The spec itself is never edited.
+  overlay:
+    path: go/oapi-codegen.overlay.yaml

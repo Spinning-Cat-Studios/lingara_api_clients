@@ -1,0 +1,15 @@
+# frozen_string_literal: true
+
+source "https://rubygems.org"
+
+# The gem itself, which has no runtime dependency.
+gemspec
+
+# Development only, pinned: the test runner, the task runner, the style lint
+# (which brings RuboCop, used again for the budgets) and the RBS validator.
+group :development do
+  gem "minitest", "6.0.6"
+  gem "rake", "13.4.2"
+  gem "standard", "1.56.0"
+  gem "rbs", "4.2.0"
+end

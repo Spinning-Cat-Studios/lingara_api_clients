@@ -1,0 +1,24 @@
+id: k4.transport-reset-not-retried
+title: A connection reset is TransportError reset and is never retried, since the request may already have spent allowance
+behaviours: [K4, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: generateVocabulary
+      body: { level: 2, source_lang: en, target_lang: zh }
+    expect:
+      outcome: error
+      events: []
+      error: { variant: TransportError, fields: { kind: reset } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k4reset, token_type: Bearer, expires_in: 3600, scope: "vocab:generate" } }
+    - request: { method: POST, path: /v1/vocab/stream }
+      response:
+        status: 200
+        sse:
+          chunks: []
+          then: reset

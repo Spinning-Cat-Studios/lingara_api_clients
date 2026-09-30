@@ -1,0 +1,45 @@
+[package]
+name = "lingara"
+# Equal to the repository's VERSION; the release tooling writes both.
+version = "0.1.0-alpha.6"
+edition = "2024"
+# 1.85 was the floor edition 2024 and its MSRV-aware resolver set. 1.87 is
+# the floor the tree sets: yoke-derive 0.8.3 (via reqwest's url stack) needs
+# 1.87 and declares no rust-version, so no resolver can steer round it.
+rust-version = "1.87"
+license = "MIT"
+description = "The official Lingara API library for Rust: async on tokio, typed event streams, redacted secrets."
+repository = "https://github.com/Spinning-Cat-Studios/lingara_api_clients"
+homepage = "https://getlingara.com"
+readme = "README.md"
+keywords = ["lingara", "api", "language-learning", "sse"]
+categories = ["api-bindings", "asynchronous"]
+include = ["src/**", "build.rs", "README.md", "LICENSE"]
+
+[features]
+default = ["rustls"]
+# Each TLS feature also names its TLS crate directly, at the version reqwest
+# pulls in, only so a handshake failure can be classified as `tls`.
+rustls = ["reqwest/rustls-tls", "dep:rustls"]
+native-tls = ["reqwest/native-tls", "dep:native-tls"]
+
+[dependencies]
+base64 = "0.22"
+bytes = "1"
+form_urlencoded = "1"
+futures-core = "0.3"
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+httpdate = "1"
+log = "0.4"
+native-tls = { version = "0.2", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "stream"] }
+rustls = { version = "0.23", optional = true, default-features = false, features = ["std"] }
+secrecy = "0.10.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+tokio = { version = "1", features = ["rt", "sync", "time"] }
+
+[dev-dependencies]
+http = "1"
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }

@@ -1,0 +1,27 @@
+id: op.lesson-plan-stream-pending
+title: Rejoining a plan with no live generation is a lone pending, which is yielded and ends the stream
+behaviours: [K1, K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: streamLessonPlan
+      params: { id: 3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37 }
+    expect:
+      outcome: completed
+      events:
+        - { event: pending, data: { plan_id: 3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37, status: generating } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_oppending, token_type: Bearer, expires_in: 3600, scope: "lesson_plans:read" } }
+    - request:
+        method: GET
+        path: /v1/lesson-plans/3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37/stream
+        headers: { authorization: { equals: Bearer lgr_at_oppending } }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: pending\ndata: {\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"generating\"}\n\n"
+          then: close

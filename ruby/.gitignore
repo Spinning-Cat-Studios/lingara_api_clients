@@ -1,0 +1,5 @@
+# What `gem build` and Bundler write into ruby/ (ADR 29.9.26t D7).
+*.gem
+pkg/
+.bundle/
+coverage/

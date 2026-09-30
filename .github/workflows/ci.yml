@@ -1,0 +1,299 @@
+name: CI
+
+# Ships with the public repository, so it invokes only make targets the
+# shipped make files define, checks out no submodule, and reads no secret.
+
+on:
+  push:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: Publishable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # check-codegen includes the TypeScript codegen check, which needs the
+      # package's pinned openapi-typescript.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci --prefix typescript
+      # check-codegen includes the Go codegen check, which runs oapi-codegen
+      # and go/codegen.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      # check-codegen includes the Java codegen check, which runs the shared
+      # Gradle root's :codegen project on JDK 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # check-codegen includes the Ruby codegen check, which runs
+      # ruby/codegen/generate.rb after :codegen's generateRuby. The script is
+      # the standard library only, so no bundle is installed.
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      # check-codegen includes the PHP codegen check, which runs
+      # php/codegen/generate.php after :codegen's generatePhp. The script is
+      # the standard library only, so no Composer install is needed.
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: none
+
+      - name: The generator view is current
+        run: make check-publishable
+
+      - name: Every operation and behaviour has a conformance case
+        run: make check-conformance-coverage
+
+      - name: Test
+        run: cargo test --workspace --locked
+
+  rust:
+    name: Rust (clippy, unit, package, snippets, conformance)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      # The native-tls feature builds against OpenSSL on Linux.
+      - run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+      - name: make test-rust
+        run: make test-rust
+      - name: The packaged crate holds only its sources
+        run: |
+          cargo package --list -p lingara > "$RUNNER_TEMP/files"
+          cat "$RUNNER_TEMP/files"
+          extra=$(grep -vE '^(src/.+|build\.rs|README\.md|LICENSE|Cargo\.toml|Cargo\.toml\.orig|Cargo\.lock|\.cargo_vcs_info\.json)$' "$RUNNER_TEMP/files" || true)
+          if [ -n "$extra" ]; then echo "✗ packaged outside src/**, build.rs, README.md, LICENSE:"; echo "$extra"; exit 1; fi
+      - name: make conformance-rust
+        run: make conformance-rust
+
+  rust-msrv:
+    # What a stranger on Rust 1.87 receives: the packaged crate, outside the
+    # workspace, with the workspace's Cargo.lock deleted so cargo 1.87
+    # resolves afresh under the crate's own MSRV-aware resolver.
+    name: Rust MSRV 1.87 (${{ matrix.tls }}, packaged crate)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        tls: [rustls, native-tls]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup toolchain install 1.87 --profile minimal
+      - run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+      - name: Package on stable
+        run: cargo package -p lingara --no-verify
+      - name: Build and test the packaged crate on 1.87
+        run: |
+          version=$(cat VERSION)
+          tar -xzf "target/package/lingara-$version.crate" -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/lingara-$version"
+          rm -f Cargo.lock
+          if [ "${{ matrix.tls }}" = native-tls ]; then
+            cargo +1.87 test --no-default-features --features native-tls
+          else
+            cargo +1.87 test
+          fi
+
+  go:
+    # The floor, 1.23, and the current stable. make/go.mk exports
+    # GOTOOLCHAIN=local, so each leg runs the Go it set up. Lint runs on the
+    # stable leg only: linters track the newest toolchain, and a linter pin
+    # must never block the floor.
+    name: Go ${{ matrix.go }} (vet, unit, conformance)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: ['1.23', stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      # The conformance server is Rust.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: make test-go
+        run: make test-go
+      - if: matrix.go == 'stable'
+        name: make lint-go
+        run: make lint-go
+      - name: make conformance-go
+        run: make conformance-go
+
+  jvm:
+    # The floor, 17, and the newest LTS. Compilation is always the JDK 17
+    # toolchain; the newest-LTS leg runs the JUnit suite through
+    # JAVA_TEST_JDK and the harness on that JDK through JAVA_HOME.
+    # setup-java exports JAVA_HOME_<n>_X64 for each JDK it installs, and
+    # GRADLE_FLAGS points Gradle's toolchain detection at both. Kotlin joins
+    # the same legs the same way, through KOTLIN_TEST_JDK (ADR 29.9.26s D11).
+    name: JVM ${{ matrix.jdk }} (Spotless, Checkstyle, unit, snippets, conformance)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { jdk: '17', test-jdk: '' }
+          - { jdk: '25', test-jdk: '25' }
+    env:
+      JAVA_TEST_JDK: ${{ matrix.test-jdk }}
+      KOTLIN_TEST_JDK: ${{ matrix.test-jdk }}
+      GRADLE_FLAGS: -q --console=plain -Porg.gradle.java.installations.fromEnv=JAVA_HOME_17_X64,JAVA_HOME_25_X64
+    steps:
+      - uses: actions/checkout@v4
+      # The last version listed is the default JAVA_HOME: 17.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            25
+            17
+      # The conformance server is Rust.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: make test-java
+        run: make test-java
+      - name: make conformance-java
+        run: |
+          if [ "${{ matrix.jdk }}" = 25 ]; then export JAVA_HOME="$JAVA_HOME_25_X64"; fi
+          make conformance-java
+      - name: make test-kotlin
+        run: make test-kotlin
+      - name: make conformance-kotlin
+        run: |
+          if [ "${{ matrix.jdk }}" = 25 ]; then export JAVA_HOME="$JAVA_HOME_25_X64"; fi
+          make conformance-kotlin
+
+  ruby:
+    # The floor, 3.3, and the newest release: setup-ruby's `ruby` alias is
+    # its latest stable, so that leg moves without an edit (ADR 29.9.26t D1).
+    name: Ruby ${{ matrix.ruby }} (standard, budgets, rbs, unit, snippets, conformance)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ['3.3', ruby]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          working-directory: ruby
+      # The conformance server is Rust.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: make test-ruby
+        run: make test-ruby
+      - name: The built gem holds only lib/, sig/, README.md and LICENSE
+        working-directory: ruby
+        run: |
+          gem build lingara.gemspec --output "$RUNNER_TEMP/lingara.gem"
+          gem spec "$RUNNER_TEMP/lingara.gem" files | sed -n 's/^- //p' > "$RUNNER_TEMP/files"
+          cat "$RUNNER_TEMP/files"
+          extra=$(grep -vE '^(lib/.+\.rb|sig/.+\.rbs|README\.md|LICENSE)$' "$RUNNER_TEMP/files" || true)
+          if [ -n "$extra" ]; then echo "✗ packaged outside lib/, sig/, README.md, LICENSE:"; echo "$extra"; exit 1; fi
+      - name: make conformance-ruby
+        run: make conformance-ruby
+
+  php:
+    # The floor, 8.2, and the newest release: setup-php's `latest` moves
+    # without an edit (ADR 29.9.26u D1, D7). Guzzle streams only through PHP's
+    # own stream layer, so allow_url_fopen is on; the loopback tests use
+    # sockets and pcntl. The floor leg runs the suite a second time against
+    # `require`'s lower bounds.
+    name: PHP ${{ matrix.php }} (PHPStan, CS, budgets, unit, snippets, conformance)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, sockets, pcntl
+          ini-values: allow_url_fopen=On
+          tools: composer:v2
+      # The conformance server is Rust.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: composer validate
+        run: composer validate --strict --working-dir=php
+      - name: make test-php
+        run: make test-php
+      - name: The archive holds no generator, harness, tests or lockfile
+        working-directory: php
+        run: |
+          composer archive --format=zip --dir="$RUNNER_TEMP" --file=lingara
+          unzip -Z1 "$RUNNER_TEMP/lingara.zip" > "$RUNNER_TEMP/files"
+          cat "$RUNNER_TEMP/files"
+          if grep -E '^(codegen|conformance|tests)/|^composer\.lock$' "$RUNNER_TEMP/files"; then echo "✗ export-ignore let a development path into the archive"; exit 1; fi
+      - name: make conformance-php
+        run: make conformance-php
+      - if: matrix.php == '8.2'
+        name: The suite on the lowest versions require allows
+        run: |
+          composer update --prefer-lowest --no-interaction --no-progress --working-dir=php
+          make test-php
+
+  typescript:
+    name: TypeScript (lint, types, unit, package, snippets)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: make test-typescript
+        run: make test-typescript
+
+  typescript-conformance:
+    name: TypeScript conformance (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: node 22, runtime: node, node: 22 }
+          - { name: node 24, runtime: node, node: 24 }
+          - { name: deno 2, runtime: deno, node: 22 }
+          - { name: bun 1, runtime: bun, node: 22 }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # Node builds the package on every leg; the harness then runs on the
+      # matrix's runtime.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - if: matrix.runtime == 'deno'
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - if: matrix.runtime == 'bun'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.x
+      - name: make conformance-typescript
+        env:
+          TS_RUNTIME: ${{ matrix.runtime }}
+        run: make conformance-typescript

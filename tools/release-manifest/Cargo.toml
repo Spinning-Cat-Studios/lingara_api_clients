@@ -1,0 +1,18 @@
+[package]
+name = "release-manifest"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Reads languages.toml: the checks, names and URLs a Lingara client release is built from"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# preserve_order: `bump` rewrites package.json in place, keys where npm left them.
+serde_json = { version = "1", features = ["preserve_order"] }
+toml = "0.8"
+# `bump` edits Cargo.toml and languages.toml without disturbing their comments.
+toml_edit = "0.22"
+
+[dev-dependencies]
+tempfile = "3"

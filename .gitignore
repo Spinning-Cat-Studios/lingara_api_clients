@@ -1,0 +1,9 @@
+target/
+node_modules/
+.gradle/
+.kotlin/
+build/
+dist/
+vendor/
+.DS_Store
+lingara_php_deploy*

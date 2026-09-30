@@ -1,0 +1,16 @@
+[package]
+name = "spec-codegen"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Writes the generator view (OpenAPI 3.1 and 3.0) of the Lingara OpenAPI 3.2 document"
+
+[dependencies]
+# preserve_order: key order follows the source, so the view is byte-stable.
+serde_json = { version = "1", features = ["preserve_order"] }
+# --registry (ADR 30.9.26a §3) reads the vendored versions.toml.
+toml = "0.8"
+
+[dev-dependencies]
+tempfile = "3"

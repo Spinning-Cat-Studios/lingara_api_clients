@@ -1,0 +1,22 @@
+id: k3.maintenance-503-plain-text
+title: The plain-text maintenance 503 is MaintenanceError from either endpoint, with no Retry-After, and is not retried
+behaviours: [K3, K4]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: listApiVersions }
+    expect:
+      outcome: error
+      error: { variant: MaintenanceError, fields: { body: Service is under maintenance. Please try again later., retry_after: null } }
+      sleeps_s: []
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: MaintenanceError, fields: { body: Service is under maintenance. Please try again later. } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: GET, path: /v1/versions }
+      response: { status: 503, text: Service is under maintenance. Please try again later. }
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 503, text: Service is under maintenance. Please try again later. }

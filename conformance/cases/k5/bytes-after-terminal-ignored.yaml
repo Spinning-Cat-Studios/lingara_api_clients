@@ -1,0 +1,25 @@
+id: k5.bytes-after-terminal-ignored
+title: Bytes after the terminal event are ignored, even ones that would not decode
+behaviours: [K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: sendTutorMessage
+      body: { message: 你好, source_lang: en, target_lang: zh }
+    expect:
+      outcome: completed
+      events: [ { event: delta, data: { text: 你好！ } } ]
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k5after, token_type: Bearer, expires_in: 3600, scope: "tutor:converse" } }
+    - request: { method: POST, path: /v1/tutor/message }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: delta\ndata: {\"text\":\"你好！\"}\n\nevent: done\ndata: {}\n\n"
+            - "event: delta\ndata: not json\n\n"
+            - { hex: "ff" }
+          then: close

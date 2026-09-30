@@ -1,0 +1,29 @@
+id: k2.pin-sent-on-v1-only
+title: A configured version is sent as Lingara-Version on every /v1 request and never to /oauth/token
+behaviours: [K2]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+  version: 2026-09-knowing-tenpounder
+steps:
+  - call: { operation: getUsage }
+    expect: { outcome: completed, status: 200, body: { allowance: [] }, served_version: 2026-09-knowing-tenpounder }
+  - call: { operation: listApiVersions }
+    expect: { outcome: completed, status: 200, body: { current: 2026-09-knowing-tenpounder, development: 2026-09-glowing-hoatzin, versions: [] } }
+exchanges:
+  items:
+    - request:
+        method: POST
+        path: /oauth/token
+        headers: { lingara-version: { absent: true } }
+        form: { grant_type: client_credentials }
+      response: { status: 200, json: { access_token: lgr_at_k2pin, token_type: Bearer, expires_in: 3600, scope: "usage:read" } }
+    - request:
+        method: GET
+        path: /v1/usage
+        headers: { lingara-version: { equals: 2026-09-knowing-tenpounder } }
+      response: { status: 200, headers: { lingara-version: 2026-09-knowing-tenpounder }, json: { allowance: [] } }
+    - request:
+        method: GET
+        path: /v1/versions
+        headers: { lingara-version: { equals: 2026-09-knowing-tenpounder } }
+      response: { status: 200, headers: { lingara-version: 2026-09-knowing-tenpounder }, json: { current: 2026-09-knowing-tenpounder, development: 2026-09-glowing-hoatzin, versions: [] } }

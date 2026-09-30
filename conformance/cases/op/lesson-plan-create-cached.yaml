@@ -1,0 +1,30 @@
+id: op.lesson-plan-create-cached
+title: A lesson plan served from the library is a lone result, which is yielded and ends the stream
+behaviours: [K1, K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createLessonPlan
+      body: { context: ordering at a night market, source_lang: en, target_lang: zh, level: 2 }
+    expect:
+      outcome: completed
+      events:
+        - event: result
+          data:
+            plan: { id: 3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37, status: complete, title: At the night market, source_lang: en, target_lang: zh, level: 2, created_at: "2026-09-23T10:00:00Z", completed_at: "2026-09-23T10:00:41Z", ai_generated: true, content: { learning_objectives: [Ask how much something costs], vocabulary: [ { word: 多少钱, pronunciation: duōshao qián, translation: how much } ], sets: [] } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opcached, token_type: Bearer, expires_in: 3600, scope: "lesson_plans:write" } }
+    - request:
+        method: POST
+        path: /v1/lesson-plans
+        headers: { authorization: { equals: Bearer lgr_at_opcached } }
+        json: { context: ordering at a night market, source_lang: en, target_lang: zh, level: 2 }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: result\ndata: {\"plan\":{\"id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2,\"created_at\":\"2026-09-23T10:00:00Z\",\"completed_at\":\"2026-09-23T10:00:41Z\",\"ai_generated\":true,\"content\":{\"learning_objectives\":[\"Ask how much something costs\"],\"vocabulary\":[{\"word\":\"多少钱\",\"pronunciation\":\"duōshao qián\",\"translation\":\"how much\"}],\"sets\":[]}}}\n\n"
+          then: close

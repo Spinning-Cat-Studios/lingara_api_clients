@@ -1,0 +1,36 @@
+use std::fs;
+
+use crate::install::{artefact, install_line, langs};
+use crate::manifest_tests::{fixture, load, write};
+
+const TAG: &str = "v0.1.0-alpha.1";
+
+// 29.9.26v AC16
+#[test]
+fn artefact_names_resolve_semver_and_tag() {
+    let dir = fixture();
+    let release = load(&dir);
+    let (built, uploaded) = artefact(&release, "typescript", TAG).unwrap().unwrap();
+    assert_eq!(built, "typescript/lingara-api-0.1.0-alpha.1.tgz");
+    assert_eq!(uploaded, "lingara-typescript-v0.1.0-alpha.1.tgz");
+    assert_eq!(langs(&release), "typescript rust");
+    assert_eq!(artefact(&release, "cobol", TAG).unwrap_err().code, 2);
+}
+
+// 29.9.26v AC17
+#[test]
+fn install_line_is_c5s_substitution() {
+    let dir = fixture();
+    let root = dir.path();
+    let go = "\n[[language]]\nid = \"go\"\nregistry = \"go\"\npackage = \"m\"\nsince = \"next\"\n";
+    let text = fs::read_to_string(root.join("languages.toml")).unwrap();
+    write(root, "languages.toml", &format!("{text}{go}"));
+    write(root, "snippets/go/install.sh", "go get m@v{{version}}\n# {{version}} again\n");
+    assert_eq!(install_line(&load(&dir), "go", TAG).unwrap(), "go get m@v0.1.0-alpha.1\n# 0.1.0-alpha.1 again\n");
+
+    write(root, "snippets/go/install.xml", "<dependency/>\n");
+    assert!(install_line(&load(&dir), "go", TAG).unwrap_err().message.contains("2 install.* files"));
+    fs::remove_file(root.join("snippets/go/install.xml")).unwrap();
+    fs::remove_file(root.join("snippets/go/install.sh")).unwrap();
+    assert!(install_line(&load(&dir), "go", TAG).unwrap_err().message.contains("0 install.* files"));
+}

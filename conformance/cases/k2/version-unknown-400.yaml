@@ -1,0 +1,18 @@
+id: k2.version-unknown-400
+title: The library sends an unknown version unvalidated, and the server's 400 api_version_unknown is raised as ApiError
+behaviours: [K2, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+  version: 2099-01-unknown-version
+steps:
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 400, code: api_version_unknown, message: There is no API version 2099-01-unknown-version. } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k2unknown, token_type: Bearer, expires_in: 3600, scope: "usage:read" } }
+    - request: { method: GET, path: /v1/usage, headers: { lingara-version: { equals: 2099-01-unknown-version } } }
+      response: { status: 400, json: { code: api_version_unknown, error: There is no API version 2099-01-unknown-version. } }

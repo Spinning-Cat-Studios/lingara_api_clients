@@ -1,0 +1,27 @@
+id: k5.cancel-closes-connection
+title: Cancelling a stream after its first event closes the connection within 2 s and surfaces the language's own cancellation
+behaviours: [K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: generateVocabulary
+      body: { level: 2, source_lang: en, target_lang: zh, count: 20 }
+      cancel_after_events: 1
+    expect:
+      outcome: cancelled
+      events:
+        - { event: started, data: { meta: { level: 2, source_lang: en, target_lang: zh, framework: HSK, count: 20, ai_generated: true } } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k5cancel, token_type: Bearer, expires_in: 3600, scope: "vocab:generate" } }
+    - request: { method: POST, path: /v1/vocab/stream }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: started\ndata: {\"meta\":{\"level\":2,\"source_lang\":\"en\",\"target_lang\":\"zh\",\"framework\":\"HSK\",\"count\":20,\"ai_generated\":true}}\n\n"
+          then: hold
+          disconnect_within_ms: 2000

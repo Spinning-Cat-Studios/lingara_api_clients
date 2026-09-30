@@ -1,0 +1,27 @@
+[package]
+name = "lingara-conformance-server"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "Replays the Lingara client conformance cases and checks what each library sent"
+
+[[bin]]
+name = "conformance-server"
+path = "src/main.rs"
+
+[dependencies]
+base64 = "0.22"
+clap = { version = "4", features = ["derive"] }
+httparse = "1"
+percent-encoding = "2"
+regex = "1"
+serde = { version = "1", features = ["derive"] }
+# preserve_order: a case served as JSON keeps the key order of its YAML.
+serde_json = { version = "1", features = ["preserve_order"] }
+# The maintained fork of the archived serde_yaml, under the same name.
+serde_yaml = { package = "serde_yaml_ng", version = "0.10" }
+tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
+
+[dev-dependencies]
+tempfile = "3"

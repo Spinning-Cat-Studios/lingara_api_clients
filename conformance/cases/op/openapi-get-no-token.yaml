@@ -1,0 +1,15 @@
+id: op.openapi-get-no-token
+title: The OpenAPI document needs no token, so a client with credentials makes no exchange and sends no Authorization
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: getOpenApiDocument }
+    expect:
+      outcome: completed
+      status: 200
+      body: { openapi: 3.2.0, info: { title: Lingara API, version: 2026-09-knowing-tenpounder }, paths: {} }
+exchanges:
+  items:
+    - request: { method: GET, path: /v1/openapi.json, headers: { authorization: { absent: true } } }
+      response: { status: 200, json: { openapi: 3.2.0, info: { title: Lingara API, version: 2026-09-knowing-tenpounder }, paths: {} } }

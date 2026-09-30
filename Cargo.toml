@@ -1,0 +1,17 @@
+[workspace]
+# resolver 3 by name: a virtual manifest has no edition to imply it, and
+# without it Cargo falls back to resolver 1. It is also what holds a member's
+# dependency tree to its `rust-version` (the Rust library's MSRV, ADR 29.9.26p).
+resolver = "3"
+members = [
+    "tools/spec-codegen",
+    "tools/release-manifest",
+    "conformance/server",
+    "rust",
+    "rust/xtask",
+    "rust/conformance",
+    "snippets/rust",
+]
+# The two vendored submodules build through their own manifests and locks
+# (`--manifest-path`), so promotion has no member to strip.
+exclude = ["tools/scs-snapshot", "tools/code-health"]

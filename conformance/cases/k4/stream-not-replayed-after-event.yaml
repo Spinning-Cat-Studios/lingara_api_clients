@@ -1,0 +1,25 @@
+id: k4.stream-not-replayed-after-event
+title: A stream that has yielded an event is never replayed; its reset is raised after the event
+behaviours: [K4, K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createLessonPlan
+      body: { context: ordering at a night market, source_lang: en, target_lang: zh, level: 2 }
+    expect:
+      outcome: error
+      events: [ { event: started, data: { plan_id: 3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37 } } ]
+      error: { variant: TransportError, fields: { kind: reset } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k4mid, token_type: Bearer, expires_in: 3600, scope: "lesson_plans:write" } }
+    - request: { method: POST, path: /v1/lesson-plans }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: started\ndata: {\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\"}\n\n"
+          then: reset

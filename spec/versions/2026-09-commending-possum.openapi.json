@@ -1,0 +1,1977 @@
+{
+  "openapi": "3.2.0",
+  "info": {
+    "title": "Lingara API",
+    "x-i18n": "info",
+    "version": "2026-09-commending-possum",
+    "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Every call spends the allowance of the account that owns the token."
+  },
+  "servers": [
+    {
+      "url": "https://api.getlingara.com"
+    }
+  ],
+  "security": [],
+  "tags": [
+    {
+      "name": "vocabulary",
+      "x-i18n": "tags.vocabulary",
+      "description": "Generate vocabulary lists at a learner's level."
+    },
+    {
+      "name": "lesson-plans",
+      "x-i18n": "tags.lesson_plans",
+      "description": "Create lesson plans, read them, and reconnect to one that is still generating."
+    },
+    {
+      "name": "tutor",
+      "x-i18n": "tags.tutor",
+      "description": "Hold a conversation with the language tutor, one turn at a time."
+    },
+    {
+      "name": "account",
+      "x-i18n": "tags.account",
+      "description": "See how much of your allowance is left."
+    },
+    {
+      "name": "reference",
+      "x-i18n": "tags.reference",
+      "description": "This document, in machine-readable form."
+    }
+  ],
+  "paths": {
+    "/v1/vocab/stream": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "post": {
+        "operationId": "generateVocabulary",
+        "tags": [
+          "vocabulary"
+        ],
+        "x-i18n": "ops.vocab_stream",
+        "summary": "Generate a vocabulary list",
+        "description": "Streams a list of words at the requested level. The stream sends `started` with the list's details, one `item` event per word, then `done`. Until the list is ready it sends keepalive comments only.",
+        "security": [
+          {
+            "bearerAuth": [
+              "vocab:generate"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VocabRequest"
+              },
+              "example": {
+                "level": 2,
+                "source_lang": "en",
+                "target_lang": "zh",
+                "count": 8
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.vocab_stream.ok",
+            "description": "The list, one word per event",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "started"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/VocabStarted"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "item"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/VocabItem"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "done"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/Done"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "error"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/StreamError"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": "event: started\ndata: {\"meta\":{\"level\":2,\"source_lang\":\"en\",\"target_lang\":\"zh\",\"framework\":\"HSK\",\"count\":2,\"ai_generated\":true}}\n\nevent: item\ndata: {\"word\":\"你好\",\"pronunciation\":\"nǐ hǎo\",\"translation\":\"hello\",\"example\":{\"sentence\":\"你好，我叫小明。\",\"translation\":\"Hello, my name is Xiaoming.\"}}\n\nevent: item\ndata: {\"word\":\"谢谢\",\"pronunciation\":\"xiè xie\",\"translation\":\"thank you\"}\n\nevent: done\ndata: {}\n\n"
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/lesson-plans": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "post": {
+        "operationId": "createLessonPlan",
+        "tags": [
+          "lesson-plans"
+        ],
+        "x-i18n": "ops.lesson_plans_create",
+        "summary": "Create a lesson plan",
+        "description": "Starts generating a lesson plan and streams its progress. `started` names the plan as soon as it exists, so a dropped connection can reconnect with `GET /v1/lesson-plans/{id}/stream`. The stream ends with `result` or `error`. A plan served from the library arrives as a lone `result`.",
+        "security": [
+          {
+            "bearerAuth": [
+              "lesson_plans:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LessonPlanCreateRequest"
+              },
+              "example": {
+                "context": "Ordering food at a night market",
+                "source_lang": "en",
+                "target_lang": "zh",
+                "level": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.lesson_plans_create.ok",
+            "description": "The plan's progress, then the plan",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "started"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanStarted"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "phase"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanPhase"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "result"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanResult"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "error"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/StreamError"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": "event: started\ndata: {\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\"}\n\nevent: phase\ndata: {\"phase\":\"selecting_vocabulary\",\"attempt\":1}\n\nevent: result\ndata: {\"plan\":{\"id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2,\"created_at\":\"2026-09-23T10:00:00Z\",\"completed_at\":\"2026-09-23T10:00:41Z\",\"ai_generated\":true,\"content\":{\"introduction\":\"Order food and ask prices at a night market.\",\"learning_objectives\":[\"Ask how much something costs\"],\"vocabulary\":[{\"word\":\"多少钱\",\"pronunciation\":\"duōshao qián\",\"translation\":\"how much\"}],\"sets\":[{\"number\":1,\"questions\":[{\"type\":\"multiple_choice_word\",\"prompt\":\"Which word asks for a price?\",\"options\":[\"多少钱\",\"谢谢\"],\"answer\":\"多少钱\",\"explanation\":\"多少钱 means how much money.\"}]}]}}}\n\n"
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/lesson-plans/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "getLessonPlan",
+        "tags": [
+          "lesson-plans"
+        ],
+        "x-i18n": "ops.lesson_plan_get",
+        "summary": "Get a lesson plan",
+        "description": "Returns a lesson plan you own. A plan that is still generating has no `content` yet.",
+        "security": [
+          {
+            "bearerAuth": [
+              "lesson_plans:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlanId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.lesson_plan_get.ok",
+            "description": "The lesson plan",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LessonPlan"
+                },
+                "example": {
+                  "id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
+                  "status": "complete",
+                  "title": "At the night market",
+                  "source_lang": "en",
+                  "target_lang": "zh",
+                  "level": 2,
+                  "created_at": "2026-09-23T10:00:00Z",
+                  "completed_at": "2026-09-23T10:00:41Z",
+                  "ai_generated": true,
+                  "content": {
+                    "introduction": "Order food and ask prices at a night market.",
+                    "learning_objectives": [
+                      "Ask how much something costs"
+                    ],
+                    "vocabulary": [
+                      {
+                        "word": "多少钱",
+                        "pronunciation": "duōshao qián",
+                        "translation": "how much"
+                      }
+                    ],
+                    "sets": [
+                      {
+                        "number": 1,
+                        "questions": [
+                          {
+                            "type": "multiple_choice_word",
+                            "prompt": "Which word asks for a price?",
+                            "options": [
+                              "多少钱",
+                              "谢谢"
+                            ],
+                            "answer": "多少钱",
+                            "explanation": "多少钱 means how much money."
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/lesson-plans/{id}/stream": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "streamLessonPlan",
+        "tags": [
+          "lesson-plans"
+        ],
+        "x-i18n": "ops.lesson_plan_stream",
+        "summary": "Reconnect to a lesson plan",
+        "description": "Rejoins the progress stream of a plan that is still generating. A finished plan answers one `result`. A plan still generating with no live stream to join answers one `pending`; poll `GET /v1/lesson-plans/{id}` until it is complete.",
+        "security": [
+          {
+            "bearerAuth": [
+              "lesson_plans:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlanId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.lesson_plan_stream.ok",
+            "description": "The plan's remaining progress, then the plan",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "started"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanStarted"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "phase"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanPhase"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "result"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanResult"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "pending"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/PlanPending"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "error"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/StreamError"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": "event: pending\ndata: {\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"generating\"}\n\n"
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/tutor/message": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "post": {
+        "operationId": "sendTutorMessage",
+        "tags": [
+          "tutor"
+        ],
+        "x-i18n": "ops.tutor_message",
+        "summary": "Send a tutor turn",
+        "description": "Sends one message to the tutor and streams the reply as `delta` events, ending with `done`. Nothing is stored: send the recent conversation in `history`, up to 20 entries. `character` and `situation` set the scene. Requires a paid plan.",
+        "security": [
+          {
+            "bearerAuth": [
+              "tutor:converse"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TutorTurnRequest"
+              },
+              "example": {
+                "message": "我要两斤荔枝。",
+                "history": [
+                  {
+                    "role": "assistant",
+                    "content": "欢迎！今天的荔枝很新鲜。"
+                  }
+                ],
+                "source_lang": "en",
+                "target_lang": "zh",
+                "level": 2,
+                "character": "a fruit seller in a night market",
+                "situation": "buying lychees, haggling"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.tutor_message.ok",
+            "description": "The tutor's reply, piece by piece",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "text/event-stream": {
+                "itemSchema": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "delta"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/TurnDelta"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "notice"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/Notice"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "done"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/Done"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "error"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/StreamError"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                },
+                "example": "event: delta\ndata: {\"text\":\"两斤荔枝，\"}\n\nevent: delta\ndata: {\"text\":\"一共三十块。\"}\n\nevent: done\ndata: {}\n\n"
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/usage": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "getUsage",
+        "tags": [
+          "account"
+        ],
+        "x-i18n": "ops.usage",
+        "summary": "Get your remaining allowance",
+        "description": "Lists each allowance that applies to your account, with how much is used and when it resets.",
+        "security": [
+          {
+            "bearerAuth": [
+              "usage:read"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.usage.ok",
+            "description": "Your allowance",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Usage"
+                },
+                "example": {
+                  "allowance": [
+                    {
+                      "feature": "vocab",
+                      "window": "daily",
+                      "limit": 50,
+                      "used": 12,
+                      "remaining": 38,
+                      "reset_at": 1790208000
+                    },
+                    {
+                      "feature": "lesson_plans",
+                      "window": "lifetime",
+                      "limit": 3,
+                      "used": 1,
+                      "remaining": 2
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/openapi.json": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "getOpenApiDocument",
+        "tags": [
+          "reference"
+        ],
+        "x-i18n": "ops.openapi",
+        "summary": "Get this document",
+        "description": "Returns this API description as JSON, for the API version the request is answered under: the one named in `Lingara-Version`, or else the current version. No token is needed.",
+        "security": [],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.openapi.ok",
+            "description": "The OpenAPI document",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          }
+        }
+      }
+    },
+    "/v1/versions": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "listApiVersions",
+        "tags": [
+          "reference"
+        ],
+        "x-i18n": "ops.versions_list",
+        "summary": "List API versions",
+        "description": "Lists every API version in the order it was minted, with its `state`, when it was minted and, once deprecated, its sunset date. `current` is the newest supported or LTS version, and `development` is the one still growing; each is `null` until such a version exists. No token is needed. Responses may be cached for an hour.",
+        "security": [],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.versions_list.ok",
+            "description": "Every API version",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionList"
+                },
+                "example": {
+                  "current": "2026-10-brave-otter",
+                  "development": "2026-11-quiet-lantern",
+                  "versions": [
+                    {
+                      "id": "2026-10-gentle-heron",
+                      "state": "deprecated",
+                      "lts": true,
+                      "minted_at": "2026-10-01T09:00:00Z",
+                      "sunset_at": "2027-03-01T00:00:00Z"
+                    },
+                    {
+                      "id": "2026-10-brave-otter",
+                      "state": "supported",
+                      "lts": false,
+                      "minted_at": "2026-10-01T09:00:05Z",
+                      "sunset_at": null
+                    },
+                    {
+                      "id": "2026-11-quiet-lantern",
+                      "state": "development",
+                      "lts": false,
+                      "minted_at": "2026-11-02T10:00:00Z",
+                      "sunset_at": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/versions/{id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "getApiVersion",
+        "tags": [
+          "reference"
+        ],
+        "x-i18n": "ops.version_get",
+        "summary": "Get an API version",
+        "description": "Returns one API version with its full `history`, its `summary` (in English) and its `spec`. The document at `spec.url` is this version's only when requested with the `Lingara-Version` header set to its id. `spec.sha256` is the hash of its frozen document, and is `null` while the version is still in development. An unknown id answers `404`. No token is needed. Responses may be cached for an hour.",
+        "security": [],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/VersionId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.version_get.ok",
+            "description": "The API version",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionDetail"
+                },
+                "example": {
+                  "id": "2026-10-brave-otter",
+                  "state": "supported",
+                  "lts": false,
+                  "minted_at": "2026-10-01T09:00:05Z",
+                  "sunset_at": null,
+                  "summary": "The first surface.",
+                  "history": [
+                    {
+                      "state": "development",
+                      "at": "2026-10-01T09:00:05Z"
+                    },
+                    {
+                      "state": "supported",
+                      "at": "2026-11-02T10:00:00Z"
+                    }
+                  ],
+                  "spec": {
+                    "url": "/v1/openapi.json",
+                    "sha256": "3b7e0c1f9a2d4e5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "x-i18n": "security.bearer",
+        "description": "A personal access token, sent as `Authorization: Bearer <token>`. Each operation needs one scope; the scope table lists what each one allows."
+      }
+    },
+    "parameters": {
+      "PlanId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "VersionId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])-[a-z]+-[a-z]+$"
+        }
+      },
+      "LingaraVersion": {
+        "name": "Lingara-Version",
+        "in": "header",
+        "required": false,
+        "x-i18n": "parameters.lingara_version",
+        "description": "The API version to answer this request under. Without it, a token gets the version it is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.",
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{4}-(0[1-9]|1[0-2])-[a-z]+-[a-z]+$"
+        }
+      }
+    },
+    "headers": {
+      "LingaraVersion": {
+        "x-i18n": "headers.lingara_version",
+        "description": "The API version this response was answered under. Absent until the first version is frozen.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Deprecation": {
+        "x-i18n": "headers.deprecation",
+        "description": "When this response's API version was deprecated, as `@` followed by Unix seconds. Present only on a deprecated version.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Sunset": {
+        "x-i18n": "headers.sunset",
+        "description": "The date from which this response's API version may be discontinued. Present only on a deprecated version.",
+        "schema": {
+          "type": "string"
+        }
+      },
+      "Link": {
+        "x-i18n": "headers.link",
+        "description": "A link, with relation `deprecation`, to this API version's details. Present only on a deprecated version.",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "Error": {
+        "x-i18n": "responses.error",
+        "description": "The request was refused. `code` says why, and `error` says it in words.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "VersionDiscontinued": {
+        "x-i18n": "responses.version_discontinued",
+        "description": "The API version this request is answered under has been discontinued. Send a supported version in `Lingara-Version`, or re-pin the token.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        }
+      },
+      "Unavailable": {
+        "x-i18n": "responses.unavailable",
+        "description": "The service is temporarily unavailable; retry after the number of seconds in `Retry-After`. During maintenance the body is plain text rather than the error envelope.",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          },
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "VocabRequest": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "level",
+          "source_lang",
+          "target_lang"
+        ]
+      },
+      "LessonPlanCreateRequest": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "type": "string"
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "required": [
+          "context",
+          "source_lang",
+          "target_lang",
+          "level"
+        ]
+      },
+      "TutorTurnRequest": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TurnEntry"
+            },
+            "default": []
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "character": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "situation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "message",
+          "source_lang",
+          "target_lang"
+        ]
+      },
+      "TurnEntry": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/TurnRole"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "role",
+          "content"
+        ]
+      },
+      "TurnRole": {
+        "type": "string",
+        "enum": [
+          "user",
+          "assistant"
+        ]
+      },
+      "VocabStarted": {
+        "type": "object",
+        "properties": {
+          "meta": {
+            "$ref": "#/components/schemas/VocabMeta"
+          }
+        },
+        "required": [
+          "meta"
+        ]
+      },
+      "VocabMeta": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "framework": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          },
+          "ai_generated": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "level",
+          "source_lang",
+          "target_lang",
+          "framework",
+          "count",
+          "ai_generated"
+        ]
+      },
+      "VocabItem": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "pronunciation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reading": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "translation": {
+            "type": "string"
+          },
+          "example": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VocabExample"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "image_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "word",
+          "translation"
+        ]
+      },
+      "VocabExample": {
+        "type": "object",
+        "properties": {
+          "sentence": {
+            "type": "string"
+          },
+          "translation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sentence",
+          "translation"
+        ]
+      },
+      "LessonPlan": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlanStatus"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "ai_generated": {
+            "type": "boolean"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LessonPlanContent"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "source_lang",
+          "target_lang",
+          "level",
+          "created_at",
+          "ai_generated"
+        ]
+      },
+      "PlanStatus": {
+        "type": "string",
+        "enum": [
+          "generating",
+          "partial",
+          "complete"
+        ]
+      },
+      "LessonPlanContent": {
+        "type": "object",
+        "properties": {
+          "introduction": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "learning_objectives": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "vocabulary": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanWord"
+            }
+          },
+          "sets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanSet"
+            }
+          }
+        },
+        "required": [
+          "learning_objectives",
+          "vocabulary",
+          "sets"
+        ]
+      },
+      "PlanWord": {
+        "type": "object",
+        "properties": {
+          "word": {
+            "type": "string"
+          },
+          "pronunciation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "translation": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "word",
+          "translation"
+        ]
+      },
+      "PlanSet": {
+        "type": "object",
+        "properties": {
+          "number": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "context": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "questions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PlanQuestion"
+            }
+          }
+        },
+        "required": [
+          "number",
+          "questions"
+        ]
+      },
+      "PlanQuestion": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "options": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "answer": {
+            "type": "string"
+          },
+          "explanation": {
+            "type": "string"
+          },
+          "hint": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "type",
+          "prompt",
+          "answer",
+          "explanation"
+        ]
+      },
+      "PlanStarted": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "plan_id"
+        ]
+      },
+      "PlanPhase": {
+        "type": "object",
+        "properties": {
+          "phase": {
+            "type": "string"
+          },
+          "attempt": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "required": [
+          "phase",
+          "attempt"
+        ]
+      },
+      "PlanResult": {
+        "type": "object",
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/LessonPlan"
+          }
+        },
+        "required": [
+          "plan"
+        ]
+      },
+      "PlanPending": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlanStatus"
+          }
+        },
+        "required": [
+          "plan_id",
+          "status"
+        ]
+      },
+      "TurnDelta": {
+        "type": "object",
+        "properties": {
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ]
+      },
+      "Usage": {
+        "type": "object",
+        "properties": {
+          "allowance": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AllowanceRow"
+            }
+          },
+          "ledger": {
+            "x-i18n": "schemas.usage.ledger",
+            "description": "This token's calls and units since midnight UTC on the first of the month. Present only for a metered token, whose calls spend no allowance. It can trail your latest call by up to five seconds.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageLedger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "allowance"
+        ]
+      },
+      "UsageLedger": {
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "calls": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "units": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "since",
+          "calls",
+          "units"
+        ]
+      },
+      "AllowanceRow": {
+        "type": "object",
+        "properties": {
+          "feature": {
+            "type": "string"
+          },
+          "window": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          },
+          "used": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          },
+          "remaining": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          },
+          "reset_at": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        },
+        "required": [
+          "feature",
+          "window",
+          "limit",
+          "used",
+          "remaining"
+        ]
+      },
+      "VersionList": {
+        "type": "object",
+        "properties": {
+          "current": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "development": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VersionSummary"
+            }
+          }
+        },
+        "required": [
+          "current",
+          "development",
+          "versions"
+        ]
+      },
+      "VersionSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/VersionState"
+          },
+          "lts": {
+            "type": "boolean"
+          },
+          "minted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sunset_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "lts",
+          "minted_at",
+          "sunset_at"
+        ]
+      },
+      "VersionDetail": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/VersionState"
+          },
+          "lts": {
+            "type": "boolean"
+          },
+          "minted_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sunset_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "summary": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VersionHistoryEntry"
+            }
+          },
+          "spec": {
+            "$ref": "#/components/schemas/VersionSpec"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "lts",
+          "minted_at",
+          "sunset_at",
+          "summary",
+          "history",
+          "spec"
+        ]
+      },
+      "VersionState": {
+        "type": "string",
+        "enum": [
+          "development",
+          "supported",
+          "lts",
+          "deprecated",
+          "discontinued"
+        ]
+      },
+      "VersionHistoryEntry": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/VersionState"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "state",
+          "at"
+        ]
+      },
+      "VersionSpec": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "url",
+          "sha256"
+        ]
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "error"
+        ]
+      },
+      "Notice": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "StreamError": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "plan_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "Done": {
+        "type": "object"
+      }
+    }
+  }
+}

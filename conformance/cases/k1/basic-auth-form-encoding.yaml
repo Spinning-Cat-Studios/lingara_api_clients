@@ -1,0 +1,20 @@
+id: k1.basic-auth-form-encoding
+title: Each half of client_secret_basic is form-encoded, so a secret with plus, slash and percent survives
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: "lgr_cs_conformance+/%00000000000000000000000000000", auth: basic }
+steps:
+  - call: { operation: getUsage }
+    expect: { outcome: completed, status: 200, body: { allowance: [] } }
+exchanges:
+  items:
+    - request:
+        method: POST
+        path: /oauth/token
+        headers:
+          authorization: { basic: [lgr_cid_conformance00000000000, "lgr_cs_conformance+/%00000000000000000000000000000"] }
+          content-type: { prefix: application/x-www-form-urlencoded }
+        form: { grant_type: client_credentials }
+      response: { status: 200, json: { access_token: lgr_at_k1basic, token_type: Bearer, expires_in: 3600, scope: "usage:read" } }
+    - request: { method: GET, path: /v1/usage, headers: { authorization: { equals: Bearer lgr_at_k1basic } } }
+      response: { status: 200, json: { allowance: [] } }

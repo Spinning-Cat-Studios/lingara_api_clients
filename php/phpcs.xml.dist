@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<!--
+  The size and complexity budgets over the hand-written code. Budget sniffs
+  only: style is php-cs-fixer's, so the two never disagree. The fourth
+  budget, at most five required parameters per function, has no sniff and is
+  tests/BudgetsTest.php.
+-->
+<ruleset name="lingara-budgets">
+    <!-- Relative to PHP_CodeSniffer's own directory, so any working directory works. -->
+    <config name="installed_paths" value="../../slevomat/coding-standard"/>
+
+    <file>src</file>
+    <file>tests</file>
+    <exclude-pattern>src/Model/*</exclude-pattern>
+    <exclude-pattern>src/Stream/*</exclude-pattern>
+    <exclude-pattern>src/ObjectSerializer.php</exclude-pattern>
+    <exclude-pattern>src/Internal/Operations.php</exclude-pattern>
+    <exclude-pattern>src/Version.php</exclude-pattern>
+    <exclude-pattern>tests/fixtures/*</exclude-pattern>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="s"/>
+
+    <rule ref="SlevomatCodingStandard.Files.FileLength">
+        <properties>
+            <property name="maxLinesLength" value="600"/>
+        </properties>
+    </rule>
+    <rule ref="SlevomatCodingStandard.Functions.FunctionLength">
+        <properties>
+            <property name="maxLinesLength" value="50"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.Metrics.CyclomaticComplexity">
+        <properties>
+            <property name="complexity" value="10"/>
+            <property name="absoluteComplexity" value="10"/>
+        </properties>
+    </rule>
+</ruleset>

@@ -1,0 +1,47 @@
+# The size and complexity budgets, as a second RuboCop pass: standard turns
+# the Metrics cops off and takes no configuration. Every other cop stays off
+# here; style is standard's. The per-file line limit is the Rakefile's
+# budget:file_length task, since RuboCop has no file-length cop.
+AllCops:
+  DisabledByDefault: true
+  NewCops: disable
+  SuggestExtensions: false
+  TargetRubyVersion: 3.3
+  Include:
+    - "lib/**/*.rb"
+    - "codegen/**/*.rb"
+    - "conformance/**/*.rb"
+    - "test/**/*.rb"
+  # Setting Exclude replaces RuboCop's defaults, vendor/** among them, and an
+  # extensionless file with a ruby shebang is inspected whatever Include says:
+  # CI's bundler-cache installs into vendor/bundle, whose racc/bin/racc failed
+  # the budgets.
+  Exclude:
+    - "vendor/**/*"
+    - "lib/lingara/models/**/*"
+    - "lib/lingara/operations.rb"
+    - "lib/lingara/streams.rb"
+    - "lib/lingara/version.rb"
+
+# Keyword options are Ruby's spelling of functional options, so Client.new's
+# keywords are not a parameter list.
+Metrics/ParameterLists:
+  Enabled: true
+  Max: 5
+  CountKeywordArgs: false
+
+Metrics/MethodLength:
+  Enabled: true
+  Max: 50
+
+Metrics/CyclomaticComplexity:
+  Enabled: true
+  Max: 10
+
+Metrics/ClassLength:
+  Enabled: true
+  Max: 600
+
+Metrics/ModuleLength:
+  Enabled: true
+  Max: 600

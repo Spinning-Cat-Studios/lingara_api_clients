@@ -1,0 +1,519 @@
+name: Release
+
+# One file, two behaviours (ADR 29.9.26v D4). It ships to staging and to the
+# public repository alike. Everything before the publish jobs runs in both, so
+# staging's run is the dry run and public repeats it before it publishes. The
+# publish jobs run only in the public repository, and only for a registry
+# languages.toml names (D6); a registry with no entry is skipped, not failed.
+#
+# No registry credential exists outside the public repository's `release`
+# environment. npm, crates.io and RubyGems mint a short-lived token through
+# OIDC; Maven Central and the PHP mirror read the environment's secrets.
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  manifest:
+    name: Manifest
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+      registries: ${{ steps.matrix.outputs.registries }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p release-manifest
+      - name: languages.toml agrees with the tree, and the tag may be released
+        run: |
+          target/release/release-manifest check
+          target/release/release-manifest check-tag "$TAG"
+      - id: matrix
+        run: target/release/release-manifest matrix "$TAG" | tee -a "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: target/release/release-manifest
+
+  conformance-server:
+    name: Conformance server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p lingara-conformance-server
+      - uses: actions/upload-artifact@v4
+        with:
+          name: conformance-server
+          path: target/release/conformance-server
+
+  # Each leg runs the language's own targets on the floor its ADR declares, so
+  # a release build is the local build. Conformance at the tagged commit is a
+  # step here, so no publish job starts unless every language passes it.
+  build:
+    name: build-${{ matrix.id }}
+    needs: [manifest, conformance-server]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.manifest.outputs.matrix) }}
+    env:
+      ID: ${{ matrix.id }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: '{release-manifest,conformance-server}'
+          merge-multiple: true
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP"/bin/* && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+
+      - if: matrix.id == 'typescript'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # The workspace builds on stable; the floor, 1.87, is proved on the
+      # packaged crate below, as a stranger receives it.
+      - if: matrix.id == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - if: matrix.id == 'rust'
+        uses: Swatinem/rust-cache@v2
+      - if: matrix.id == 'rust'
+        run: sudo apt-get update && sudo apt-get install -y libssl-dev pkg-config
+      - if: matrix.id == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      # Ruby's and PHP's check-codegen run through the shared Gradle :codegen
+      # project, so they need the JDK too.
+      - if: contains(fromJSON('["java", "kotlin", "ruby", "php"]'), matrix.id)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # test-ruby runs `bundle exec` and, unlike PHP's and TypeScript's
+      # targets, has no install prerequisite, so the bundle comes from here.
+      - if: matrix.id == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: ruby
+      - if: matrix.id == 'php'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+
+      - name: Codegen check and tests (check-codegen-<id>, test-<id>)
+        env:
+          GOTOOLCHAIN: local
+        run: make release-build ID="$ID"
+      - name: Conformance (conformance-<id>)
+        env:
+          GOTOOLCHAIN: local
+        run: make release-conformance ID="$ID" CONFORMANCE_SERVER="$RUNNER_TEMP/bin/conformance-server"
+
+      - if: matrix.id == 'rust'
+        name: The packaged crate on the MSRV, 1.87
+        run: |
+          rustup toolchain install 1.87 --profile minimal
+          cargo package -p lingara --no-verify
+          tar -xzf "target/package/lingara-$(cat VERSION).crate" -C "$RUNNER_TEMP"
+          cd "$RUNNER_TEMP/lingara-$(cat "$GITHUB_WORKSPACE/VERSION")"
+          rm -f Cargo.lock
+          cargo +1.87 test
+
+      # The language's own pack, then its name on the Release. A tool that
+      # changes its naming fails here rather than uploading nothing.
+      - if: matrix.built != ''
+        name: Pack, then rename built → uploaded
+        run: |
+          case "$ID" in
+            typescript) (cd typescript && npm pack) ;;
+            rust) cargo package -p lingara --locked ;;
+            *) echo "✗ no pack step for $ID"; exit 1 ;;
+          esac
+          read -r built uploaded <<EOF
+          $(release-manifest artefact "$ID" "$TAG")
+          EOF
+          test -f "$built" || { echo "✗ $built was not written"; exit 1; }
+          mkdir -p "$RUNNER_TEMP/artefact"
+          mv "$built" "$RUNNER_TEMP/artefact/$uploaded"
+      - if: matrix.built != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: artefact-${{ matrix.id }}
+          path: ${{ runner.temp }}/artefact/${{ matrix.uploaded }}
+
+  # What each registry will receive, checked with no credential: staging's
+  # whole rehearsal, and public's last check before it publishes.
+  dry-run:
+    name: dry-run-${{ matrix.id }}
+    needs: [manifest, build]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.manifest.outputs.matrix) }}
+    env:
+      ID: ${{ matrix.id }}
+      PACKAGE: ${{ matrix.package }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: ${{ matrix.registry == 'packagist' && '0' || '1' }}
+      - if: matrix.built != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: artefact-${{ matrix.id }}
+          path: ${{ runner.temp }}/artefact
+
+      - if: matrix.registry == 'npm'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - if: matrix.registry == 'npm'
+        run: npm publish --dry-run --tag next "$RUNNER_TEMP/artefact/${{ matrix.uploaded }}"
+
+      - if: matrix.registry == 'crates.io'
+        uses: dtolnay/rust-toolchain@stable
+      - if: matrix.registry == 'crates.io'
+        run: cargo publish --dry-run --locked -p "$PACKAGE"
+
+      - if: matrix.registry == 'rubygems'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - if: matrix.registry == 'rubygems'
+        run: cd ruby && gem build lingara.gemspec
+
+      - if: matrix.registry == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      - if: matrix.registry == 'go'
+        env:
+          GOTOOLCHAIN: local
+        run: cd go && go vet ./... && go test ./... && go mod verify
+
+      - if: matrix.registry == 'packagist'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+      - if: matrix.registry == 'packagist'
+        name: composer validate, and the split has composer.json at its root
+        run: |
+          (cd php && composer validate --strict)
+          split=$(git subtree split --prefix=php HEAD)
+          git cat-file -e "$split:composer.json" || { echo "✗ the split has no root composer.json"; exit 1; }
+
+      # D6a: sign with a key made here, publish to the file repository, and
+      # check what Central requires. The real key never leaves `release`.
+      - if: matrix.registry == 'maven-central'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - if: matrix.registry == 'maven-central'
+        name: Sign with an ephemeral key and check the file repository
+        run: |
+          export GNUPGHOME="$(mktemp -d)"
+          gpg --batch --pinentry-mode loopback --passphrase 'dry-run' \
+            --quick-gen-key 'Lingara dry run <dry-run@getlingara.com>' rsa4096 sign 1d
+          export ORG_GRADLE_PROJECT_signingInMemoryKey="$(gpg --batch --armor --pinentry-mode loopback --passphrase 'dry-run' --export-secret-keys)"
+          export ORG_GRADLE_PROJECT_signingInMemoryKeyPassword='dry-run'
+          ./gradlew ":$ID:publishAllPublicationsToStagingRepository"
+          artifact="${PACKAGE#*:}"
+          version="${TAG#v}"
+          dir="build/staging-repo/$(echo "${PACKAGE%%:*}" | tr . /)/$artifact/$version"
+          for suffix in .jar -sources.jar -javadoc.jar .pom; do
+            file="$dir/$artifact-$version$suffix"
+            for companion in "" .asc .md5 .sha1; do
+              test -f "$file$companion" || { echo "✗ missing $file$companion"; exit 1; }
+            done
+            gpg --batch --verify "$file.asc" "$file"
+          done
+
+  github-release:
+    name: GitHub Release
+    needs: [manifest, dry-run]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      MATRIX: ${{ needs.manifest.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The asset set verify.assets names
+        run: |
+          want=$(echo "$MATRIX" | jq -c '[.include[].uploaded | select(. != "")] + ["checksums.txt"] | sort')
+          echo "WANT=$want" >> "$GITHUB_ENV"
+      # A published release is immutable, so a re-run never repairs one: it
+      # accepts a finished release and refuses anything else by name.
+      - id: existing
+        name: An existing release is finished, or the job stops
+        run: |
+          if ! gh release view "$TAG" --json isDraft,assets > "$RUNNER_TEMP/state.json" 2>/dev/null; then
+            echo "published=false" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if jq -e --argjson want "$WANT" '.isDraft == false and ([.assets[].name] | sort) == $want' "$RUNNER_TEMP/state.json" >/dev/null; then
+            echo "✓ $TAG is already published with its assets"
+            echo "published=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          echo "✗ a release for $TAG exists in another state: $(jq -c '{isDraft, assets: [.assets[].name]}' "$RUNNER_TEMP/state.json")"
+          exit 1
+      - if: steps.existing.outputs.published == 'false'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: artefact-*
+          merge-multiple: true
+          path: assets
+      # The body is the tagged commit's message body: in public, the
+      # production note promotion wrote; in staging, the publish commit's.
+      # The cat-file line drops the object headers, then the subject paragraph.
+      - if: steps.existing.outputs.published == 'false'
+        name: Draft, upload, verify, publish
+        run: |
+          set -euo pipefail
+          git cat-file commit "$GITHUB_SHA" | sed '1,/^$/d' | sed '1,/^$/d' > "$RUNNER_TEMP/notes.md"
+          test -s "$RUNNER_TEMP/notes.md" || { echo "✗ the release notes for $TAG are empty"; exit 1; }
+          (cd assets && sha256sum * > checksums.txt && cat checksums.txt)
+          gh release create "$TAG" --draft --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/notes.md" assets/*
+          gh release view "$TAG" --json isDraft,assets |
+            jq -e --argjson want "$WANT" '.isDraft == true and ([.assets[] | select(.size > 0) | .name] | sort) == $want'
+          if [[ "$TAG" == *-* ]]; then
+            gh release edit "$TAG" --draft=false --prerelease
+          else
+            gh release edit "$TAG" --draft=false
+          fi
+
+  # ── Publish: public repository only, one job per registry (D6) ──────────
+  #
+  # Every job asks probe.sh whether its version exists and publishes only when
+  # it does not, so re-running a partial release finishes it. Every job ends
+  # by proving its install lines (D8), published this run or not.
+
+  publish-npm:
+    needs: [manifest, github-release]
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'npm')
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP/bin/release-manifest" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      # The current LTS, not the build floor: trusted publishing needs npm ≥ 11.5.1.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g 'npm@>=11.5.1' && npm --version
+      - id: probe
+        run: echo "state=$(sh tools/release-manifest/probe.sh typescript "$TAG")" >> "$GITHUB_OUTPUT"
+      # The Release's own asset: the bytes that passed conformance.
+      - if: steps.probe.outputs.state == 'absent'
+        run: |
+          gh release download "$TAG" -p 'lingara-typescript-*.tgz' -p checksums.txt -D "$RUNNER_TEMP/release"
+          cd "$RUNNER_TEMP/release"
+          sha256sum -c --ignore-missing checksums.txt
+          npm publish --provenance --access public --tag next "lingara-typescript-$TAG.tgz"
+      - run: sh tools/release-manifest/prove-install.sh typescript "$TAG" --deadline 15m
+
+  publish-crates:
+    needs: [manifest, github-release]
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'crates.io')
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP/bin/release-manifest" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: dtolnay/rust-toolchain@stable
+      - run: rustup toolchain install 1.87 --profile minimal
+      - id: probe
+        run: echo "state=$(sh tools/release-manifest/probe.sh rust "$TAG")" >> "$GITHUB_OUTPUT"
+      # Cargo cannot publish a .crate file, so Rust alone re-packs.
+      - if: steps.probe.outputs.state == 'absent'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - if: steps.probe.outputs.state == 'absent'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish --locked -p lingara
+      - env:
+          RUSTUP_TOOLCHAIN: '1.87'
+        run: sh tools/release-manifest/prove-install.sh rust "$TAG" --deadline 15m
+
+  publish-rubygems:
+    needs: [manifest, github-release]
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'rubygems')
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP/bin/release-manifest" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - id: probe
+        run: echo "state=$(sh tools/release-manifest/probe.sh ruby "$TAG")" >> "$GITHUB_OUTPUT"
+      - if: steps.probe.outputs.state == 'absent'
+        run: cd ruby && gem build lingara.gemspec
+      - if: steps.probe.outputs.state == 'absent'
+        uses: rubygems/configure-rubygems-credentials@main
+      - if: steps.probe.outputs.state == 'absent'
+        run: gem push "ruby/lingara-$(release-manifest gem-version "${TAG#v}").gem"
+      - run: sh tools/release-manifest/prove-install.sh ruby "$TAG" --deadline 15m
+
+  publish-maven:
+    needs: [manifest, github-release]
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'maven-central')
+    runs-on: ubuntu-latest
+    environment: release
+    # Above the sum of the proofs' deadlines: 60m for Java, then 60m for Kotlin.
+    timeout-minutes: 130
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP/bin/release-manifest" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      # Signs and uploads only the projects whose probe is 404. Central
+      # rejects a duplicate version, so a probe that races its propagation
+      # fails loudly and never publishes twice.
+      - name: Sign and upload to the Central Portal
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
+        run: |
+          for id in $(release-manifest langs); do
+            case "$id" in java|kotlin) ;; *) continue ;; esac
+            if [ "$(sh tools/release-manifest/probe.sh "$id" "$TAG")" = absent ]; then
+              ./gradlew ":$id:publishAndReleaseToMavenCentral"
+            fi
+          done
+      - name: Prove the install lines
+        run: |
+          for id in $(release-manifest langs); do
+            case "$id" in java|kotlin) ;; *) continue ;; esac
+            sh tools/release-manifest/prove-install.sh "$id" "$TAG" --deadline 60m
+          done
+
+  publish-go:
+    needs: [manifest, github-release]
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'go')
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    env:
+      GOTOOLCHAIN: local
+      MATRIX: ${{ needs.manifest.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP/bin/release-manifest" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+      # Nothing to upload: the go/<tag> tag promotion pushed is the release.
+      # Asking the proxy for it makes the proxy fetch and cache the module.
+      - name: Warm the proxy
+        run: |
+          module=$(echo "$MATRIX" | jq -r '.include[] | select(.id == "go") | .package')
+          GOPROXY=https://proxy.golang.org go list -m "$module@$TAG"
+      - run: sh tools/release-manifest/prove-install.sh go "$TAG" --deadline 15m
+
+  publish-packagist:
+    needs: [manifest, github-release]
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'packagist')
+    runs-on: ubuntu-latest
+    environment: release
+    timeout-minutes: 30
+    env:
+      MIRROR: git@github.com:Spinning-Cat-Studios/lingara-php.git
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
+          path: ${{ runner.temp }}/bin
+      - run: chmod +x "$RUNNER_TEMP/bin/release-manifest" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.PHP_MIRROR_DEPLOY_KEY }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: composer
+      # Packagist reads composer.json from a repository root only, so php/ is
+      # split onto the mirror and tagged there; Packagist's webhook does the
+      # rest. The push is a fast-forward, except that the mirror's one-commit
+      # placeholder is replaced once, under a lease on its exact sha.
+      - name: Split php/ onto the mirror and tag it
+        run: |
+          if git ls-remote --exit-code --tags "$MIRROR" "refs/tags/$TAG" >/dev/null; then
+            echo "✓ the mirror already has $TAG"; exit 0
+          fi
+          split=$(git subtree split --prefix=php HEAD)
+          git fetch "$MIRROR" main
+          current=$(git rev-parse FETCH_HEAD)
+          if git merge-base --is-ancestor "$current" "$split"; then
+            git push "$MIRROR" "$split:refs/heads/main"
+          elif [ "$(git rev-list --count "$current")" = 1 ]; then
+            git push --force-with-lease="main:$current" "$MIRROR" "$split:refs/heads/main"
+          else
+            echo "✗ the mirror's main ($current) is not an ancestor of the split ($split); refusing a non-fast-forward"
+            exit 1
+          fi
+          git push "$MIRROR" "$split:refs/tags/$TAG"
+      - run: sh tools/release-manifest/prove-install.sh php "$TAG" --deadline 15m

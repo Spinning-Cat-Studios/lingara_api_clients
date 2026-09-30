@@ -1,0 +1,11 @@
+[package]
+name = "lingara-snippets"
+version = "0.0.0"
+edition = "2024"
+license = "MIT"
+publish = false
+description = "The Rust snippets the Lingara API reference shows, each a complete program"
+
+[dependencies]
+lingara = { path = "../../rust" }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

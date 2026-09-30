@@ -1,0 +1,8 @@
+# standard, over hand-written code only: the generated files are
+# openapi-generator's and ruby/codegen's, reviewed as codegen diffs.
+ruby_version: 3.3
+ignore:
+  - "lib/lingara/models/**/*"
+  - "lib/lingara/operations.rb"
+  - "lib/lingara/streams.rb"
+  - "lib/lingara/version.rb"

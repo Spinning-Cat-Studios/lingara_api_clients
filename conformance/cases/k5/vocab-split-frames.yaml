@@ -1,0 +1,56 @@
+id: k5.vocab-split-frames
+title: A vocabulary stream whose frames straddle chunk boundaries, including inside a UTF-8 character, decodes identically
+behaviours: [K1, K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance+secret/000000000000000000000000, auth: basic }   # 22 and 43 chars after the prefix
+steps:
+  - call:
+      operation: generateVocabulary
+      body: { level: 2, source_lang: en, target_lang: zh, count: 2 }
+    expect:
+      outcome: completed
+      served_version: 2026-09-knowing-tenpounder
+      events:
+        - { event: started, data: { meta: { level: 2, source_lang: en, target_lang: zh, framework: HSK, count: 2, ai_generated: true } } }
+        - { event: item, data: { word: 你好, pronunciation: nǐ hǎo, translation: hello } }
+        - { event: item, data: { word: 谢谢, pronunciation: xiè xie, translation: thank you } }
+      redacted: [lgr_cs_conformance+secret/000000000000000000000000, lgr_at_k5split]
+exchanges:
+  items:
+    - request:
+        method: POST
+        path: /oauth/token
+        headers:
+          authorization: { basic: [lgr_cid_conformance00000000000, lgr_cs_conformance+secret/000000000000000000000000] }
+          content-type: { prefix: application/x-www-form-urlencoded }
+          lingara-version: { absent: true }
+        form: { grant_type: client_credentials }
+      response:
+        status: 200
+        headers: { content-type: application/json, cache-control: no-store, pragma: no-cache }
+        json: { access_token: lgr_at_k5split, token_type: Bearer, expires_in: 3600, scope: "vocab:generate" }
+    - request:
+        method: POST
+        path: /v1/vocab/stream
+        headers:
+          authorization: { equals: Bearer lgr_at_k5split }
+          accept: { contains: text/event-stream }
+          content-type: { prefix: application/json }
+          lingara-version: { absent: true }
+        json: { level: 2, source_lang: en, target_lang: zh, count: 2 }
+      response:
+        status: 200
+        headers: { content-type: text/event-stream, lingara-version: 2026-09-knowing-tenpounder }
+        sse:
+          chunks:
+            - ": keepalive\n\n"
+            - "event: sta"
+            - "rted\ndata: {\"meta\":{\"level\":2,\"source_lang\":\"en\",\"target_lang\":\"zh\",\"framework\":\"HSK\",\"count\":2,\"ai_generated\":true}}\n"
+            - { after_ms: 20 }
+            - "\nevent: item\ndata: {\"word\":\""
+            - { hex: "e4bd" }                       # first two bytes of 你
+            - { hex: "a0" }                         # its last byte
+            - "好\",\"pronunciation\":\"nǐ hǎo\",\"translation\":\"hello\"}\n\n"
+            - "event: item\r\ndata: {\"word\":\"谢谢\",\"pronunciation\":\"xiè xie\",\"translation\":\"thank you\"}\r\n\r\n"
+            - ": keepalive\n\nevent: done\ndata: {}\n\n"
+          then: close

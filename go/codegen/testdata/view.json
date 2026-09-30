@@ -1,0 +1,85 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Fixture", "version": "2026-09-fixture-view" },
+  "paths": {
+    "/v1/a": { "get": { "operationId": "getA", "security": [{ "oauth2": ["a:read"] }] } },
+    "/v1/b/{id}": { "get": { "operationId": "getB", "security": [{ "oauth2": ["b:read"] }] } },
+    "/v1/c": { "get": { "operationId": "getC", "security": [] } },
+    "/v1/d": { "get": { "operationId": "getD" } },
+    "/v1/e": { "post": { "operationId": "postE", "security": [{ "oauth2": ["e:write"] }] } },
+    "/v1/f/{id}": { "delete": { "operationId": "deleteF", "security": [{ "oauth2": ["f:write"] }] } },
+    "/v1/g": { "parameters": [], "put": { "operationId": "putG", "security": [] } }
+  },
+  "x-lingara-streams": [
+    {
+      "operationId": "streamWords",
+      "method": "post",
+      "path": "/v1/words/stream",
+      "requestBody": "#/components/schemas/WordsRequest",
+      "scopes": ["words:generate"],
+      "union": "StreamWordsEvent",
+      "events": ["started", "word", "done", "error"],
+      "endsOn": ["done", "error"],
+      "error": "error"
+    },
+    {
+      "operationId": "followPlan",
+      "method": "get",
+      "path": "/v1/plans/{id}/stream",
+      "requestBody": null,
+      "scopes": ["plans:read"],
+      "union": "FollowPlanEvent",
+      "events": ["phase", "result", "pending", "error"],
+      "endsOn": ["result", "pending", "error"],
+      "error": "error"
+    }
+  ],
+  "components": {
+    "schemas": {
+      "WordsRequest": { "type": "object" },
+      "Done": { "type": "object" },
+      "StreamWordsEvent": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/StreamWordsEventStarted" },
+          { "$ref": "#/components/schemas/StreamWordsEventWord" },
+          { "$ref": "#/components/schemas/StreamWordsEventDone" },
+          { "$ref": "#/components/schemas/StreamWordsEventError" }
+        ],
+        "discriminator": {
+          "propertyName": "event",
+          "mapping": {
+            "started": "#/components/schemas/StreamWordsEventStarted",
+            "word": "#/components/schemas/StreamWordsEventWord",
+            "done": "#/components/schemas/StreamWordsEventDone",
+            "error": "#/components/schemas/StreamWordsEventError"
+          }
+        }
+      },
+      "StreamWordsEventStarted": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/Started" } } },
+      "StreamWordsEventWord": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/Word" } } },
+      "StreamWordsEventDone": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/Done" } } },
+      "StreamWordsEventError": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/StreamError" } } },
+      "FollowPlanEvent": {
+        "oneOf": [
+          { "$ref": "#/components/schemas/FollowPlanEventPhase" },
+          { "$ref": "#/components/schemas/FollowPlanEventResult" },
+          { "$ref": "#/components/schemas/FollowPlanEventPending" },
+          { "$ref": "#/components/schemas/FollowPlanEventError" }
+        ],
+        "discriminator": {
+          "propertyName": "event",
+          "mapping": {
+            "phase": "#/components/schemas/FollowPlanEventPhase",
+            "result": "#/components/schemas/FollowPlanEventResult",
+            "pending": "#/components/schemas/FollowPlanEventPending",
+            "error": "#/components/schemas/FollowPlanEventError"
+          }
+        }
+      },
+      "FollowPlanEventPhase": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/Phase" } } },
+      "FollowPlanEventResult": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/Result" } } },
+      "FollowPlanEventPending": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/Pending" } } },
+      "FollowPlanEventError": { "type": "object", "properties": { "data": { "$ref": "#/components/schemas/StreamError" } } }
+    }
+  }
+}

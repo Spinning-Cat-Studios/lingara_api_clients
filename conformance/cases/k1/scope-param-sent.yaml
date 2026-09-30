@@ -1,0 +1,18 @@
+id: k1.scope-param-sent
+title: Configured scopes are sent space-delimited in the exchange's scope field
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+  scopes: ["usage:read", "vocab:generate"]
+steps:
+  - call: { operation: getUsage }
+    expect: { outcome: completed, status: 200, body: { allowance: [] } }
+exchanges:
+  items:
+    - request:
+        method: POST
+        path: /oauth/token
+        form: { grant_type: client_credentials, scope: "usage:read vocab:generate" }
+      response: { status: 200, json: { access_token: lgr_at_k1scope, token_type: Bearer, expires_in: 3600, scope: "usage:read vocab:generate" } }
+    - request: { method: GET, path: /v1/usage, headers: { authorization: { equals: Bearer lgr_at_k1scope } } }
+      response: { status: 200, json: { allowance: [] } }

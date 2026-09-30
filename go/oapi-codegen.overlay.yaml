@@ -1,0 +1,13 @@
+overlay: 1.0.0
+info:
+  title: Go names for the Lingara generator view
+  version: 1.0.0
+actions:
+  # The refusal envelope's schema is named Error, which the package reserves
+  # for the marker interface every K3 error implements (ADR 29.9.26q D4).
+  - target: $.components.schemas.Error
+    update:
+      x-go-name: ErrorEnvelope
+  - target: $.components.responses.Error
+    update:
+      x-go-name: ErrorResponse

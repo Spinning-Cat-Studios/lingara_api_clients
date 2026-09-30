@@ -1,0 +1,18 @@
+id: k1.invalid-client-is-oauth-error
+title: A 401 from the token endpoint is OAuthError invalid_client, never a 401 retry
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: OAuthError, fields: { status: 401, error: invalid_client, description: Client authentication failed. } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response:
+        status: 401
+        headers: { www-authenticate: Basic realm="lingara", cache-control: no-store }
+        json: { error: invalid_client, error_description: Client authentication failed. }

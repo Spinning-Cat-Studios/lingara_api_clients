@@ -1,0 +1,34 @@
+id: op.version-get-no-token
+title: Getting one API version needs no token, so no exchange is made and no Authorization is sent
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: getApiVersion
+      params: { id: 2026-09-knowing-tenpounder }
+    expect:
+      outcome: completed
+      status: 200
+      body:
+        id: 2026-09-knowing-tenpounder
+        state: supported
+        lts: false
+        minted_at: "2026-09-20T09:00:00Z"
+        summary: The first surface.
+        history: [ { state: supported, at: "2026-09-20T09:00:00Z" } ]
+        spec: { url: /v1/openapi.json, sha256: 3b7e0c1f9a2d4e5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3 }
+exchanges:
+  items:
+    - request: { method: GET, path: /v1/versions/2026-09-knowing-tenpounder, headers: { authorization: { absent: true } } }
+      response:
+        status: 200
+        json:
+          id: 2026-09-knowing-tenpounder
+          state: supported
+          lts: false
+          minted_at: "2026-09-20T09:00:00Z"
+          sunset_at: null
+          summary: The first surface.
+          history: [ { state: supported, at: "2026-09-20T09:00:00Z" } ]
+          spec: { url: /v1/openapi.json, sha256: 3b7e0c1f9a2d4e5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3 }

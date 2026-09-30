@@ -1,0 +1,26 @@
+id: k3.non-envelope-502-is-http-code
+title: A /v1 non-2xx whose body is not the envelope is ApiError with code http_<status>
+behaviours: [K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 502, code: http_502 } }
+      sleeps_s: []
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 500, code: http_500 } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k3proxy, token_type: Bearer, expires_in: 3600, scope: "usage:read" } }
+    - request: { method: GET, path: /v1/usage }
+      response:
+        status: 502
+        headers: { content-type: text/html }
+        text: "<html><body><h1>502 Bad Gateway</h1></body></html>"
+    - request: { method: GET, path: /v1/usage }
+      response: { status: 500 }

@@ -1,0 +1,24 @@
+# The Go library's code budgets, run by `make lint-go` (ADR 29.9.26q D7):
+# at most 5 parameters, 50 lines per function, cyclomatic complexity 10 and
+# 600 lines per file. The generated *_gen.go files are excluded: revive skips
+# a file whose header says `Code generated ... DO NOT EDIT.`, and lint-go also
+# passes -exclude for them.
+
+ignoreGeneratedHeader = false
+severity = "error"
+confidence = 0.8
+errorCode = 1
+warningCode = 1
+
+[rule.argument-limit]
+arguments = [5]
+
+[rule.function-length]
+# [statements, lines]; 0 leaves statements unbounded.
+arguments = [0, 50]
+
+[rule.cyclomatic]
+arguments = [10]
+
+[rule.file-length-limit]
+arguments = [{ max = 600 }]

@@ -1,0 +1,27 @@
+id: k5.multi-line-data
+title: Several data lines join with a newline, one space after the colon is optional, and id, retry and unknown fields are ignored
+behaviours: [K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: sendTutorMessage
+      body: { message: 你好, source_lang: en, target_lang: zh }
+    expect:
+      outcome: completed
+      events:
+        - { event: delta, data: { text: joined } }
+        - { event: delta, data: { text: " spaced" } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k5lines, token_type: Bearer, expires_in: 3600, scope: "tutor:converse" } }
+    - request: { method: POST, path: /v1/tutor/message }
+      response:
+        status: 200
+        sse:
+          chunks:
+            - "event: delta\ndata: {\"text\":\ndata:\"joined\"}\n\n"
+            - "event:delta\nid: 7\nretry: 1000\nflavour: vanilla\ndata:{\"text\":\" spaced\"}\n\n"
+            - "event: done\ndata: {}\n\n"
+          then: close

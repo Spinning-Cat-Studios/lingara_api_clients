@@ -1,0 +1,20 @@
+# PHPStan at level max over the hand-written code: src/ without the
+# generated paths, and the tests (ADR 29.9.26u D7).
+parameters:
+    level: max
+    paths:
+        - src
+        - tests
+    excludePaths:
+        - src/Model
+        - src/Stream
+        - src/ObjectSerializer.php
+        - src/Internal/Operations.php
+        - src/Version.php
+        - tests/fixtures
+        # A standalone script the loopback tests start with proc_open.
+        - tests/Support/scripted_server.php
+    # SnippetsTest calls the snippet functions: known, not analysed.
+    scanDirectories:
+        - ../snippets/php
+    tmpDir: vendor/.phpstan

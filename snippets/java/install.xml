@@ -1,0 +1,5 @@
+<dependency>
+  <groupId>com.getlingara</groupId>
+  <artifactId>lingara-java</artifactId>
+  <version>{{version}}</version>
+</dependency>

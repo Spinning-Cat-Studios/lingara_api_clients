@@ -1,0 +1,18 @@
+id: k2.version-discontinued-410
+title: A discontinued version's 410 api_version_discontinued is raised as ApiError and not retried
+behaviours: [K2, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+  version: 2026-01-retired-version
+steps:
+  - call: { operation: getUsage }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 410, code: api_version_discontinued, served_version: null } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k2gone, token_type: Bearer, expires_in: 3600, scope: "usage:read" } }
+    - request: { method: GET, path: /v1/usage, headers: { lingara-version: { equals: 2026-01-retired-version } } }
+      response: { status: 410, json: { code: api_version_discontinued, error: API version 2026-01-retired-version is discontinued. } }
