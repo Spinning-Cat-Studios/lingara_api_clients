@@ -9,7 +9,7 @@ use crate::generated::spec_version::GENERATED_FOR_VERSION;
 use crate::fake_server::{FakeServer, Reply};
 
 const VERSIONS: &str = r#"{"current":"c","development":null,"versions":[]}"#;
-const DETAIL: &str = r#"{"id":"2026-09-affable-cat","state":"deprecated","lts":false,"minted_at":"2026-09-01T00:00:00Z","summary":null,"sunset_at":null,"history":[],"spec":{"url":"/v1/openapi.json","sha256":null}}"#;
+const DETAIL: &str = r#"{"id":"2026-09-affable-cat","state":"deprecated","lts":false,"minted_at":"2026-09-01T00:00:00Z","summary":null,"sunset_at":null,"history":[],"spec":{"url":"/v1/openapi.json","sha256":null},"asyncapi":{"url":"/v1/asyncapi.json","sha256":null}}"#;
 const LINK: &str = r#"</v1/versions/2026-09-affable-cat>; rel="deprecation"; type="application/json""#;
 
 fn at(seconds: u64) -> SystemTime {

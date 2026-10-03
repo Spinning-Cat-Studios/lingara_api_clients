@@ -12,6 +12,83 @@ pub struct AllowanceRow {
     pub used: u32,
     pub window: ::std::string::String,
 }
+///`AppContextSlice`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum AppContextSlice {
+    #[serde(rename = "languages")]
+    Languages,
+    #[serde(rename = "plan_summary")]
+    PlanSummary,
+    #[serde(rename = "review_due")]
+    ReviewDue,
+    #[serde(rename = "tutor_topic")]
+    TutorTopic,
+}
+impl ::std::fmt::Display for AppContextSlice {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Languages => f.write_str("languages"),
+            Self::PlanSummary => f.write_str("plan_summary"),
+            Self::ReviewDue => f.write_str("review_due"),
+            Self::TutorTopic => f.write_str("tutor_topic"),
+        }
+    }
+}
+impl ::std::str::FromStr for AppContextSlice {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "languages" => Ok(Self::Languages),
+            "plan_summary" => Ok(Self::PlanSummary),
+            "review_due" => Ok(Self::ReviewDue),
+            "tutor_topic" => Ok(Self::TutorTopic),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for AppContextSlice {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for AppContextSlice {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`AppInstalledData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct AppInstalledData {
+    pub client_id: ::std::string::String,
+    pub context: ::std::vec::Vec<AppContextSlice>,
+    pub install_id: ::std::string::String,
+    pub tutor_note: bool,
+}
+///`AppUninstalledData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct AppUninstalledData {
+    pub client_id: ::std::string::String,
+    pub install_id: ::std::string::String,
+}
 ///`Done`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
@@ -42,6 +119,34 @@ pub struct Error {
     ///Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`).
     pub code: ::std::string::String,
     pub error: ::std::string::String,
+}
+///`EventEnvelope`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct EventEnvelope {
+    pub api_version: ::std::string::String,
+    pub created_at: ::std::string::String,
+    pub data: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    pub id: ::std::string::String,
+    pub subject: ::std::string::String,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
+}
+///`EventPage`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct EventPage {
+    pub has_more: bool,
+    pub items: ::std::vec::Vec<EventEnvelope>,
+    pub next_cursor: ::std::string::String,
+}
+///`InboundEventAccepted`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct InboundEventAccepted {
+    pub created_at: ::std::string::String,
+    pub id: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub reaction: ::std::option::Option<ReactionReport>,
+    #[serde(rename = "type")]
+    pub type_: ::std::string::String,
 }
 ///`LessonPlan`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -77,11 +182,204 @@ pub struct LessonPlanCreateRequest {
     pub source_lang: ::std::string::String,
     pub target_lang: ::std::string::String,
 }
+///`LessonPlanFailedData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct LessonPlanFailedData {
+    pub plan_id: ::std::string::String,
+    pub reason: PlanFailReason,
+}
+///`LessonPlanReadyData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct LessonPlanReadyData {
+    pub level: i16,
+    pub plan_id: ::std::string::String,
+    pub source_lang: ::std::string::String,
+    pub status: PlanReadyStatus,
+    pub target_lang: ::std::string::String,
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub title: ::std::option::Option<::std::string::String>,
+}
 ///`Notice`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct Notice {
     pub code: ::std::string::String,
     pub message: ::std::string::String,
+}
+///`Npc`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct Npc {
+    pub name: NpcName,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub persona: ::std::option::Option<NpcPersona>,
+}
+///`NpcName`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct NpcName(::std::string::String);
+impl ::std::ops::Deref for NpcName {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<NpcName> for ::std::string::String {
+    fn from(value: NpcName) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for NpcName {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 32usize {
+            return Err("longer than 32 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for NpcName {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for NpcName {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for NpcName {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`NpcPersona`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct NpcPersona(::std::string::String);
+impl ::std::ops::Deref for NpcPersona {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<NpcPersona> for ::std::string::String {
+    fn from(value: NpcPersona) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for NpcPersona {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 120usize {
+            return Err("longer than 120 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for NpcPersona {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for NpcPersona {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for NpcPersona {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`PlanFailReason`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum PlanFailReason {
+    #[serde(rename = "generation_failed")]
+    GenerationFailed,
+    #[serde(rename = "timed_out")]
+    TimedOut,
+}
+impl ::std::fmt::Display for PlanFailReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::GenerationFailed => f.write_str("generation_failed"),
+            Self::TimedOut => f.write_str("timed_out"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlanFailReason {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "generation_failed" => Ok(Self::GenerationFailed),
+            "timed_out" => Ok(Self::TimedOut),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlanFailReason {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlanFailReason {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///`PlanPending`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -107,6 +405,61 @@ pub struct PlanQuestion {
     pub prompt: ::std::string::String,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
+}
+///`PlanReadyStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum PlanReadyStatus {
+    #[serde(rename = "complete")]
+    Complete,
+    #[serde(rename = "partial")]
+    Partial,
+}
+impl ::std::fmt::Display for PlanReadyStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Complete => f.write_str("complete"),
+            Self::Partial => f.write_str("partial"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlanReadyStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "complete" => Ok(Self::Complete),
+            "partial" => Ok(Self::Partial),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlanReadyStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlanReadyStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///`PlanResult`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -193,6 +546,79 @@ pub struct PlanWord {
     pub translation: ::std::string::String,
     pub word: ::std::string::String,
 }
+///`ReactionReport`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct ReactionReport {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub code: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub error: ::std::option::Option<::std::string::String>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_id: ::std::option::Option<::std::string::String>,
+    ///The plan's status when the event was accepted. Only `generating` promises that `lesson_plan.ready` or `lesson_plan.failed` will follow. Any other value is a plan served from the library, which you can read now with `GET /v1/lesson-plans/{id}`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub plan_status: ::std::option::Option<PlanStatus>,
+    pub status: ReactionStatus,
+}
+///`ReactionStatus`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ReactionStatus {
+    #[serde(rename = "started")]
+    Started,
+    #[serde(rename = "refused")]
+    Refused,
+    #[serde(rename = "failed")]
+    Failed,
+}
+impl ::std::fmt::Display for ReactionStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Started => f.write_str("started"),
+            Self::Refused => f.write_str("refused"),
+            Self::Failed => f.write_str("failed"),
+        }
+    }
+}
+impl ::std::str::FromStr for ReactionStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "started" => Ok(Self::Started),
+            "refused" => Ok(Self::Refused),
+            "failed" => Ok(Self::Failed),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ReactionStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ReactionStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`StreamError`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct StreamError {
@@ -200,6 +626,61 @@ pub struct StreamError {
     pub message: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub plan_id: ::std::option::Option<::std::string::String>,
+}
+///`ThresholdScope`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum ThresholdScope {
+    #[serde(rename = "account")]
+    Account,
+    #[serde(rename = "client")]
+    Client,
+}
+impl ::std::fmt::Display for ThresholdScope {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Account => f.write_str("account"),
+            Self::Client => f.write_str("client"),
+        }
+    }
+}
+impl ::std::str::FromStr for ThresholdScope {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "account" => Ok(Self::Account),
+            "client" => Ok(Self::Client),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for ThresholdScope {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for ThresholdScope {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///`TurnDelta`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -297,9 +778,55 @@ pub struct UsageLedger {
     pub since: ::std::string::String,
     pub units: u64,
 }
+///`UsageThresholdReachedData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct UsageThresholdReachedData {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub client_id: ::std::option::Option<::std::string::String>,
+    pub month: ::std::string::String,
+    pub scope: ThresholdScope,
+    pub threshold_pct: UsageThresholdReachedDataThresholdPct,
+}
+///`UsageThresholdReachedDataThresholdPct`
+#[derive(::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct UsageThresholdReachedDataThresholdPct(i64);
+impl ::std::ops::Deref for UsageThresholdReachedDataThresholdPct {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.0
+    }
+}
+impl ::std::convert::From<UsageThresholdReachedDataThresholdPct> for i64 {
+    fn from(value: UsageThresholdReachedDataThresholdPct) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::TryFrom<i64> for UsageThresholdReachedDataThresholdPct {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: i64,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if ![50_i64, 70_i64, 90_i64, 100_i64].contains(&value) {
+            Err("invalid value".into())
+        } else {
+            Ok(Self(value))
+        }
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for UsageThresholdReachedDataThresholdPct {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        Self::try_from(<i64>::deserialize(deserializer)?)
+            .map_err(|e| { <D::Error as ::serde::de::Error>::custom(e.to_string()) })
+    }
+}
 ///`VersionDetail`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct VersionDetail {
+    pub asyncapi: VersionSpec,
     pub history: ::std::vec::Vec<VersionHistoryEntry>,
     pub id: ::std::string::String,
     pub lts: bool,
@@ -453,6 +980,286 @@ pub struct VocabRequest {
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct VocabStarted {
     pub meta: VocabMeta,
+}
+///`WebhookTestData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(transparent)]
+pub struct WebhookTestData(
+    pub ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+);
+impl ::std::ops::Deref for WebhookTestData {
+    type Target = ::serde_json::Map<::std::string::String, ::serde_json::Value>;
+    fn deref(&self) -> &::serde_json::Map<::std::string::String, ::serde_json::Value> {
+        &self.0
+    }
+}
+impl ::std::convert::From<WebhookTestData>
+for ::serde_json::Map<::std::string::String, ::serde_json::Value> {
+    fn from(value: WebhookTestData) -> Self {
+        value.0
+    }
+}
+impl ::std::convert::From<::serde_json::Map<::std::string::String, ::serde_json::Value>>
+for WebhookTestData {
+    fn from(
+        value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+    ) -> Self {
+        Self(value)
+    }
+}
+///`WorldContextChanged`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct WorldContextChanged {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generate: ::std::option::Option<bool>,
+    pub level: ::std::num::NonZeroU8,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub npc: ::std::option::Option<Npc>,
+    pub scene: WorldContextChangedScene,
+    pub source_lang: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub tags: ::std::vec::Vec<WorldContextChangedTagsItem>,
+    pub target_lang: ::std::string::String,
+}
+///`WorldContextChangedScene`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct WorldContextChangedScene(::std::string::String);
+impl ::std::ops::Deref for WorldContextChangedScene {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<WorldContextChangedScene> for ::std::string::String {
+    fn from(value: WorldContextChangedScene) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for WorldContextChangedScene {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 160usize {
+            return Err("longer than 160 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for WorldContextChangedScene {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for WorldContextChangedScene {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for WorldContextChangedScene {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`WorldContextChangedTagsItem`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct WorldContextChangedTagsItem(::std::string::String);
+impl ::std::ops::Deref for WorldContextChangedTagsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<WorldContextChangedTagsItem> for ::std::string::String {
+    fn from(value: WorldContextChangedTagsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for WorldContextChangedTagsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 24usize {
+            return Err("longer than 24 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for WorldContextChangedTagsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for WorldContextChangedTagsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for WorldContextChangedTagsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`WorldPracticeRequested`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct WorldPracticeRequested {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub generate: ::std::option::Option<bool>,
+    pub level: ::std::num::NonZeroU8,
+    pub source_lang: ::std::string::String,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub tags: ::std::vec::Vec<WorldPracticeRequestedTagsItem>,
+    pub target_lang: ::std::string::String,
+    pub topic: WorldPracticeRequestedTopic,
+}
+///`WorldPracticeRequestedTagsItem`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct WorldPracticeRequestedTagsItem(::std::string::String);
+impl ::std::ops::Deref for WorldPracticeRequestedTagsItem {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<WorldPracticeRequestedTagsItem> for ::std::string::String {
+    fn from(value: WorldPracticeRequestedTagsItem) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for WorldPracticeRequestedTagsItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 24usize {
+            return Err("longer than 24 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for WorldPracticeRequestedTagsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for WorldPracticeRequestedTagsItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for WorldPracticeRequestedTagsItem {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`WorldPracticeRequestedTopic`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct WorldPracticeRequestedTopic(::std::string::String);
+impl ::std::ops::Deref for WorldPracticeRequestedTopic {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<WorldPracticeRequestedTopic> for ::std::string::String {
+    fn from(value: WorldPracticeRequestedTopic) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for WorldPracticeRequestedTopic {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 160usize {
+            return Err("longer than 160 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for WorldPracticeRequestedTopic {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for WorldPracticeRequestedTopic {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for WorldPracticeRequestedTopic {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
 }
 /// Error types.
 pub mod error {

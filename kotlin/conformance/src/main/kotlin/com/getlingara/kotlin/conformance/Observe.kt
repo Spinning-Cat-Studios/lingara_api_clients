@@ -7,6 +7,8 @@ import com.getlingara.kotlin.LingaraClient
 import com.getlingara.kotlin.MaintenanceException
 import com.getlingara.kotlin.OAuthException
 import com.getlingara.kotlin.TransportException
+import com.getlingara.kotlin.model.EventPage
+import com.getlingara.kotlin.model.InboundEventAccepted
 import com.getlingara.kotlin.model.LessonPlan
 import com.getlingara.kotlin.model.LessonPlanCreateRequest
 import com.getlingara.kotlin.model.TutorTurnRequest
@@ -44,6 +46,11 @@ internal class Seen {
     var servedVersion: String? = null
     var sleeps: List<Long> = emptyList()
     var hooks: List<JsonElement> = emptyList()
+
+    // An events or tail step's yield: each envelope's id, the UnknownEvent types, the cursor.
+    val eventIds: MutableList<String> = mutableListOf()
+    val unknownTypes: MutableList<String> = mutableListOf()
+    var cursor: String? = null
 
     // Every rendering of the client and of a raised error.
     val renderings: MutableList<String> = mutableListOf()
@@ -98,23 +105,31 @@ internal object Observe {
             "createLessonPlan" -> consume(cancelAfter) { c.createLessonPlan(body(call, LessonPlanCreateRequest.serializer())) }
             "streamLessonPlan" -> consume(cancelAfter) { c.streamLessonPlan(id) }
             "sendTutorMessage" -> consume(cancelAfter) { c.sendTutorMessage(body(call, TutorTurnRequest.serializer())) }
-            else -> invokeJson(c, call.text("operation").orEmpty(), id)
+            "streamEvents" -> Query(call["params"] as? JsonObject).let { q -> consume(cancelAfter) { c.streamEvents(q.cursor, q.start, q.types) } }
+            else -> invokeJson(c, call, id)
         }
     }
 
     private suspend fun invokeJson(
         c: LingaraClient,
-        operation: String,
+        call: JsonObject,
         id: String,
-    ): Seen =
-        when (operation) {
+    ): Seen {
+        val operation = call.text("operation").orEmpty()
+        return when (operation) {
             "getLessonPlan" -> result(LessonPlan.serializer()) { c.getLessonPlan(id) }
             "getUsage" -> result(Usage.serializer()) { c.getUsage() }
             "getOpenApiDocument" -> result(JsonObject.serializer()) { c.getOpenApiDocument() }
             "listApiVersions" -> result(VersionList.serializer()) { c.listApiVersions() }
             "getApiVersion" -> result(VersionDetail.serializer()) { c.getApiVersion(id) }
+            "getAsyncApiDocument" -> result(JsonObject.serializer()) { c.getAsyncApiDocument() }
+            "listEvents" ->
+                Query(call["params"] as? JsonObject).let { q -> result(EventPage.serializer()) { c.listEvents(q.cursor, q.start, q.types, q.limit) } }
+            // sendEvent's success is a 202, and ApiResponse carries no status.
+            "sendEvent" -> result(InboundEventAccepted.serializer()) { EventSteps.send(c, call) }.apply { status = status?.let { 202 } }
             else -> Seen().apply { outcome = "harness: no operation $operation" }
         }
+    }
 
     private fun <T> body(
         call: JsonObject,
@@ -218,7 +233,7 @@ internal object Observe {
         }
 
     /** The contract's variant name and snake_case fields for a raised exception. */
-    private fun variantOf(
+    fun variantOf(
         e: Exception,
         seen: Seen,
     ) {

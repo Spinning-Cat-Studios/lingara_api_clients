@@ -10,6 +10,8 @@ use Lingara\Client;
 use Lingara\EventStream;
 use Lingara\Exception\ApiException;
 use Lingara\Internal\Operations;
+use Lingara\Model\EventPage;
+use Lingara\Model\InboundEventAccepted;
 use Lingara\Model\LessonPlan;
 use Lingara\Model\Usage;
 use Lingara\Model\VersionDetail;
@@ -25,9 +27,10 @@ final class ClientTest extends TestCase
     private const VERSION = '2026-09-knowing-tenpounder';
 
     /**
-     * 29.9.26u AC22: the nine client methods and Operations' keys name the
-     * same operations, both ways, and the three path-parameter methods take
-     * one string; each JSON method's model is its operation's `200` schema.
+     * 29.9.26u AC22: the thirteen client methods and Operations' keys name
+     * the same operations, both ways, and the three path-parameter methods
+     * take one string; each JSON method's model is its operation's success
+     * schema (`202` for sendEvent, ADR 30.9.26aa D8).
      */
     public function testOperationMethodsMatchGeneratedOperations(): void
     {
@@ -50,8 +53,9 @@ final class ClientTest extends TestCase
             }
         }
         self::assertSame([
-            'getApiVersion' => VersionDetail::class, 'getLessonPlan' => LessonPlan::class, 'getOpenApiDocument' => null,
-            'getUsage' => Usage::class, 'listApiVersions' => VersionList::class,
+            'getApiVersion' => VersionDetail::class, 'getAsyncApiDocument' => null, 'getLessonPlan' => LessonPlan::class,
+            'getOpenApiDocument' => null, 'getUsage' => Usage::class, 'listApiVersions' => VersionList::class,
+            'listEvents' => EventPage::class, 'sendEvent' => InboundEventAccepted::class,
         ], array_map(
             static fn(array $o): ?string => $o['response'],
             array_filter(Operations::OPERATIONS, static fn(array $o): bool => $o['stream'] === null),

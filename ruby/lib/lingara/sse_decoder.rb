@@ -6,10 +6,15 @@ module Lingara
   # until the next byte says whether a \n follows), and decodes UTF-8 only per
   # complete line, so a character split across chunks is never decoded half.
   # The frames it returns are the same however the bytes were chunked.
+  #
+  # It records `id` as WHATWG's last-event-id buffer (ADR 30.9.26aa D7): an
+  # `id` field sets it unless its value contains U+0000, and it persists
+  # across frames until the next `id` field. Only the tail (K5a) reads it.
   class SSEDecoder
-    # One dispatched frame: its event name (`message` when none was sent)
-    # and its data lines joined by \n.
-    Frame = Struct.new(:event, :data)
+    # One dispatched frame: its event name (`message` when none was sent),
+    # its data lines joined by \n, and the last-event-id buffer when it was
+    # dispatched (nil until an `id` field has been seen).
+    Frame = Struct.new(:event, :data, :id)
 
     CR = "\r".b.freeze
     LF = "\n".b.freeze
@@ -18,6 +23,7 @@ module Lingara
       @buffer = +"".b
       @event = nil
       @data = nil
+      @last_event_id = nil
     end
 
     # Feeds bytes and returns every frame they complete.
@@ -66,12 +72,13 @@ module Lingara
       case field
       when "event" then @event = value
       when "data" then @data = @data ? "#{@data}\n#{value}" : value
+      when "id" then @last_event_id = value unless value.include?("\u0000")
       end
       nil
     end
 
     def dispatch
-      frame = @data && Frame.new(@event || "message", @data)
+      frame = @data && Frame.new(@event || "message", @data, @last_event_id)
       @event = nil
       @data = nil
       frame

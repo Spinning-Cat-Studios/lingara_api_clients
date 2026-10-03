@@ -45,8 +45,10 @@ final class TransportKindsTest extends StacksTestCase
             ['then' => 'garbage'],
             ['write' => [substr($cut, 0, -90)], 'then' => 'reset'],
             ['write' => [ScriptedServer::sseHead(), self::started()], 'then' => 'reset'],
-            ['write' => ["HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n", ['sleep' => 1.0]], 'then' => 'close'],
-            ['write' => ["HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n{\"access_", ['sleep' => 1.0]], 'then' => 'close'],
+            // The two token stalls outlast the 0.5 s token timeout by 2.5 s: at
+            // 1.0 s a slow runner saw the close before the timeout, as Reset.
+            ['write' => ["HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n", ['sleep' => 3.0]], 'then' => 'close'],
+            ['write' => ["HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n{\"access_", ['sleep' => 3.0]], 'then' => 'close'],
         ]);
         $client = self::client($http, $server);
         self::assertSame(TransportKind::Timeout, self::kindOf(static fn() => $client->getOpenApiDocument())->kind(), 'no headers');

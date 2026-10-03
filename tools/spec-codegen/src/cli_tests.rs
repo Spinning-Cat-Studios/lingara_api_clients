@@ -80,3 +80,55 @@ fn registry_input_is_the_current_frozen_snapshot() {
     let both = [&base[..], &["--input", &input]].concat();
     assert_eq!(run(&args(&both)), 2, "--registry with --input is refused");
 }
+
+// 30.9.26aa AC4
+#[test]
+fn an_events_route_without_a_catalogue_is_refused() {
+    use crate::events::events_tests::{catalogue, openapi};
+    let dir = tempfile::tempdir().unwrap();
+    let path = |name: &str| dir.path().join(name).to_str().unwrap().to_owned();
+    let versions = dir.path().join("versions");
+    fs::create_dir_all(&versions).unwrap();
+    fs::write(path("SOURCE"), "backend@0000000000000000000000000000000000000000\n").unwrap();
+    let id = "2026-09-events-pair";
+    let row = |hash: bool| {
+        let extra = if hash { "asyncapi_sha256 = \"00\"\n" } else { "" };
+        format!("[[version]]\nid = \"{id}\"\nminted_at = \"2026-09-01T00:00:00Z\"\nstate = \"supported\"\n{extra}")
+    };
+    let out = path("generator");
+    let base = ["--registry", &path("versions.toml"), "--source", &path("SOURCE"), "--out-dir", &out];
+    let snapshot = versions.join(format!("{id}.openapi.json"));
+    let catalogue_file = versions.join(format!("{id}.asyncapi.json"));
+
+    // An OpenAPI snapshot with /v1/events and no AsyncAPI snapshot.
+    fs::write(&snapshot, openapi().to_string()).unwrap();
+    fs::write(path("versions.toml"), row(false)).unwrap();
+    assert_eq!(run(&args(&base)), 2, "events routes with no catalogue are refused");
+
+    // The pair, read from the registry.
+    fs::write(&catalogue_file, catalogue().to_string()).unwrap();
+    assert_eq!(run(&args(&base)), 0, "the pair builds");
+    let view: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.path().join("generator").join(OUTPUTS[0])).unwrap()).unwrap();
+    assert_eq!(view["x-lingara-events"].as_array().unwrap().len(), 3);
+
+    // A current entry naming asyncapi_sha256 whose snapshot is missing.
+    fs::write(path("versions.toml"), row(true)).unwrap();
+    fs::remove_file(&catalogue_file).unwrap();
+    assert_eq!(run(&args(&base)), 2, "a hash with no snapshot is refused");
+
+    // A pair with neither: an empty catalogue, written as none at all.
+    fs::write(&snapshot, fixture().to_string()).unwrap();
+    fs::write(path("versions.toml"), row(false)).unwrap();
+    assert_eq!(run(&args(&base)), 0, "no events route and no catalogue builds");
+    let view: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.path().join("generator").join(OUTPUTS[0])).unwrap()).unwrap();
+    assert!(view.get("x-lingara-events").is_none());
+
+    // --input takes the catalogue as --asyncapi; --asyncapi alone is refused.
+    let nope = path("nope.json");
+    let input = [&["--input", snapshot.to_str().unwrap(), "--asyncapi", &nope][..], &base[2..]].concat();
+    assert_eq!(run(&args(&input)), 2, "an unreadable --asyncapi is refused");
+    let lone = [&["--asyncapi", &nope][..], &base[..]].concat();
+    assert_eq!(run(&args(&lone)), 2, "--asyncapi goes with --input only");
+}

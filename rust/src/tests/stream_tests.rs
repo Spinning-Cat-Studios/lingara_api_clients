@@ -11,7 +11,8 @@ use super::{Body, EventStream};
 use crate::error::{Error, TransportKind};
 use crate::fake_server::{FakeServer, Reply};
 use crate::generated::streams::{GENERATE_VOCABULARY, ROUTES};
-use crate::models::{CreateLessonPlanEvent, GenerateVocabularyEvent, SendTutorMessageEvent, StreamLessonPlanEvent, VocabRequest};
+use crate::events::StreamEventsParams;
+use crate::models::{CreateLessonPlanEvent, GenerateVocabularyEvent, SendTutorMessageEvent, StreamEventsEvent, StreamLessonPlanEvent, VocabRequest};
 use crate::{AccessToken, BoxFuture, Client, TokenSource};
 
 const STARTED: &str = "event: started\ndata: {\"meta\":{\"level\":2,\"source_lang\":\"en\",\"target_lang\":\"zh\",\"framework\":\"HSK\",\"count\":1,\"ai_generated\":true}}\n\n";
@@ -22,6 +23,7 @@ const PHASE: &str = "event: phase\ndata: {\"phase\":\"selecting_vocabulary\",\"a
 const RESULT: &str = "event: result\ndata: {\"plan\":{\"id\":\"p1\",\"status\":\"complete\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2,\"created_at\":\"2026-09-23T10:00:00Z\",\"ai_generated\":true}}\n\n";
 const PENDING: &str = "event: pending\ndata: {\"plan_id\":\"p1\",\"status\":\"generating\"}\n\n";
 const DELTA: &str = "event: delta\ndata: {\"text\":\"你好\"}\n\n";
+const ENVELOPE: &str = "id: c1\nevent: event\ndata: {\"id\":\"lgr_evt_1\",\"type\":\"lesson_plan.archived\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_1\",\"data\":{}}\n\n";
 
 /// A token source that never exchanges.
 struct Fixed;
@@ -117,12 +119,15 @@ async fn each_operation_ends_on_its_own_terminal() {
     let source = include_str!("../stream.rs");
     assert!(!source.contains("TERMINALS") && !source.contains("\"pending\"") && !source.contains("\"result\""));
     for route in ROUTES {
+        // 30.9.26aa D7: the one tail is the only resumable route.
+        assert_eq!(route.resumable, route.operation_id == "streamEvents", "{}", route.operation_id);
         // Each script carries bytes past its terminal, which must never surface.
         let script: &[&str] = match route.operation_id {
             "generateVocabulary" => &[STARTED, ITEM, DONE, ITEM],
             "createLessonPlan" => &[PLAN_STARTED, PHASE, RESULT, PHASE],
             "streamLessonPlan" => &[PLAN_STARTED, PHASE, PENDING, RESULT],
             "sendTutorMessage" => &[DELTA, DONE, DELTA],
+            "streamEvents" => &[ENVELOPE, DONE, ENVELOPE],
             other => panic!("the client has no method for stream {other}"),
         };
         let server = FakeServer::start(move |_, _| Reply::sse(&[], script, false)).await;
@@ -134,6 +139,7 @@ async fn each_operation_ends_on_its_own_terminal() {
                 tags::<CreateLessonPlanEvent>(c.create_lesson_plan(&body).await.unwrap()).await
             }
             "streamLessonPlan" => tags::<StreamLessonPlanEvent>(c.stream_lesson_plan("p1").await.unwrap()).await,
+            "streamEvents" => tags::<StreamEventsEvent>(c.stream_events(&StreamEventsParams::default()).await.unwrap()).await,
             _ => {
                 let body = serde_json::from_str(r#"{"message":"你好","source_lang":"en","target_lang":"zh"}"#).unwrap();
                 tags::<SendTutorMessageEvent>(c.send_tutor_message(&body).await.unwrap()).await
@@ -143,6 +149,7 @@ async fn each_operation_ends_on_its_own_terminal() {
             "generateVocabulary" => &["started", "item"],
             "createLessonPlan" => &["started", "phase", "result"],
             "streamLessonPlan" => &["started", "phase", "pending"],
+            "streamEvents" => &["event"],
             _ => &["delta"],
         };
         assert_eq!(seen, want, "{}", route.operation_id);
@@ -160,6 +167,9 @@ fn the_stream_and_the_client_cross_threads() {
     send_unpin::<EventStream<CreateLessonPlanEvent>>();
     send_unpin::<EventStream<StreamLessonPlanEvent>>();
     send_unpin::<EventStream<SendTutorMessageEvent>>();
+    send_unpin::<EventStream<StreamEventsEvent>>();
+    send_unpin::<crate::events::EventFeed>();
+    send_unpin::<crate::events::EventTail>();
     send_sync::<Client>();
     send_sync::<Error>();
 }

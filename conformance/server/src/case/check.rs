@@ -1,10 +1,10 @@
 //! What the D10 schema cannot say in types: which keys go together.
 
-use crate::case::{Case, Chunk, Exchange, Response, Step, Then};
+use crate::case::{Case, Chunk, Exchange, HeaderMatch, Response, Step, Then};
 
 pub fn validate(case: &Case) -> Result<(), String> {
     if case.behaviours.is_empty() {
-        return Err("behaviours: at least one of K1–K6".into());
+        return Err("behaviours: at least one of K1–K6 or K5a".into());
     }
     if case.steps.is_empty() {
         return Err("steps: at least one".into());
@@ -15,22 +15,41 @@ pub fn validate(case: &Case) -> Result<(), String> {
     let items = case.exchanges.as_ref().map_or(&[][..], |x| &x.items[..]);
     for (i, item) in items.iter().enumerate() {
         exchange_shape(item).map_err(|e| format!("exchanges.items[{i}]: {e}"))?;
+        same_as_shape(item, i).map_err(|e| format!("exchanges.items[{i}]: {e}"))?;
     }
     Ok(())
 }
 
 fn step_shape(step: &Step) -> Result<(), String> {
-    match (&step.call, &step.expect, step.advance_clock_s) {
-        (Some(call), Some(_), None) => {
-            if call.parallel == Some(0) {
+    let actions = [step.call.is_some(), step.events.is_some(), step.tail.is_some()];
+    match (actions.iter().filter(|a| **a).count(), &step.expect, step.advance_clock_s) {
+        (1, Some(_), None) => {
+            if step.call.as_ref().is_some_and(|c| c.parallel == Some(0)) {
                 return Err("parallel: at least 1".into());
+            }
+            if step.tail.as_ref().is_some_and(|t| t.take == 0) {
+                return Err("tail.take: at least 1".into());
             }
             Ok(())
         }
-        (None, None, Some(_)) => Ok(()),
-        (Some(_), None, None) => Err("a call needs an expect".into()),
-        _ => Err("exactly one of `call` + `expect`, or `advance_clock_s`".into()),
+        (0, None, Some(_)) => Ok(()),
+        (1, None, None) => Err("a call, events or tail step needs an expect".into()),
+        _ => Err("exactly one of `call`, `events` or `tail` with `expect`, or `advance_clock_s`".into()),
     }
+}
+
+/// A `same_as` names an earlier item, never itself or a later one: the
+/// later one has not matched when this one is checked.
+fn same_as_shape(item: &Exchange, index: usize) -> Result<(), String> {
+    let matchers = item.request.headers.iter().flatten();
+    for (name, m) in matchers {
+        if let HeaderMatch::SameAs(same) = m
+            && same.request >= index
+        {
+            return Err(format!("request.headers.{name}.same_as: item {} is not an earlier item", same.request));
+        }
+    }
+    Ok(())
 }
 
 fn exchange_shape(item: &Exchange) -> Result<(), String> {

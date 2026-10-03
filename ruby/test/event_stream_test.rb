@@ -71,7 +71,7 @@ class EventStreamTest < Minitest::Test
   # next, and its served_version is nil until then.
   def test_block_less_stream_sends_on_first_iteration
     server = serve do |_, conn|
-      conn.sse("Lingara-Version" => "2026-09-glowing-hoatzin")
+      conn.sse("Lingara-Version" => Lingara::GENERATED_FOR_VERSION)
       conn.event("started", META)
       conn.event("done", {})
     end
@@ -81,7 +81,7 @@ class EventStreamTest < Minitest::Test
     assert_equal 0, server.requests.size
     assert_nil stream.served_version
     assert_equal ["started"], stream.map(&:event)
-    assert_equal "2026-09-glowing-hoatzin", stream.served_version
+    assert_equal Lingara::GENERATED_FOR_VERSION, stream.served_version
     assert_equal 1, v1_requests(server)
 
     stream = client.generate_vocabulary(**VOCAB)
@@ -200,7 +200,7 @@ class EventStreamTest < Minitest::Test
   # message, plan_id and served_version; never yielded, never retried.
   def test_error_event_raises_api_error_with_plan_id
     server = serve do |_, conn|
-      conn.sse("Lingara-Version" => "2026-09-glowing-hoatzin")
+      conn.sse("Lingara-Version" => Lingara::GENERATED_FOR_VERSION)
       conn.event("started", {plan_id: PLAN_ID})
       conn.event("error", {code: "generation_failed", message: "The plan could not be generated.", plan_id: PLAN_ID})
     end
@@ -208,7 +208,7 @@ class EventStreamTest < Minitest::Test
     error = assert_raises(Lingara::ApiError) do
       client_for(server).create_lesson_plan(context: "market", source_lang: "en", target_lang: "zh", level: 2) { |e| seen << e.event }
     end
-    assert_equal [200, "generation_failed", "The plan could not be generated.", PLAN_ID, "2026-09-glowing-hoatzin"],
+    assert_equal [200, "generation_failed", "The plan could not be generated.", PLAN_ID, Lingara::GENERATED_FOR_VERSION],
       [error.status, error.code, error.message, error.plan_id, error.served_version]
     assert_equal ["started"], seen
     assert_equal 1, v1_requests(server)

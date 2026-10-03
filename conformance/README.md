@@ -4,14 +4,16 @@ Every Lingara library keeps one contract, [`CONTRACT.md`](CONTRACT.md). This
 directory makes it executable:
 
 - [`cases/`](cases/) — one YAML file per case, grouped `op` (one per
-  operation) and `k1`…`k6` (one group per contract section);
+  operation) and `k1`…`k6` and `k5a` (one group per contract section);
+- [`vectors/`](vectors/) — data every library's unit suite reads directly,
+  because it makes no request (see *Vectors* below);
 - [`server/`](server/) — a Rust mock that replays each case's exchanges,
   checks every request it was sent, and drives a language's harness;
 - each language directory's harness, which runs every case through that
   library's public API.
 
 ```sh
-make check-conformance-coverage   # every operation and K1–K6 has a case; every case parses
+make check-conformance-coverage   # every operation, K1–K6 and K5a has a case; every case parses
 make conformance                  # every landed language's harness, every case
 make conformance-rust             # one language
 ```
@@ -27,7 +29,7 @@ ADR; adding a key to the schema does. Case credentials are the obviously fake
 ```yaml
 id: <group>.<slug>
 title: <one sentence>
-behaviours: [K1, K5]             # ≥ 1
+behaviours: [K1, K5]             # ≥ 1, of K1–K6 and K5a
 client:                          # how the harness builds the client
   credentials: { client_id: <str>, client_secret: <str>, auth: basic | post }   # omit = no credentials
   scopes: [<scope>…]
@@ -38,7 +40,7 @@ client:                          # how the harness builds the client
   stream_idle_timeout_ms: <n>
   base_url: unreachable          # the harness points the client at a closed port
 steps:                           # run in order
-  - call: { operation: <operationId>, params: {…}, body: {…}, parallel: <n>, cancel_after_events: <n> }
+  - call: { operation: <operationId>, params: {…}, body: {…}, parallel: <n>, cancel_after_events: <n>, idempotency_key: <str> }
     expect:
       outcome: completed | error | cancelled
       status: <int>
@@ -49,6 +51,13 @@ steps:                           # run in order
       sleeps_s: [<int>…]
       hook_calls: [ { version, deprecated_at, sunset_at, link } … ]
       redacted: [<string>…]
+      event_ids: [<id>…]         # events / tail steps: each yielded envelope's id, in order
+      unknown_types: [<type>…]   # …and the type of each one that was UnknownEvent
+      cursor: <matcher>          # …and the helper's final cursor, e.g. { equals: c2 }
+  - events: { cursor: <str>, start: <str>, types: [<type>…] }   # client.events(…), iterated to its end
+    expect: {…}
+  - tail: { cursor: <str>, start: <str>, types: [<type>…], take: <n> }   # client.tailEvents(…): n events, then stop
+    expect: {…}
   - advance_clock_s: <int>
 exchanges:
   order: sequence | any          # default sequence
@@ -59,7 +68,7 @@ exchanges:
         method: GET | POST
         path: <path>             # exact; the query goes in `query` (absent = no query)
         query: {…}
-        headers: { <lowercase name>: { equals | prefix | contains | pattern: <str> } | { absent: true } | { basic: [id, secret] } }
+        headers: { <lowercase name>: { equals | prefix | contains | pattern: <str> } | { absent: true } | { basic: [id, secret] } | { same_as: { request: <n>, header: <name> } } }
         json: {…}                # JSON-equal
         form: {…}                # form fields, exact set
       response:
@@ -75,6 +84,17 @@ exchanges:
           then: close | reset | hold
           disconnect_within_ms: <n>   # hold only, and required there
 ```
+
+`same_as` (ADR 30.9.26aa D9) passes when the header equals the one that
+`exchanges.items[request]` (0-based, an earlier item) carried when it first
+matched: "the same `Idempotency-Key` on every attempt".
+
+`events` and `tail` (ADR 30.9.26aa D9) drive the helpers, not an operation:
+`events` iterates `client.events(…)` to its end; `tail` takes `take` events
+from `client.tailEvents(…)` and then the harness stops it, which is the
+outcome `completed` (the tail never ends on its own). Each event-step's
+`params` keys are the operation's parameter names (`cursor`, `start`,
+`types`, `limit`); `types` is a list, sent comma-separated.
 
 `then: reset` waits 100 ms after the last chunk before the TCP reset, so a
 client that reads promptly has the bytes before it: some kernels discard a
@@ -150,3 +170,29 @@ Comparison rules:
   cancellation, after the n-th event is yielded;
 - `redacted` strings must not appear in any debug, string or inspect
   rendering of the client, the token source or a raised error.
+
+## Vectors
+
+[`vectors/webhook-signatures.json`](vectors/webhook-signatures.json) is the
+one source of truth for every library's webhook verifier (CONTRACT.md
+appendix W, ADR 30.9.26aa D5). Each library's unit suite reads it through a
+path relative to the repository root and runs every vector:
+
+```json
+{ "name": "rotation-second-signature-matches",
+  "secrets": ["lgr_whsec_…"],
+  "headers": { "webhook-id": "…", "webhook-timestamp": "…", "webhook-signature": "v1,… v1,…" },
+  "body": "<the exact body, a JSON string so its bytes are unambiguous>",
+  "now": 1790000120,
+  "expect": { "ok": { "id": "…", "type": "…", "unknown": true } } }
+```
+
+`expect` is `{ok: {id, type, unknown?}}` (`unknown` when the parser returns
+`UnknownEvent`), `{error: <reason>}`, or `{refused: true}` for a
+construction refusal. `now` goes through the verifier's clock seam. A
+missing header is a key left out. `verifySignature` passes every `ok` and
+`malformed_payload` vector (their signatures match) and raises every other
+`error` vector's reason. The secrets decode to visibly fake ASCII, and
+`upstream-vector` is the Standard Webhooks suite's own fixed vector with
+its secret re-prefixed `lgr_whsec_`. A vector is data, not code: adding one
+needs no ADR.

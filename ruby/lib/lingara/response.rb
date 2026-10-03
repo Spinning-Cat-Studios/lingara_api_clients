@@ -31,6 +31,18 @@ module Lingara
       raise TransportError.new(:malformed_response, "the response body does not decode")
     end
 
+    # One page of the feed (ADR 30.9.26aa D6) as its parsed Hash: the items
+    # stay raw for Events.decode, so only the page's own shape is checked.
+    def page(body)
+      value = JSON.parse(body)
+      shaped = value.is_a?(Hash) && value["items"].is_a?(Array) && value["next_cursor"].is_a?(String) &&
+        [true, false].include?(value["has_more"])
+      raise TransportError.new(:malformed_response, "the response body is not an event page") unless shaped
+      value
+    rescue JSON::ParserError
+      raise TransportError.new(:malformed_response, "the response body is not JSON")
+    end
+
     # One known event as its generated branch. A +data+ that is not a JSON
     # object, or that the branch refuses, is :malformed_event.
     def event(branch, name, data)

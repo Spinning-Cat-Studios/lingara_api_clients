@@ -1,16 +1,19 @@
 //! The server-sent-events parser: bytes in, frames out, no I/O (CONTRACT.md
-//! K5, Parsing; ADR 29.9.26p D3).
+//! K5, Parsing; ADR 29.9.26p D3). Each frame carries the last-event-id
+//! buffer as WHATWG defines it, which only the tail reads (ADR 30.9.26aa D7).
 //!
 //! Bytes are buffered until a line ends, and only a complete line is decoded
 //! as UTF-8, so a character split across chunks never meets a decoder
 //! half-formed. The frames are therefore the same however the bytes were
 //! chunked, down to one byte at a time.
 
-/// One dispatched frame: its event name and its joined `data`.
+/// One dispatched frame: its event name, its joined `data`, and the
+/// last-event-id buffer when it was dispatched (empty when none was set).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Frame {
     pub event: String,
     pub data: String,
+    pub id: String,
 }
 
 #[derive(Debug, Default)]
@@ -19,6 +22,8 @@ pub struct SseParser {
     event: String,
     data: Vec<String>,
     has_data: bool,
+    // Persists across frames until the next `id` field.
+    last_id: String,
     // The last chunk ended on `\r`: a `\n` opening the next one is the same
     // line end, not a blank line.
     skip_lf: bool,
@@ -73,7 +78,9 @@ impl SseParser {
                 self.data.push(value.to_owned());
                 self.has_data = true;
             }
-            // `id`, `retry` and unknown fields are ignored.
+            // An `id` holding U+0000 is ignored, as WHATWG says.
+            "id" if !value.contains('\0') => self.last_id = value.to_owned(),
+            // `retry` and unknown fields are ignored.
             _ => {}
         }
     }
@@ -83,7 +90,7 @@ impl SseParser {
         let data = std::mem::take(&mut self.data);
         if std::mem::take(&mut self.has_data) {
             let event = if event.is_empty() { "message".to_owned() } else { event };
-            frames.push(Frame { event, data: data.join("\n") });
+            frames.push(Frame { event, data: data.join("\n"), id: self.last_id.clone() });
         }
     }
 }

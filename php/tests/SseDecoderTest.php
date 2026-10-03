@@ -49,7 +49,7 @@ final class SseDecoderTest extends TestCase
     public function testLineEndingsCommentsMultiLineDataAndWideNumbers(): void
     {
         $frames = self::decode(["event: a\rdata: 1\r\r: a comment\n", "data: x\ndata:y\ndata\n\nid: 7\nretry: 5\nevent: b\r\n\r\ndata:  z\n\n"]);
-        self::assertEquals([new Frame('a', '1'), new Frame('message', "x\ny\n"), new Frame('message', ' z')], $frames);
+        self::assertEquals([new Frame('a', '1'), new Frame('message', "x\ny\n"), new Frame('message', ' z', '7')], $frames);
 
         $decoder = new SseDecoder();
         self::assertSame([], $decoder->feed("event: a\ndata: 1\n"));
@@ -66,6 +66,17 @@ final class SseDecoderTest extends TestCase
             }
         }
         self::assertSame(['9223372036854775808'], Json::decode('["9223372036854775808"]'), 'a number inside a string is text');
+    }
+
+    /**
+     * ADR 30.9.26aa D7 (K5's parsing rule): `id` sets the last-event-id
+     * buffer, which persists across frames until the next `id`; an `id`
+     * holding U+0000 is ignored, and an empty one empties the buffer.
+     */
+    public function testRecordsTheLastEventIdAcrossFrames(): void
+    {
+        $frames = self::decode(["data: 1\n\nid: c1\ndata: 2\n\ndata: 3\n\nid: c\0x\ndata: 4\n\nid\ndata: 5\n\n"]);
+        self::assertSame([null, 'c1', 'c1', 'c1', ''], array_map(static fn(Frame $f): ?string => $f->id, $frames));
     }
 
     /**

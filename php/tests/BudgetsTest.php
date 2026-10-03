@@ -15,7 +15,7 @@ use PHPUnit\Framework\TestCase;
 final class BudgetsTest extends TestCase
 {
     private const MAX_REQUIRED = 5;
-    private const GENERATED = ['Model/', 'Stream/', 'ObjectSerializer.php', 'Internal/Operations.php', 'Version.php'];
+    private const GENERATED = ['Model/', 'Stream/', 'Events/Generated/', 'ObjectSerializer.php', 'Internal/Operations.php', 'Version.php'];
 
     public function testNoHandWrittenFunctionTakesMoreThanFiveRequiredParameters(): void
     {

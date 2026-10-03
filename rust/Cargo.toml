@@ -1,7 +1,7 @@
 [package]
 name = "lingara"
 # Equal to the repository's VERSION; the release tooling writes both.
-version = "0.1.0-alpha.6"
+version = "0.1.0-alpha.10"
 edition = "2024"
 # 1.85 was the floor edition 2024 and its MSRV-aware resolver set. 1.87 is
 # the floor the tree sets: yoke-derive 0.8.3 (via reqwest's url stack) needs
@@ -29,6 +29,11 @@ bytes = "1"
 form_urlencoded = "1"
 futures-core = "0.3"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
+# The UUIDv4 `send_event` generates as its `Idempotency-Key` (ADR 30.9.26aa D8).
+getrandom = "0.4"
+# The webhook verifier's HMAC-SHA256 and its constant-time compare (ADR
+# 30.9.26aa D4): RustCrypto, rather than the official package's own stack.
+hmac = "0.12"
 httpdate = "1"
 log = "0.4"
 native-tls = { version = "0.2", optional = true }
@@ -37,6 +42,7 @@ rustls = { version = "0.23", optional = true, default-features = false, features
 secrecy = "0.10.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 thiserror = "2"
 tokio = { version = "1", features = ["rt", "sync", "time"] }
 

@@ -13,3 +13,13 @@ export type { Clock, Sleeper } from "./seams.js";
 export type { FetchLike } from "./transport.js";
 export type * from "./models.js";
 export type { components, operations } from "./generated/schema.js";
+// Events (ADR 30.9.26aa): the union and its parser, the verifier, the feed,
+// the tail and sendEvent's options.
+export { InboundEvent, UnknownEvent, parseEvent } from "./generated/events.js";
+export type * from "./generated/events.js";
+export { Webhook, WebhookVerificationError } from "./events/webhook.js";
+export type { WebhookHeaders, WebhookOptions, WebhookVerificationReason } from "./events/webhook.js";
+export { EventFeed } from "./events/feed.js";
+export type { EventsParams, ListEventsParams } from "./events/feed.js";
+export { EventTail } from "./events/tail.js";
+export type { SendEventOptions } from "./events/send.js";

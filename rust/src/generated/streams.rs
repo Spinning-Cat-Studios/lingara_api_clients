@@ -60,6 +60,18 @@ pub enum SendTutorMessageEvent {
     #[serde(rename = "error")]
     Error(super::models::StreamError),
 }
+/// The events `streamEvents` yields (`StreamEventsEvent` in the spec).
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(tag = "event", content = "data")]
+#[non_exhaustive]
+pub enum StreamEventsEvent {
+    #[serde(rename = "event")]
+    Event(super::models::EventEnvelope),
+    #[serde(rename = "done")]
+    Done(super::models::Done),
+    #[serde(rename = "error")]
+    Error(super::models::StreamError),
+}
 /// `generateVocabulary`: `POST /v1/vocab/stream`.
 pub(crate) const GENERATE_VOCABULARY: StreamRoute = StreamRoute {
     operation_id: "generateVocabulary",
@@ -69,6 +81,7 @@ pub(crate) const GENERATE_VOCABULARY: StreamRoute = StreamRoute {
     path_params: &[],
     events: &["started", "item", "done", "error"],
     ends: &[("done", Outcome::End), ("error", Outcome::Raise)],
+    resumable: false,
 };
 /// `createLessonPlan`: `POST /v1/lesson-plans`.
 pub(crate) const CREATE_LESSON_PLAN: StreamRoute = StreamRoute {
@@ -79,6 +92,7 @@ pub(crate) const CREATE_LESSON_PLAN: StreamRoute = StreamRoute {
     path_params: &[],
     events: &["started", "phase", "result", "error"],
     ends: &[("result", Outcome::Yield), ("error", Outcome::Raise)],
+    resumable: false,
 };
 /// `streamLessonPlan`: `GET /v1/lesson-plans/{id}/stream`.
 pub(crate) const STREAM_LESSON_PLAN: StreamRoute = StreamRoute {
@@ -93,6 +107,7 @@ pub(crate) const STREAM_LESSON_PLAN: StreamRoute = StreamRoute {
         ("pending", Outcome::Yield),
         ("error", Outcome::Raise),
     ],
+    resumable: false,
 };
 /// `sendTutorMessage`: `POST /v1/tutor/message`.
 pub(crate) const SEND_TUTOR_MESSAGE: StreamRoute = StreamRoute {
@@ -103,13 +118,26 @@ pub(crate) const SEND_TUTOR_MESSAGE: StreamRoute = StreamRoute {
     path_params: &[],
     events: &["delta", "notice", "done", "error"],
     ends: &[("done", Outcome::End), ("error", Outcome::Raise)],
+    resumable: false,
+};
+/// `streamEvents`: `GET /v1/events/stream`.
+pub(crate) const STREAM_EVENTS: StreamRoute = StreamRoute {
+    operation_id: "streamEvents",
+    method: "GET",
+    path: "/v1/events/stream",
+    request_body: None,
+    path_params: &[],
+    events: &["event", "done", "error"],
+    ends: &[("done", Outcome::End), ("error", Outcome::Raise)],
+    resumable: true,
 };
 /// Every stream operation, in the view's order: what the unit test
 /// holds the terminal table and the client's methods against.
 #[cfg(test)]
-pub(crate) const ROUTES: [StreamRoute; 4] = [
+pub(crate) const ROUTES: [StreamRoute; 5] = [
     GENERATE_VOCABULARY,
     CREATE_LESSON_PLAN,
     STREAM_LESSON_PLAN,
     SEND_TUTOR_MESSAGE,
+    STREAM_EVENTS,
 ];

@@ -1,12 +1,14 @@
-//! `spec-codegen (--input <openapi.json> | --registry <versions.toml>) --source <SOURCE> --out-dir <dir> [--check]`
+//! `spec-codegen (--input <openapi.json> [--asyncapi <asyncapi.json>] | --registry <versions.toml>) --source <SOURCE> --out-dir <dir> [--check]`
 //! (ADR 29.9.26m D4).
 //!
 //! `--registry` (ADR 30.9.26a §3) generates from the snapshot of the registry's
 //! `current` version — the newest `supported`/`lts` entry by `minted_at`, the
 //! rule Backend's `api_versions::lifecycle::current` holds, restated here
 //! because this repo does not link Backend's crates — read from
-//! `<registry dir>/versions/<id>.openapi.json`. A registry with no `current`
-//! is a refusal, never a fallback to the live bundle.
+//! `<registry dir>/versions/<id>.openapi.json`, with its AsyncAPI twin
+//! `<id>.asyncapi.json` beside it when the version has one (ADR 30.9.26aa
+//! D1). A registry with no `current` is a refusal, never a fallback to the
+//! live bundle.
 //!
 //! Exit 0: written, or `--check` found both dialects current. Exit 1:
 //! `--check` found a dialect that differs from what would be written. Exit 2:
@@ -18,7 +20,7 @@ use std::path::{Path, PathBuf};
 use crate::{build_view, render};
 
 const USAGE: &str =
-    "usage: spec-codegen (--input <openapi.json> | --registry <versions.toml>) --source <SOURCE file> --out-dir <dir> [--check]";
+    "usage: spec-codegen (--input <openapi.json> [--asyncapi <asyncapi.json>] | --registry <versions.toml>) --source <SOURCE file> --out-dir <dir> [--check]";
 
 /// The two files a run writes into `--out-dir`.
 pub const OUTPUTS: [&str; 2] = ["openapi.3.1.json", "openapi.3.0.json"];
@@ -26,6 +28,7 @@ pub const OUTPUTS: [&str; 2] = ["openapi.3.1.json", "openapi.3.0.json"];
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Args {
     pub input: PathBuf,
+    pub asyncapi: PathBuf,
     pub registry: PathBuf,
     pub source: PathBuf,
     pub out_dir: PathBuf,
@@ -43,6 +46,7 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
         let value = it.next().ok_or_else(|| format!("{flag} needs a value"))?;
         match flag.as_str() {
             "--input" => out.input = value.into(),
+            "--asyncapi" => out.asyncapi = value.into(),
             "--registry" => out.registry = value.into(),
             "--source" => out.source = value.into(),
             "--out-dir" => out.out_dir = value.into(),
@@ -51,6 +55,9 @@ pub fn parse(args: &[String]) -> Result<Args, String> {
     }
     if out.input.as_os_str().is_empty() == out.registry.as_os_str().is_empty() {
         return Err("exactly one of --input and --registry is required".into());
+    }
+    if !out.asyncapi.as_os_str().is_empty() && out.input.as_os_str().is_empty() {
+        return Err("--asyncapi goes with --input; --registry reads the pair itself".into());
     }
     if [&out.source, &out.out_dir].iter().any(|p| p.as_os_str().is_empty()) {
         return Err("--source and --out-dir are both required".into());
@@ -71,28 +78,57 @@ pub fn run(args: &[String]) -> i32 {
 
 /// The rendered dialects, in `OUTPUTS` order.
 fn generate(parsed: &Args) -> Result<[String; 2], String> {
-    let input =
-        if parsed.registry.as_os_str().is_empty() { parsed.input.clone() } else { current_snapshot(&parsed.registry)? };
-    let text = fs::read_to_string(&input).map_err(|e| format!("{}: {e}", input.display()))?;
-    let spec = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", input.display()))?;
+    let pair = if parsed.registry.as_os_str().is_empty() {
+        let asyncapi = Some(parsed.asyncapi.clone()).filter(|p| !p.as_os_str().is_empty());
+        Pair { openapi: parsed.input.clone(), asyncapi }
+    } else {
+        current_pair(&parsed.registry)?
+    };
+    let spec = read_json(&pair.openapi)?;
+    let catalogue = pair.asyncapi.as_deref().map(read_json).transpose()?;
     let source = fs::read_to_string(&parsed.source).map_err(|e| format!("{}: {e}", parsed.source.display()))?;
-    let view = build_view(&spec, source.trim()).map_err(|r| format!("refused: {r}"))?;
+    let view = build_view(&spec, catalogue.as_ref(), source.trim()).map_err(|r| format!("refused: {r}"))?;
     Ok([render(&view.v31), render(&view.v30)])
+}
+
+fn read_json(path: &Path) -> Result<serde_json::Value, String> {
+    let text = fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+/// The frozen snapshot pair a view is built from (ADR 30.9.26aa D1).
+pub struct Pair {
+    pub openapi: PathBuf,
+    /// Absent for a version frozen before the catalogue existed.
+    pub asyncapi: Option<PathBuf>,
 }
 
 /// `<registry dir>/versions/<current id>.openapi.json`.
 pub fn current_snapshot(registry: &Path) -> Result<PathBuf, String> {
+    current_pair(registry).map(|p| p.openapi)
+}
+
+/// The current version's pair. Its `<id>.asyncapi.json` is read when
+/// present; an entry naming `asyncapi_sha256` without that file is a pair
+/// that would build routes with no types, so it is refused. The hash itself
+/// is not recomputed, as `spec_sha256` is not.
+pub fn current_pair(registry: &Path) -> Result<Pair, String> {
     let text = fs::read_to_string(registry).map_err(|e| format!("{}: {e}", registry.display()))?;
     let table: toml::Table = toml::from_str(&text).map_err(|e| format!("{}: {e}", registry.display()))?;
-    let id = current_id(&table)
+    let entry = current_entry(&table)
         .ok_or_else(|| format!("refused: {} has no supported or lts version", registry.display()))?;
-    let dir = registry.parent().unwrap_or(Path::new("."));
-    Ok(dir.join("versions").join(format!("{id}.openapi.json")))
+    let id = entry.get("id").and_then(toml::Value::as_str).unwrap_or_default();
+    let versions = registry.parent().unwrap_or(Path::new(".")).join("versions");
+    let asyncapi = versions.join(format!("{id}.asyncapi.json"));
+    if entry.get("asyncapi_sha256").is_some() && !asyncapi.is_file() {
+        return Err(format!("refused: {id} names asyncapi_sha256 but {} is missing", asyncapi.display()));
+    }
+    Ok(Pair { openapi: versions.join(format!("{id}.openapi.json")), asyncapi: Some(asyncapi).filter(|p| p.is_file()) })
 }
 
 /// The newest `supported`/`lts` entry by `minted_at`. The registry's
 /// timestamps are canonical `YYYY-MM-DDTHH:MM:SSZ`, so they order as text.
-fn current_id(table: &toml::Table) -> Option<&str> {
+fn current_entry(table: &toml::Table) -> Option<&toml::Value> {
     let field = |v: &toml::Value, key: &str| v.get(key).and_then(toml::Value::as_str).map(str::to_owned);
     table
         .get("version")?
@@ -100,7 +136,7 @@ fn current_id(table: &toml::Table) -> Option<&str> {
         .iter()
         .filter(|v| matches!(field(v, "state").as_deref(), Some("supported" | "lts")))
         .max_by_key(|v| field(v, "minted_at"))
-        .and_then(|v| v.get("id")?.as_str())
+        .filter(|v| v.get("id").and_then(toml::Value::as_str).is_some())
 }
 
 fn check(dir: &Path, files: &[String; 2]) -> i32 {

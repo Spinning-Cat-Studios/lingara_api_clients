@@ -25,6 +25,10 @@ type observed struct {
 	hooks         []any
 	// renderings is every rendering of the client and of a returned error.
 	renderings []string
+	// What an events or tail step yielded (events.go).
+	eventIDs     []any
+	unknownTypes []any
+	cursor       string
 }
 
 // runStep runs one call, n times at once for `parallel: n`, and compares
@@ -89,6 +93,13 @@ func invoke(r *rig, call map[string]any) observed {
 	case "sendTutorMessage":
 		s, err := c.SendTutorMessage(ctx, body[lingara.TutorTurnRequest](call))
 		return drain(stream(s, err))
+	case "streamEvents":
+		s, err := c.StreamEvents(ctx, streamEventsOptions(params))
+		return drain(stream(s, err))
+	case "listEvents":
+		return result(c.ListEvents(ctx, listEventsOptions(params)))
+	case "sendEvent":
+		return sendEvent(ctx, c, call)
 	default:
 		return invokeJSON(ctx, c, operation, id)
 	}
@@ -102,6 +113,8 @@ func invokeJSON(ctx context.Context, c *lingara.Client, operation, id string) ob
 		return result(c.GetUsage(ctx))
 	case "getOpenApiDocument":
 		return result(c.GetOpenAPIDocument(ctx))
+	case "getAsyncApiDocument":
+		return result(c.GetAsyncAPIDocument(ctx))
 	case "listApiVersions":
 		return result(c.ListAPIVersions(ctx))
 	case "getApiVersion":

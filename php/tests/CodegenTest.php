@@ -28,8 +28,9 @@ final class CodegenTest extends TestCase
         self::assertSame(0, $status, $err);
 
         self::assertSame([
-            'Internal/Operations.php', 'Stream/FollowPlanEvent.php', 'Stream/FollowPlanEvent/Pending.php', 'Stream/FollowPlanEvent/Phase.php',
-            'Stream/FollowPlanEvent/Result.php', 'Stream/StreamWordsEvent.php', 'Stream/StreamWordsEvent/Started.php',
+            'Events/Generated/EventParser.php', 'Events/Generated/InboundEvent.php', 'Events/Generated/WordsPinged.php',
+            'Events/Generated/WordsReady.php', 'Internal/Operations.php', 'Stream/FollowPlanEvent.php',
+            'Stream/FollowPlanEvent/Pending.php', 'Stream/FollowPlanEvent/Phase.php', 'Stream/FollowPlanEvent/Result.php', 'Stream/StreamWordsEvent.php', 'Stream/StreamWordsEvent/Started.php',
             'Stream/StreamWordsEvent/Word.php', 'Version.php',
         ], self::tree($out));
 
@@ -70,6 +71,43 @@ final class CodegenTest extends TestCase
         [$status, $err] = self::generate($out, "{$dir}/VERSION", "{$dir}/reserved.json");
         self::assertSame(1, $status);
         self::assertStringContainsString('reserved word', $err);
+    }
+
+    /**
+     * ADR 30.9.26aa D3: over the fixture's x-lingara-events, generate.php
+     * writes one Events/Generated/ arm per outbound entry, InboundEvent with
+     * one constructor named after each inbound entry's data component, and
+     * EventParser's table with each data model's required keys (null for a
+     * free-form object); and it refuses a model named after an arm or a
+     * generated event class.
+     */
+    public function testFixtureViewYieldsTheEventCatalogue(): void
+    {
+        $dir = sys_get_temp_dir() . '/lgr-codegen-' . bin2hex(random_bytes(4));
+        mkdir($dir);
+        file_put_contents("{$dir}/VERSION", "0.1.0-alpha.1\n");
+        $out = "{$dir}/out";
+        [$status, $err] = self::generate($out, "{$dir}/VERSION");
+        self::assertSame(0, $status, $err);
+
+        $parser = (string) file_get_contents("{$out}/Events/Generated/EventParser.php");
+        self::assertStringContainsString("'words.ready' => [", $parser);
+        self::assertStringContainsString("'data' => \\Lingara\\Model\\WordsReadyData::class", $parser);
+        self::assertStringContainsString("'required' => ['word']", $parser);
+        self::assertStringContainsString("'data' => null", $parser, 'a free-form data object keeps the stdClass');
+        $inbound = (string) file_get_contents("{$out}/Events/Generated/InboundEvent.php");
+        self::assertStringContainsString("public static function wordsRequest(\\Lingara\\Model\\WordsRequest \$data): self", $inbound);
+        self::assertStringContainsString("return new self('world.asked', \$data);", $inbound);
+        self::assertStringContainsString("const TYPE = 'words.ready';", (string) file_get_contents("{$out}/Events/Generated/WordsReady.php"));
+
+        mkdir("{$out}/Model");
+        foreach (['WordsReady.php', 'UnknownEvent.php'] as $file) {
+            touch("{$out}/Model/{$file}");
+            [$status, $err] = self::generate($out, "{$dir}/VERSION");
+            self::assertSame(1, $status);
+            self::assertStringContainsString($file, $err);
+            unlink("{$out}/Model/{$file}");
+        }
     }
 
     /** @return array{int, string} */

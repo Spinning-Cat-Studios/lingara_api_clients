@@ -103,6 +103,7 @@ func compare(expect map[string]any, seen observed) []string {
 	if want, ok := expect["error"].(map[string]any); ok {
 		out = compareError(want, seen, out)
 	}
+	out = compareHelper(expect, seen, out)
 	return compareRedacted(expect, seen, out)
 }
 

@@ -11,17 +11,26 @@ import java.io.ByteArrayOutputStream
  * ends. A `\r` that ends one read is remembered, so a `\n` opening the next is the same line
  * ending rather than a blank line that would dispatch early. The frames are therefore the same
  * however the bytes were chunked, down to one byte at a time.
+ *
+ * `id` sets the last-event-id buffer, which persists across frames until the next `id` field, as
+ * WHATWG defines it; an `id` containing U+0000 is ignored. Every frame carries the buffer as it
+ * stood when the frame was dispatched (ADR 30.9.26aa D7).
  */
 internal class SseDecoder {
-    /** One dispatched frame: its event name (`message` when it named none) and its data lines. */
+    /**
+     * One dispatched frame: its event name (`message` when it named none), its data lines, and the
+     * last-event-id buffer (empty until an `id` field sets it).
+     */
     data class Frame(
         val event: String,
         val data: String,
+        val id: String = "",
     )
 
     private val line = ByteArrayOutputStream()
     private val data = mutableListOf<String>()
     private var event = ""
+    private var lastEventId = ""
     private var skipLineFeed = false
 
     /** Consumes the first [length] bytes of [bytes] and returns every frame they completed. */
@@ -62,17 +71,18 @@ internal class SseDecoder {
         val colon = text.indexOf(':')
         val name = if (colon < 0) text else text.substring(0, colon)
         val value = if (colon < 0) "" else text.substring(colon + 1).removePrefix(" ")
-        // id, retry and unknown fields are ignored.
+        // retry and unknown fields are ignored.
         when (name) {
             "event" -> event = value
             "data" -> data.add(value)
+            "id" -> if (NUL !in value) lastEventId = value
         }
     }
 
     /** Ends a frame on a blank line: one with no data is dropped, one with no event is "message". */
     private fun dispatch(frames: MutableList<Frame>) {
         if (data.isNotEmpty()) {
-            frames.add(Frame(event.ifEmpty { "message" }, data.joinToString("\n")))
+            frames.add(Frame(event.ifEmpty { "message" }, data.joinToString("\n"), lastEventId))
         }
         event = ""
         data.clear()
@@ -81,5 +91,6 @@ internal class SseDecoder {
     private companion object {
         const val LF: Byte = '\n'.code.toByte()
         const val CR: Byte = '\r'.code.toByte()
+        const val NUL: Char = Char.MIN_VALUE
     }
 }

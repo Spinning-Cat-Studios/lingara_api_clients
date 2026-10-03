@@ -54,7 +54,7 @@ Usage usage = client.getUsage().body();
 
 A client is safe to share between threads and needs no `close()`. Build one per set of credentials and keep it: it caches its access token.
 
-Three operations need no token: `getOpenApiDocument`, `listApiVersions` and `getApiVersion`. A client built with no credentials can call them.
+Four operations need no token: `getOpenApiDocument`, `getAsyncApiDocument`, `listApiVersions` and `getApiVersion`. A client built with no credentials can call them.
 
 ## Calls block
 
@@ -99,7 +99,7 @@ Interrupt the calling thread, or `close()` a stream. An interrupted call throws 
 
 ## Options
 
-Every option is a builder method: `clientCredentials`, `clientSecretPost`, `scopes`, `tokenSource`, `baseUrl`, `tokenUrl`, `version`, `onDeprecation`, `maxAttempts`, `retryAfterCap`, `streamIdleTimeout`, `tokenRequestTimeout`, `userAgentSuffix`, `httpClient`, `requestTimeout`, and the two testing seams, `clock` and `sleeper`.
+Every option is a builder method: `clientCredentials`, `clientSecretPost`, `scopes`, `tokenSource`, `baseUrl`, `tokenUrl`, `version`, `onDeprecation`, `maxAttempts`, `retryAfterCap`, `streamIdleTimeout`, `tokenRequestTimeout`, `userAgentSuffix`, `httpClient`, `requestTimeout`, `tailMaxFailures`, and the two testing seams, `clock` and `sleeper`.
 
 - **`version(id)`** pins every request to one API version. Without it the server applies the version your OAuth client is pinned to. `servedVersion()` on every response and stream says which version answered.
 - **`onDeprecation(hook)`** is called once per response under a deprecated version. Without a hook the library logs one warning per version id through `System.Logger` (logger `com.getlingara.client`).
@@ -108,6 +108,29 @@ Every option is a builder method: `clientCredentials`, `clientSecretPost`, `scop
 - **`clock` and `sleeper`** exist for tests: they let a test move time and skip `Retry-After` waits. Leave them alone in production.
 
 The library starts daemon threads named `lingara-java-*` on first use, for token exchanges and stream timeouts. They never keep a JVM alive.
+
+## Webhooks and events
+
+Everything here lives in `com.getlingara.client.events`.
+
+**Verify the raw body first.** `Webhook.of(secret)` takes your endpoint's `lgr_whsec_…` secret (two during a rotation) and `verify(byte[] body, Map<String, List<String>> headers)` checks the Standard Webhooks signature and the 300 s timestamp window before it parses anything. Hand it the bytes exactly as received: a servlet's `request.getInputStream().readAllBytes()` or Spring's `@RequestBody byte[] body`, never a re-serialised object. A failure is a `WebhookVerificationException` with a `reason()`; it is deliberately not a `LingaraException`, so a catch-all around API calls never swallows a forged webhook. `verifySignature` checks the signature alone, for a signed body that is not an event.
+
+```java
+Webhook webhook = Webhook.of(System.getenv("LINGARA_WEBHOOK_SECRET"));
+Event event = webhook.verify(body, headers);
+```
+
+**Answer `2xx` fast and deduplicate by `event.id()`.** Delivery is at least once and unordered, and the library stores nothing. Do slow work after you answer.
+
+**`UnknownEvent` is a type newer than this library.** Acknowledge it and log it: a receiver that answers an error gets the same event retried for about a day. `Event` is a sealed interface, so a `switch` or `instanceof` chain over its records covers every type this release knows.
+
+**The feed.** `client.events(EventsRequest.of().cursor(saved))` iterates every event since `saved`, page by page, and stops when it has caught up; it never sleeps or polls. Save `feed.cursor()` and call it again later. Without a cursor it begins at `start("latest")` (from now) or `start("oldest")` (everything still kept). A cursor older than the 30-day window is `ApiException` with `code()` `cursor_expired`: start again without one, or with `start("oldest")`. `listEvents` is the single-page operation underneath.
+
+**The tail.** `client.tailEvents(…)` is an `EventStream<Event>` that reconnects from its own `cursor()` after every ending, sending `Last-Event-ID`. A connection that fails is retried after 1, 2, 4, 8, 16, 30 and 30 s; the eighth failure in a row is thrown, about 91 s in. Raise `tailMaxFailures` to ride out longer outages, or catch the error and restart from `cursor()`. The feed's cursor and the tail's are the same token, so a game can catch up with `events` and then hand over to `tailEvents`. `streamEvents` is the one-connection operation underneath.
+
+**Sending events.** `client.sendEvent(InboundEvent.worldContextChanged(scene))` sends with a generated `Idempotency-Key`, the same on every retry of that call. Pass `new SendEventOptions(key)` when your game may resend after a crash: a resend with the same key gets the first answer back and is not billed again. A key reused for a different event also gets the first answer, so that event is lost. Only `reaction.planStatus` `GENERATING` promises a `lesson_plan.ready` or `lesson_plan.failed` event; a `PARTIAL` or `COMPLETE` plan was served from the library and can be read at once.
+
+**Pin your client** to `LingaraClient.GENERATED_FOR_VERSION`. Event data is rendered at your OAuth client's pinned version, and the records are this release's models.
 
 ## Jackson
 

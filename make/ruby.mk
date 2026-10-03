@@ -20,7 +20,7 @@ GRADLE ?= ./gradlew
 GRADLE_FLAGS ?= -q --console=plain
 RUBY_DIR := ruby
 RUBY_LIB := $(RUBY_DIR)/lib/lingara
-RUBY_SCRIPT_OUTPUTS := operations.rb streams.rb version.rb
+RUBY_SCRIPT_OUTPUTS := operations.rb streams.rb version.rb events/catalogue.rb
 RUBY_LOCK := $(RUBY_DIR)/Gemfile.lock
 # Gemfile.lock records the gem's own version, and a frozen bundle (CI's)
 # refuses a lockfile that disagrees with version.rb. So the lockfile's version

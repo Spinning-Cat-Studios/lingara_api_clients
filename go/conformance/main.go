@@ -174,10 +174,18 @@ func steps(e env, c map[string]any) ([]string, error) {
 		if seconds, ok := st["advance_clock_s"].(float64); ok {
 			r.advance(int64(seconds))
 		}
-		call, hasCall := st["call"].(map[string]any)
 		expect, hasExpect := st["expect"].(map[string]any)
-		if hasCall && hasExpect {
-			mismatches = append(mismatches, runStep(r, call, substitute(expect, e.base).(map[string]any))...)
+		if !hasExpect {
+			continue
+		}
+		expect = substitute(expect, e.base).(map[string]any)
+		if call, ok := st["call"].(map[string]any); ok {
+			mismatches = append(mismatches, runStep(r, call, expect)...)
+		}
+		for _, kind := range []string{"events", "tail"} {
+			if helper, ok := st[kind].(map[string]any); ok {
+				mismatches = append(mismatches, runHelper(r, kind, helper, expect)...)
+			}
 		}
 	}
 	return mismatches, nil

@@ -93,9 +93,23 @@ internal object Streams {
             ::decodeSendTutorMessage,
         )
 
+    /** `streamEvents`. */
+    val STREAM_EVENTS: Route<com.getlingara.kotlin.model.StreamEventsEvent> =
+        Route(
+            "streamEvents",
+            "GET",
+            "/v1/events/stream",
+            null,
+            listOf(),
+            listOf("event", "done", "error"),
+            mapOf("done" to Ending.QUIET, "error" to Ending.RAISE),
+            mapOf("event" to com.getlingara.kotlin.model.EventEnvelope.serializer(), "done" to kotlinx.serialization.json.JsonElement.serializer(), "error" to com.getlingara.kotlin.model.StreamError.serializer()),
+            ::decodeStreamEvents,
+        )
+
     /** Every stream route, by operationId. */
     val ROUTES: Map<String, Route<*>> =
-        mapOf("generateVocabulary" to GENERATE_VOCABULARY, "createLessonPlan" to CREATE_LESSON_PLAN, "streamLessonPlan" to STREAM_LESSON_PLAN, "sendTutorMessage" to SEND_TUTOR_MESSAGE)
+        mapOf("generateVocabulary" to GENERATE_VOCABULARY, "createLessonPlan" to CREATE_LESSON_PLAN, "streamLessonPlan" to STREAM_LESSON_PLAN, "sendTutorMessage" to SEND_TUTOR_MESSAGE, "streamEvents" to STREAM_EVENTS)
 
     /** Decodes one `generateVocabulary` event, or returns null for a name the union has no member for. */
     private fun decodeGenerateVocabulary(
@@ -145,6 +159,17 @@ internal object Streams {
         when (event) {
             "delta" -> com.getlingara.kotlin.model.SendTutorMessageEvent.Delta(json.decodeFromJsonElement(com.getlingara.kotlin.model.TurnDelta.serializer(), data))
             "notice" -> com.getlingara.kotlin.model.SendTutorMessageEvent.Notice(json.decodeFromJsonElement(com.getlingara.kotlin.model.Notice.serializer(), data))
+            else -> null
+        }
+
+    /** Decodes one `streamEvents` event, or returns null for a name the union has no member for. */
+    private fun decodeStreamEvents(
+        event: String,
+        data: JsonElement,
+        json: Json,
+    ): com.getlingara.kotlin.model.StreamEventsEvent? =
+        when (event) {
+            "event" -> com.getlingara.kotlin.model.StreamEventsEvent.Event(json.decodeFromJsonElement(com.getlingara.kotlin.model.EventEnvelope.serializer(), data))
             else -> null
         }
 }

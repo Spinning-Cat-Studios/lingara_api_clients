@@ -56,6 +56,8 @@ final class Compare {
     observed.put("served_version", seen.servedVersion);
     observed.put("sleeps_s", seen.sleeps);
     observed.put("hook_calls", seen.hooks);
+    observed.put("event_ids", seen.eventIds);
+    observed.put("unknown_types", seen.unknownTypes);
     observed.forEach(
         (label, got) -> {
           if (expect.has(label)) {
@@ -66,7 +68,17 @@ final class Compare {
       compareError(expect.path("error"), seen, out);
     }
     compareRedacted(expect.path("redacted"), seen, out);
+    compareCursor(expect.path("cursor"), seen, out);
     return out;
+  }
+
+  /** {@code expect.cursor}: a matcher on an event helper's final cursor. */
+  private static void compareCursor(JsonNode want, Observe.Seen seen, List<String> out) {
+    if (want.has("equals")) {
+      same("cursor", want.get("equals"), seen.cursor, out);
+    } else if (want.path("absent").asBoolean() && seen.cursor != null) {
+      out.add("cursor: expected absent, got " + seen.cursor);
+    }
   }
 
   private static void compareError(JsonNode want, Observe.Seen seen, List<String> out) {

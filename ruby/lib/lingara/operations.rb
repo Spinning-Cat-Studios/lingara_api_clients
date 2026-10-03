@@ -33,6 +33,15 @@ module Lingara
       response: "VersionDetail",
       stream: nil
     }.freeze,
+    "getAsyncApiDocument" => {
+      method: "GET",
+      path: "/v1/asyncapi.json",
+      path_params: [].freeze,
+      needs_token: false,
+      request_body: nil,
+      response: nil,
+      stream: nil
+    }.freeze,
     "getLessonPlan" => {
       method: "GET",
       path: "/v1/lesson-plans/{id}",
@@ -69,6 +78,24 @@ module Lingara
       response: "VersionList",
       stream: nil
     }.freeze,
+    "listEvents" => {
+      method: "GET",
+      path: "/v1/events",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "EventPage",
+      stream: nil
+    }.freeze,
+    "sendEvent" => {
+      method: "POST",
+      path: "/v1/events",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "InboundEventAccepted",
+      stream: nil
+    }.freeze,
     "sendTutorMessage" => {
       method: "POST",
       path: "/v1/tutor/message",
@@ -77,6 +104,15 @@ module Lingara
       request_body: "TutorTurnRequest",
       response: nil,
       stream: {union: "SendTutorMessageEvent", events: {"delta" => "SendTutorMessageEventDelta", "notice" => "SendTutorMessageEventNotice", "done" => "SendTutorMessageEventDone", "error" => "SendTutorMessageEventError"}.freeze, ends: {"done" => :quiet, "error" => :raise}.freeze}.freeze
+    }.freeze,
+    "streamEvents" => {
+      method: "GET",
+      path: "/v1/events/stream",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: nil,
+      stream: {union: "StreamEventsEvent", events: {"event" => "StreamEventsEventEvent", "done" => "StreamEventsEventDone", "error" => "StreamEventsEventError"}.freeze, ends: {"done" => :quiet, "error" => :raise}.freeze, resumable: true}.freeze
     }.freeze,
     "streamLessonPlan" => {
       method: "GET",

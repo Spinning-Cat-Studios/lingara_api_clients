@@ -10,3 +10,4 @@
 **/lingara/models/create_lesson_plan_event.rb
 **/lingara/models/stream_lesson_plan_event.rb
 **/lingara/models/send_tutor_message_event.rb
+**/lingara/models/stream_events_event.rb

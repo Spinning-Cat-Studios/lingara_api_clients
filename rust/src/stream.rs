@@ -33,6 +33,9 @@ pub(crate) struct StreamRoute {
     /// Each event that ends the stream and what it does, generated from the
     /// view's `endsOn` (ADR 29.9.26ai D2).
     pub ends: &'static [(&'static str, Outcome)],
+    /// A tail: its endings close the connection, not the subscription, and
+    /// only its tail helper reconnects (ADR 30.9.26aa D7).
+    pub resumable: bool,
 }
 
 /// What an ending event does to iteration (CONTRACT.md K5's rule).
@@ -65,6 +68,8 @@ pub struct EventStream<E> {
     // an event is returned.
     timer: Option<Pin<Box<Sleep>>>,
     served_version: Option<String>,
+    // The `id` of the last frame that carried one: only the tail reads it.
+    last_event_id: Option<String>,
     eof: bool,
     done: bool,
     _event: PhantomData<fn() -> E>,
@@ -90,6 +95,7 @@ impl<E: DeserializeOwned> EventStream<E> {
             idle,
             timer: None,
             served_version,
+            last_event_id: None,
             eof: false,
             done: false,
             _event: PhantomData,
@@ -108,6 +114,9 @@ impl<E: DeserializeOwned> EventStream<E> {
                 return Poll::Ready(None);
             }
             if let Some(frame) = self.frames.pop_front() {
+                if !frame.id.is_empty() {
+                    self.last_event_id = Some(frame.id.clone());
+                }
                 match self.step(frame) {
                     Step::Skip => continue,
                     Step::Yield(event) => {
@@ -191,6 +200,12 @@ impl<E> EventStream<E> {
 
     /// Ends the stream and closes the connection: the same as dropping it.
     pub fn close(self) {}
+
+    /// The `id:` of the last frame read that carried one, the `done` that
+    /// ended the stream included (CONTRACT.md K5a, `cursor`).
+    pub(crate) fn last_event_id(&self) -> Option<&str> {
+        self.last_event_id.as_deref()
+    }
 }
 
 impl<E: DeserializeOwned> Stream for EventStream<E> {

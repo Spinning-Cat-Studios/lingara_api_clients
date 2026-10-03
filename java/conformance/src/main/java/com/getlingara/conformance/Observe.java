@@ -37,6 +37,10 @@ final class Observe {
     String servedVersion;
     List<Long> sleeps = List.of();
     List<JsonNode> hooks = List.of();
+    // An events or tail step's yield: each envelope's id, the UnknownEvent types, the cursor.
+    final List<String> eventIds = new ArrayList<>();
+    final List<String> unknownTypes = new ArrayList<>();
+    String cursor;
     // Every rendering of the client and of a raised error.
     final List<String> renderings = new ArrayList<>();
   }
@@ -104,12 +108,15 @@ final class Observe {
         return consume(() -> c.streamLessonPlan(id), cancelAfter);
       case "sendTutorMessage":
         return consume(() -> c.sendTutorMessage(body(call, TutorTurnRequest.class)), cancelAfter);
+      case "streamEvents":
+        return consume(() -> c.streamEvents(EventSteps.request(call.path("params"))), cancelAfter);
       default:
-        return invokeJson(c, call.path("operation").asText(), id);
+        return invokeJson(c, call, id);
     }
   }
 
-  private static Seen invokeJson(LingaraClient c, String operation, String id) {
+  private static Seen invokeJson(LingaraClient c, JsonNode call, String id) {
+    String operation = call.path("operation").asText();
     switch (operation) {
       case "getLessonPlan":
         return result(() -> c.getLessonPlan(id));
@@ -121,6 +128,15 @@ final class Observe {
         return result(c::listApiVersions);
       case "getApiVersion":
         return result(() -> c.getApiVersion(id));
+      case "getAsyncApiDocument":
+        return result(c::getAsyncApiDocument);
+      case "listEvents":
+        return result(() -> c.listEvents(EventSteps.request(call.path("params"))));
+      case "sendEvent":
+        // sendEvent's success is a 202, and ApiResponse carries no status.
+        Seen sent = result(() -> EventSteps.send(c, call));
+        sent.status = sent.status == null ? null : 202;
+        return sent;
       default:
         Seen seen = new Seen();
         seen.outcome = "harness: no operation " + operation;
@@ -188,7 +204,7 @@ final class Observe {
     return out;
   }
 
-  private static Seen failed(RuntimeException e, List<JsonNode> events, Optional<String> served) {
+  static Seen failed(RuntimeException e, List<JsonNode> events, Optional<String> served) {
     Seen seen = new Seen();
     seen.outcome = e instanceof CancellationException ? "cancelled" : "error";
     seen.events = new ArrayList<>(events);

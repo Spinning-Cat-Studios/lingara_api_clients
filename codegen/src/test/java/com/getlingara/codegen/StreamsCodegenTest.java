@@ -40,7 +40,7 @@ class StreamsCodegenTest {
   }
 
   /**
-   * 29.9.26r AC24: over the committed 3.0 view, StreamsCodegen emits exactly the four sealed unions
+   * 29.9.26r AC24: over the committed 3.0 view, StreamsCodegen emits exactly the five sealed unions
    * with one record per event other than done and error, each holding its branch's data type, and
    * it refuses an output directory holding a file named after a union or a branch.
    */
@@ -48,7 +48,7 @@ class StreamsCodegenTest {
   void emitsTheFourUnionsAndRefusesAGeneratorCopy() throws Exception {
     StreamsCodegen codegen = new StreamsCodegen(view(), sources);
     List<StreamsCodegen.Stream> streams = codegen.streams();
-    assertEquals(4, streams.size());
+    assertEquals(5, streams.size());
     stageModels(streams);
     codegen.write("1.2.3", resources);
     String vocab = read("GenerateVocabularyEvent.java");
@@ -93,7 +93,7 @@ class StreamsCodegenTest {
 
   /**
    * 29.9.26s AC26: over the committed 3.0 view, StreamsCodegen's Kotlin emitter writes exactly the
-   * four sealed unions with one Serializable data class per event other than done and error, each
+   * five sealed unions with one Serializable data class per event other than done and error, each
    * holding its branch's data type, and it refuses a staging directory holding a file named after a
    * union or a branch.
    */
@@ -101,11 +101,11 @@ class StreamsCodegenTest {
   void kotlinEmitterWritesTheFourUnionsAndRefusesAGeneratorCopy() throws Exception {
     StreamsCodegen codegen = new StreamsCodegen(view(), sources, StreamsCodegen.Lang.KOTLIN);
     List<StreamsCodegen.Stream> streams = codegen.streams();
-    assertEquals(4, streams.size());
+    assertEquals(5, streams.size());
     stageKotlinModels(sources, streams);
     codegen.writeKotlin("1.2.3");
     try (var unions = Files.list(sources.resolve(KOTLIN_MODEL))) {
-      assertEquals(4, unions.filter(p -> p.toString().endsWith("Event.kt")).count());
+      assertEquals(5, unions.filter(p -> p.toString().endsWith("Event.kt")).count());
     }
     String vocab = Files.readString(sources.resolve(KOTLIN_MODEL + "GenerateVocabularyEvent.kt"));
     assertTrue(vocab.contains("public sealed interface GenerateVocabularyEvent {"));

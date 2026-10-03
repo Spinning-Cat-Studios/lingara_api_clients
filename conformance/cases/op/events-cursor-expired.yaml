@@ -1,0 +1,18 @@
+id: op.events-cursor-expired
+title: "A feed cursor older than the window is 410 cursor_expired, raised as ApiError with that code"
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - events: { cursor: c-old }
+    expect:
+      outcome: error
+      event_ids: []
+      error: { variant: ApiError, fields: { status: 410, code: cursor_expired } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_feedgone, token_type: Bearer, expires_in: 3600, scope: "events:read" } }
+    - request: { method: GET, path: /v1/events, query: {"cursor":"c-old"}, headers: { authorization: { equals: Bearer lgr_at_feedgone } } }
+      response: { status: 410, json: {"code":"cursor_expired","error":"The cursor is older than 30 days; start again without one."} }

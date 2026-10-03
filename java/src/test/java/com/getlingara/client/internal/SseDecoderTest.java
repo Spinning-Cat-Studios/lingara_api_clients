@@ -90,8 +90,27 @@ class SseDecoderTest {
     assertEquals(List.of(new SseDecoder.Frame("message", "x")), decode("data: x\n\n"));
     assertEquals(List.of(), decode("event: a\n\n"), "a frame with no data is dropped");
     assertEquals(
-        List.of(new SseDecoder.Frame("a", " two spaces")),
+        List.of(new SseDecoder.Frame("a", " two spaces", "7")),
         decode("event:a\nid: 7\nretry: 10\nunknown: y\ndata:  two spaces\n\n"));
     assertEquals(List.of(), decode("event: a\ndata: 1\n"), "no blank line, no dispatch");
+  }
+
+  /**
+   * 30.9.26aa D7: {@code id} sets the last-event-id buffer, which persists across frames until the
+   * next {@code id}, and an {@code id} containing U+0000 is ignored.
+   */
+  @Test
+  void idSetsALastEventIdBufferThatPersists() {
+    assertEquals(
+        List.of(
+            new SseDecoder.Frame("event", "1", "c1"),
+            new SseDecoder.Frame("error", "2", "c1"),
+            new SseDecoder.Frame("done", "3", "h1"),
+            new SseDecoder.Frame("done", "4", "h1")),
+        decode(
+            "id: c1\nevent: event\ndata: 1\n\n",
+            "event: error\ndata: 2\n\n",
+            "id: h1\nevent: done\ndata: 3\n\n",
+            "id: h\u00002\nevent: done\ndata: 4\n\n"));
   }
 }

@@ -170,6 +170,7 @@ class LingaraClientTest {
 
         fun detail(id: String): String =
             """{"id":"$id","state":"supported","lts":false,"minted_at":"2026-09-01T00:00:00Z",""" +
-                """"sunset_at":null,"summary":null,"history":[],"spec":{"url":"/v1/openapi.json"}}"""
+                """"sunset_at":null,"summary":null,"history":[],"spec":{"url":"/v1/openapi.json"},""" +
+                """"asyncapi":{"url":"/v1/asyncapi.json"}}"""
     }
 }

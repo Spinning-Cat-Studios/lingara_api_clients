@@ -66,6 +66,15 @@ final class Operations
             'response' => \Lingara\Model\VersionDetail::class,
             'stream' => null,
         ],
+        'getAsyncApiDocument' => [
+            'method' => 'GET',
+            'path' => '/v1/asyncapi.json',
+            'pathParams' => [],
+            'needsToken' => false,
+            'request' => null,
+            'response' => null,
+            'stream' => null,
+        ],
         'getLessonPlan' => [
             'method' => 'GET',
             'path' => '/v1/lesson-plans/{id}',
@@ -102,6 +111,24 @@ final class Operations
             'response' => \Lingara\Model\VersionList::class,
             'stream' => null,
         ],
+        'listEvents' => [
+            'method' => 'GET',
+            'path' => '/v1/events',
+            'pathParams' => [],
+            'needsToken' => true,
+            'request' => null,
+            'response' => \Lingara\Model\EventPage::class,
+            'stream' => null,
+        ],
+        'sendEvent' => [
+            'method' => 'POST',
+            'path' => '/v1/events',
+            'pathParams' => [],
+            'needsToken' => true,
+            'request' => null,
+            'response' => \Lingara\Model\InboundEventAccepted::class,
+            'stream' => null,
+        ],
         'sendTutorMessage' => [
             'method' => 'POST',
             'path' => '/v1/tutor/message',
@@ -114,6 +141,22 @@ final class Operations
                 'events' => [
                     'delta' => ['class' => \Lingara\Stream\SendTutorMessageEvent\Delta::class, 'data' => \Lingara\Model\TurnDelta::class, 'end' => null],
                     'notice' => ['class' => \Lingara\Stream\SendTutorMessageEvent\Notice::class, 'data' => \Lingara\Model\Notice::class, 'end' => null],
+                    'done' => ['class' => null, 'data' => null, 'end' => 'quiet'],
+                    'error' => ['class' => null, 'data' => \Lingara\Model\StreamError::class, 'end' => 'raise'],
+                ],
+            ],
+        ],
+        'streamEvents' => [
+            'method' => 'GET',
+            'path' => '/v1/events/stream',
+            'pathParams' => [],
+            'needsToken' => true,
+            'request' => null,
+            'response' => null,
+            'stream' => [
+                'union' => \Lingara\Stream\StreamEventsEvent::class,
+                'events' => [
+                    'event' => ['class' => \Lingara\Stream\StreamEventsEvent\Event::class, 'data' => \Lingara\Model\EventEnvelope::class, 'end' => null],
                     'done' => ['class' => null, 'data' => null, 'end' => 'quiet'],
                     'error' => ['class' => null, 'data' => \Lingara\Model\StreamError::class, 'end' => 'raise'],
                 ],

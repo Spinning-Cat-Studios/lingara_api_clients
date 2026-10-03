@@ -113,9 +113,14 @@ public final class Harness {
       if (step.has("advance_clock_s")) {
         rig.advance(step.path("advance_clock_s").asLong());
       }
+      JsonNode expect = Compare.substitute(step.path("expect"), env.base());
       if (step.has("call") && step.has("expect")) {
-        JsonNode expect = Compare.substitute(step.path("expect"), env.base());
         mismatches.addAll(Observe.runStep(rig, step.path("call"), expect));
+      }
+      for (String kind : List.of("events", "tail")) {
+        if (step.has(kind) && step.has("expect")) {
+          mismatches.addAll(EventSteps.runStep(rig, kind, step.path(kind), expect));
+        }
       }
     }
     return mismatches;

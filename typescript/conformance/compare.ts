@@ -13,6 +13,19 @@ export interface Expect {
   sleeps_s?: number[];
   hook_calls?: unknown[];
   redacted?: string[];
+  /** The events and tail steps (ADR 30.9.26aa D9). */
+  event_ids?: string[];
+  unknown_types?: string[];
+  cursor?: Matcher;
+}
+
+/** A string matcher, the header matchers' shape. */
+export interface Matcher {
+  equals?: string;
+  prefix?: string;
+  contains?: string;
+  pattern?: string;
+  absent?: boolean;
 }
 
 export interface Observed {
@@ -26,6 +39,10 @@ export interface Observed {
   hookCalls: unknown[];
   /** Every rendering of the client, the token source and a raised error. */
   renderings: string[];
+  /** A helper step's yielded ids, its UnknownEvent types and its final cursor. */
+  eventIds?: string[];
+  unknownTypes?: string[];
+  cursor?: string | undefined;
 }
 
 /** JSON with `null`-valued keys dropped and object keys sorted. */
@@ -58,10 +75,7 @@ function same(label: string, expected: unknown, actual: unknown, out: string[]):
 /** Every difference between one observed call and its expectation. */
 export function compare(expect: Expect, seen: Observed): string[] {
   const out: string[] = [];
-  if (seen.outcome !== expect.outcome) {
-    const detail = seen.error ? ` (${seen.error.variant} ${canon(seen.error.fields)})` : "";
-    out.push(`outcome: expected ${expect.outcome}, got ${seen.outcome}${detail}`);
-  }
+  compareOutcome(expect, seen, out);
   const pairs: [string, unknown, unknown][] = [
     ["status", expect.status, seen.status ?? seen.error?.fields["status"]],
     ["body", expect.body, seen.body],
@@ -69,12 +83,34 @@ export function compare(expect: Expect, seen: Observed): string[] {
     ["served_version", expect.served_version, seen.servedVersion],
     ["sleeps_s", expect.sleeps_s, seen.sleepsS],
     ["hook_calls", expect.hook_calls, seen.hookCalls],
+    ["event_ids", expect.event_ids, seen.eventIds],
+    ["unknown_types", expect.unknown_types, seen.unknownTypes],
   ];
   for (const [label, want, got] of pairs) if (want !== undefined) same(label, want, got, out);
   if (expect.error !== undefined) compareError(expect.error, seen, out);
+  if (expect.cursor !== undefined) compareCursor(expect.cursor, seen.cursor, out);
   const leaked = (expect.redacted ?? []).filter((secret) => seen.renderings.some((r) => r.includes(secret)));
   for (const secret of leaked) out.push(`redacted: a rendering contains ${secret.slice(0, 12)}…`);
   return out;
+}
+
+function compareOutcome(expect: Expect, seen: Observed, out: string[]): void {
+  if (seen.outcome === expect.outcome) return;
+  const detail = seen.error ? ` (${seen.error.variant} ${canon(seen.error.fields)})` : "";
+  out.push(`outcome: expected ${expect.outcome}, got ${seen.outcome}${detail}`);
+}
+
+function compareCursor(expected: Matcher, cursor: string | undefined, out: string[]): void {
+  if (!matches(expected, cursor)) out.push(`cursor: expected ${canon(expected)}, got ${canon(cursor ?? null)}`);
+}
+
+function matches(m: Matcher, value: string | undefined): boolean {
+  if (m.absent !== undefined) return m.absent === (value === undefined);
+  if (value === undefined) return false;
+  if (m.equals !== undefined) return value === m.equals;
+  if (m.prefix !== undefined) return value.startsWith(m.prefix);
+  if (m.contains !== undefined) return value.includes(m.contains);
+  return m.pattern === undefined || new RegExp(m.pattern).test(value);
 }
 
 function compareError(expected: NonNullable<Expect["error"]>, seen: Observed, out: string[]): void {

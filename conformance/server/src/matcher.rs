@@ -12,7 +12,7 @@ use base64::Engine as _;
 use regex::Regex;
 use serde_json::{Value, json};
 
-use crate::case::{Case, Exchange, HeaderMatch, Order, Request, Response};
+use crate::case::{Case, Exchange, HeaderMatch, Order, Request, Response, SameAs};
 use crate::http::HttpRequest;
 
 /// D8's `User-Agent` pattern, checked on every replayed request.
@@ -48,6 +48,8 @@ pub struct Exchanges {
     items: Vec<Exchange>,
     remaining: Vec<u32>,
     units: Vec<Vec<usize>>,
+    /// Each item's first matched request, for `same_as` (ADR 30.9.26aa D9).
+    first: Vec<Option<HttpRequest>>,
 }
 
 impl Exchanges {
@@ -58,7 +60,8 @@ impl Exchanges {
         };
         let remaining = items.iter().map(|i| i.times.unwrap_or(1)).collect();
         let units = units_of(order, &items);
-        Self { items, remaining, units }
+        let first = vec![None; items.len()];
+        Self { items, remaining, units, first }
     }
 
     /// Consumes the item `request` matches and returns its response, or
@@ -75,9 +78,10 @@ impl Exchanges {
             open.into_iter().filter(|&i| routes_match(&self.items[i].request, request)).collect();
         let mut first_failures = None;
         for i in same_route {
-            let failures = check(&self.items[i].request, request);
+            let failures = check_against(&self.items[i].request, request, &self.first);
             if failures.is_empty() {
                 self.remaining[i] -= 1;
+                self.first[i].get_or_insert_with(|| request.clone());
                 return Ok(self.items[i].response.clone());
             }
             first_failures.get_or_insert(failures);
@@ -120,11 +124,16 @@ fn routes_match(expected: &Request, actual: &HttpRequest) -> bool {
     expected.method == actual.method && expected.path == actual.path
 }
 
-/// Every way `actual` differs from `expected` beyond its route.
-pub fn check(expected: &Request, actual: &HttpRequest) -> Vec<String> {
+/// Every way `actual` differs from `expected` beyond its route, with each
+/// item's first matched request for `same_as`.
+fn check_against(expected: &Request, actual: &HttpRequest, first: &[Option<HttpRequest>]) -> Vec<String> {
     let mut failures = Vec::new();
     for (name, matcher) in expected.headers.iter().flatten() {
-        if let Err(e) = header_matches(matcher, actual.header(name)) {
+        let result = match matcher {
+            HeaderMatch::SameAs(same) => same_as(same, actual.header(name), first),
+            other => header_matches(other, actual.header(name)),
+        };
+        if let Err(e) = result {
             failures.push(format!("header `{name}` {e}"));
         }
     }
@@ -157,8 +166,21 @@ fn header_matches(matcher: &HeaderMatch, value: Option<&str>) -> Result<(), Stri
         (HeaderMatch::Contains(want), Some(v)) => v.contains(want.as_str()),
         (HeaderMatch::Pattern(want), Some(v)) => Regex::new(want).is_ok_and(|re| re.is_match(v)),
         (HeaderMatch::Basic([id, secret]), Some(v)) => basic_halves(v) == Some((id.clone(), secret.clone())),
+        (HeaderMatch::SameAs(_), Some(_)) => return Err("same_as needs the earlier requests".into()),
     };
     if ok { Ok(()) } else { Err(format!("{value:?} does not satisfy {matcher:?}")) }
+}
+
+/// The header equals the one item `same.request`'s first match carried.
+pub fn same_as(same: &SameAs, value: Option<&str>, first: &[Option<HttpRequest>]) -> Result<(), String> {
+    let Some(earlier) = first.get(same.request).and_then(Option::as_ref) else {
+        return Err(format!("cannot be compared: exchange item {} has not matched yet", same.request));
+    };
+    let want = earlier.header(&same.header);
+    match (value, want) {
+        (Some(v), Some(w)) if v == w => Ok(()),
+        _ => Err(format!("{value:?} is not item {}'s `{}` {want:?}", same.request, same.header)),
+    }
 }
 
 /// `Basic base64(form_urlencode(id) ":" form_urlencode(secret))` → the two

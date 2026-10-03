@@ -3,6 +3,7 @@
 
 #![allow(clippy::all)]
 
+pub mod events;
 pub mod models;
 pub mod spec_version;
 pub mod streams;

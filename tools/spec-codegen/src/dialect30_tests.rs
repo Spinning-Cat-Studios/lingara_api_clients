@@ -88,3 +88,15 @@ fn types_and_bounds_with_no_30_form_are_refused() {
     doc["components"]["schemas"]["A"]["properties"]["r"]["anyOf"][0]["$ref"] = json!("#/components/schemas/NoType");
     assert!(refusal(&doc).contains("has no single type for nullable to sit beside"));
 }
+
+// 30.9.26aa AC10
+#[test]
+fn webhooks_is_refused_beside_the_event_catalogue() {
+    let mut doc = view31();
+    doc["x-lingara-events"] = json!([
+        { "type": "lesson_plan.ready", "direction": "out", "arm": "LessonPlanReady", "data": "#/components/schemas/B", "transports": ["webhook"] },
+    ]);
+    dialect30(&doc).expect("the event catalogue alone is a 3.0 view");
+    doc["webhooks"] = json!({});
+    assert_eq!(refusal(&doc), "/webhooks: a 3.1-only field", "a filled-in webhooks map still fails loudly");
+}

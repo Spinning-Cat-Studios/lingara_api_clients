@@ -12,7 +12,7 @@ class SSEDecoderTest < Minitest::Test
 
   def decode(chunks)
     decoder = Lingara::SSEDecoder.new
-    chunks.flat_map { |chunk| decoder.feed(chunk) }.map(&:to_a)
+    chunks.flat_map { |chunk| decoder.feed(chunk) }.map { |frame| [frame.event, frame.data] }
   end
 
   # 29.9.26t AC5: the same frames for every chunking of Example A's bytes,
@@ -36,6 +36,16 @@ class SSEDecoderTest < Minitest::Test
     frames = decode(["event: a\rdata: one\r\r", ": comment\n", "event: b\r\ndata: x\r\ndata:  y\r\nid: 7\r\nretry: 5\r\n\r\n",
       "data: nameless\n\n", "event: empty\n\n", "data\n\n"])
     assert_equal [["a", "one"], ["b", "x\n y"], ["message", "nameless"], ["message", ""]], frames
+  end
+
+  # 30.9.26aa D7 (K5 Parsing): `id` sets the last-event-id buffer, which
+  # persists across frames until the next `id`, and an id containing U+0000
+  # is ignored.
+  def test_id_is_recorded_and_persists_across_frames
+    decoder = Lingara::SSEDecoder.new
+    frames = decoder.feed("event: a\ndata: 1\n\nid: c1\nevent: b\ndata: 2\n\nevent: error\ndata: 3\n\n" \
+      "id: bad\u0000id\nevent: c\ndata: 4\n\nid: h1\nevent: done\ndata: {}\n\n")
+    assert_equal [nil, "c1", "c1", "c1", "h1"], frames.map(&:id)
   end
 
   def test_finish_drops_an_undispatched_frame

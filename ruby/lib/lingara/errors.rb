@@ -135,6 +135,15 @@ module Lingara
       ApiError.new(status: status, code: code, message: message, retry_after: retry_after, served_version: served_version)
     end
 
+    # A stream's error event: ApiError with status 200. K5 raises it at
+    # once; the tail (K5a) only once its failures are spent.
+    def stream_error(data, served_version)
+      fields = parse_object(data)
+      text = ->(key, fallback) { fields[key].is_a?(String) ? fields[key] : fallback }
+      ApiError.new(status: 200, code: text.call("code", "stream_error"), message: text.call("message", "the stream reported an error"),
+        plan_id: text.call("plan_id", nil), served_version: served_version)
+    end
+
     def parse_object(body)
       value = JSON.parse(body.to_s)
       value.is_a?(Hash) ? value : {}

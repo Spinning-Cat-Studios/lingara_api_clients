@@ -96,9 +96,21 @@ public final class Streams {
           Map.of("done", Ending.QUIET, "error", Ending.RAISE),
           Map.of("delta", com.getlingara.client.model.TurnDelta.class, "notice", com.getlingara.client.model.Notice.class, "done", com.fasterxml.jackson.databind.JsonNode.class, "error", com.getlingara.client.model.StreamError.class));
 
+  /** {@code streamEvents}. */
+  public static final Route STREAM_EVENTS =
+      new Route(
+          "streamEvents",
+          "GET",
+          "/v1/events/stream",
+          null,
+          List.of(),
+          List.of("event", "done", "error"),
+          Map.of("done", Ending.QUIET, "error", Ending.RAISE),
+          Map.of("event", com.getlingara.client.model.EventEnvelope.class, "done", com.fasterxml.jackson.databind.JsonNode.class, "error", com.getlingara.client.model.StreamError.class));
+
   /** Every stream route, by operationId. */
   public static final Map<String, Route> ROUTES =
-      Map.of("generateVocabulary", GENERATE_VOCABULARY, "createLessonPlan", CREATE_LESSON_PLAN, "streamLessonPlan", STREAM_LESSON_PLAN, "sendTutorMessage", SEND_TUTOR_MESSAGE);
+      Map.of("generateVocabulary", GENERATE_VOCABULARY, "createLessonPlan", CREATE_LESSON_PLAN, "streamLessonPlan", STREAM_LESSON_PLAN, "sendTutorMessage", SEND_TUTOR_MESSAGE, "streamEvents", STREAM_EVENTS);
 
   /**
    * Decodes one {@code generateVocabulary} event, or returns null for a name the union has
@@ -165,6 +177,20 @@ public final class Streams {
         return new com.getlingara.client.model.SendTutorMessageEvent.Delta(mapper.treeToValue(data, com.getlingara.client.model.TurnDelta.class));
       case "notice":
         return new com.getlingara.client.model.SendTutorMessageEvent.Notice(mapper.treeToValue(data, com.getlingara.client.model.Notice.class));
+      default:
+        return null;
+    }
+  }
+
+  /**
+   * Decodes one {@code streamEvents} event, or returns null for a name the union has
+   * no member for.
+   */
+  public static com.getlingara.client.model.StreamEventsEvent decodeStreamEvents(
+      String event, JsonNode data, ObjectMapper mapper) throws IOException {
+    switch (event) {
+      case "event":
+        return new com.getlingara.client.model.StreamEventsEvent.Event(mapper.treeToValue(data, com.getlingara.client.model.EventEnvelope.class));
       default:
         return null;
     }

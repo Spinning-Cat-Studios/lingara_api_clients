@@ -56,13 +56,24 @@ describe("SseParser", () => {
     expect(parseText("event: phase\rdata: {\"a\":1}\r\r")).toEqual([frame]);
     // A CRLF split across two chunks is one line ending, not two.
     expect(parseText("event: phase\r", "\ndata: {\"a\":1}\r", "\n\r", "\n")).toEqual([frame]);
-    // Comments are dropped; id, retry and unknown fields are ignored.
-    expect(parseText(": hello\nid: 7\nretry: 10\nfoo: bar\nevent: phase\ndata: {\"a\":1}\n\n")).toEqual([frame]);
+    // Comments are dropped; retry and unknown fields are ignored.
+    expect(parseText(": hello\nretry: 10\nfoo: bar\nevent: phase\ndata: {\"a\":1}\n\n")).toEqual([frame]);
     // Data lines join with \n, and only one leading space is stripped.
     expect(parseText("event: x\ndata: a\ndata:  b\ndata:c\n\n")).toEqual([{ event: "x", data: "a\n b\nc" }]);
     // No event name is `message`; a frame with no data is dropped.
     expect(parseText("data: 1\n\nevent: empty\n\n")).toEqual([{ event: "message", data: "1" }]);
     // An undispatched frame at end of input is discarded.
     expect(parseText("event: x\ndata: 1\n")).toEqual([]);
+  });
+
+  /** 30.9.26aa D7: `id` sets the last-event-id buffer, which persists across frames; an id with U+0000 is ignored. */
+  it("id is recorded and persists across frames", () => {
+    expect(parseText("id: 7\nevent: a\ndata: 1\n\nevent: b\ndata: 2\n\nid: 8\u0000\nevent: c\ndata: 3\n\nid\nevent: d\ndata: 4\n\n")).toEqual([
+      { event: "a", data: "1", id: "7" },
+      { event: "b", data: "2", id: "7" },
+      { event: "c", data: "3", id: "7" },
+      // An empty `id` empties the buffer.
+      { event: "d", data: "4" },
+    ]);
   });
 });

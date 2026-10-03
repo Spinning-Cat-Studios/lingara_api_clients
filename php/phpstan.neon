@@ -8,6 +8,7 @@ parameters:
     excludePaths:
         - src/Model
         - src/Stream
+        - src/Events/Generated
         - src/ObjectSerializer.php
         - src/Internal/Operations.php
         - src/Version.php

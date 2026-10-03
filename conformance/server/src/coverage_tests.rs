@@ -46,7 +46,7 @@ fn calling(op: &str, behaviours: &str) -> Loaded {
     loaded(&format!("op/{op}.yaml"), &yaml)
 }
 
-const ALL: &str = "[K1, K2, K3, K4, K5, K6]";
+const ALL: &str = "[K1, K2, K3, K4, K5, K5a, K6]";
 
 /// 29.9.26n AC2: every case file parses with `deny_unknown_fields`, and its
 /// id is `<group>.<slug>` of its path.
@@ -83,7 +83,7 @@ fn a_stale_operation_fails() {
 /// 29.9.26n AC5: a behaviour no case lists fails the guard.
 #[test]
 fn a_behaviour_without_a_case_fails() {
-    let problems = check(&spec(&["getUsage"]), &view(), &[calling("getUsage", "[K1, K2, K3, K5, K6]")]);
+    let problems = check(&spec(&["getUsage"]), &view(), &[calling("getUsage", "[K1, K2, K3, K5, K5a, K6]")]);
     assert_eq!(problems, vec!["K4 has no case listing it in `behaviours`"]);
 }
 
@@ -144,13 +144,36 @@ fn a_keepalive_longer_than_fifteen_seconds_fails() {
     assert!(terminal_problems(&exact).is_empty());
 }
 
-/// 29.9.26ai AC7: a resumable stream fails, naming C2's resume decision.
+/// 29.9.26ai AC7, amended by 30.9.26aa AC13: a resumable entry passes only
+/// as a K5a tail, whose `endsOn` holds its `error` (E3's `[done, error]`);
+/// one whose `endsOn` does not fails, naming C2's resume decision.
 #[test]
-fn a_resumable_stream_fails() {
-    let mut resumable = view();
-    resumable["x-lingara-streams"][3]["resumable"] = json!(true);
-    let problems = terminal_problems(&resumable);
+fn a_resumable_stream_passes_only_as_a_tail() {
+    let mut tail = view();
+    tail["x-lingara-streams"].as_array_mut().unwrap().push(json!({
+        "operationId": "streamEvents", "events": ["event", "done", "error"], "endsOn": ["done", "error"],
+        "error": "error", "keepaliveSeconds": 15, "resumable": true,
+    }));
+    assert!(terminal_problems(&tail).is_empty(), "{:#?}", terminal_problems(&tail));
+
+    let mut no_error = tail.clone();
+    no_error["x-lingara-streams"][4]["endsOn"] = json!(["done"]);
+    let problems = terminal_problems(&no_error);
     assert_eq!(problems.len(), 1, "{problems:#?}");
-    assert!(problems[0].starts_with("`sendTutorMessage`: the stream is resumable"), "{}", problems[0]);
+    assert!(problems[0].starts_with("`streamEvents`: the stream is resumable but does not end on its error event"), "{}", problems[0]);
     assert!(problems[0].contains("Last-Event-ID"));
+
+    let mut unnamed = tail;
+    unnamed["x-lingara-streams"][4]["error"] = Value::Null;
+    assert_eq!(terminal_problems(&unnamed).len(), 1, "a resumable entry with no error event fails");
+}
+
+/// 30.9.26aa AC14: a case set in which no case lists `K5a` fails the guard.
+#[test]
+fn a_k5a_behaviour_without_a_case_fails() {
+    let problems = check(&spec(&["getUsage"]), &view(), &[calling("getUsage", "[K1, K2, K3, K4, K5, K6]")]);
+    assert_eq!(problems, vec!["K5a has no case listing it in `behaviours`"]);
+    let k5a = "id: k5a.x\ntitle: t\nbehaviours: [K5a]\nsteps:\n  - tail: { take: 1 }\n    expect: { outcome: completed }\n";
+    let parsed = case::parse(k5a, Path::new("k5a/x.yaml")).unwrap();
+    assert_eq!(parsed.case.behaviours, vec![case::Behaviour::K5a]);
 }

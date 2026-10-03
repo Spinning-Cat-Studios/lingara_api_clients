@@ -34,6 +34,14 @@ export const STREAMS = {
     events: ["delta", "notice", "done", "error"],
     ends: { done: "end", error: "raise" },
   },
+  streamEvents: {
+    method: "GET",
+    path: "/v1/events/stream",
+    requestBody: null,
+    union: "StreamEventsEvent",
+    events: ["event", "done", "error"],
+    ends: { done: "end", error: "raise" },
+  },
 } as const;
 
 export type StreamOperation = keyof typeof STREAMS;

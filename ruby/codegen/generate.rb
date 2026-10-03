@@ -11,13 +11,18 @@
 #   streams.rb     one module per stream union, matching any of its branches
 #                  with `===` and decoding one event by name
 #   version.rb     VERSION, GEM_VERSION and GENERATED_FOR_VERSION
+#   events/catalogue.rb
+#                  the event union from x-lingara-events (ADR 30.9.26aa D3):
+#                  one class per outbound arm, UnknownEvent, the Event module,
+#                  InboundEvent and Lingara::Events.parse
 #
 # It refuses a models directory beside its output (<out>/models/) holding a
-# file named after a union: the ignore file passed to openapi-generator names
-# the four unions by path, and a fifth stream it does not name would
-# otherwise ship two types for one union. Standard library only; not shipped
-# in the gem.
+# file named after a union or an event arm: the ignore file passed to
+# openapi-generator names the five unions by path, and a stream it does not
+# name, or a component an arm's name collides with, would otherwise ship two
+# types for one name. Standard library only; not shipped in the gem.
 
+require "fileutils"
 require "json"
 require "optparse"
 
@@ -55,8 +60,10 @@ module LingaraCodegen
     ops.sort_by { |op| op[:id] }
   end
 
+  # The response model is the first 2xx's: sendEvent answers 202.
   def json_operation(path, method, op)
-    schema = op.dig("responses", "200", "content", "application/json", "schema")
+    success = op.fetch("responses", {}).keys.select { |code| code.match?(/\A2\d\d\z/) }.min
+    schema = op.dig("responses", success.to_s, "content", "application/json", "schema")
     {
       id: op["operationId"], method: method.upcase, path: path, path_params: path_params(path),
       needs_token: !Array(op["security"]).empty?, request_body: ref_name(op.dig("requestBody", "content", "application/json", "schema", "$ref")),
@@ -73,7 +80,7 @@ module LingaraCodegen
       id: entry.fetch("operationId"), method: entry.fetch("method").upcase, path: entry.fetch("path"),
       path_params: path_params(entry["path"]), needs_token: !Array(entry["scopes"]).empty?,
       request_body: ref_name(entry["requestBody"]), response: nil,
-      stream: {union: union, events: events, ends: endings(view, entry, events)}
+      stream: {union: union, events: events, ends: endings(view, entry, events), resumable: entry["resumable"] == true}
     }
   end
 
@@ -122,7 +129,10 @@ module LingaraCodegen
     if (stream = op[:stream])
       events = stream[:events].map { |name, branch| "#{name.inspect} => #{branch.inspect}" }.join(", ")
       ends = stream[:ends].map { |name, outcome| "#{name.inspect} => #{outcome.inspect}" }.join(", ")
-      fields << "stream: {union: #{stream[:union].inspect}, events: {#{events}}.freeze, ends: {#{ends}}.freeze}.freeze"
+      # Only a tail (K5a) says it resumes, so the four K5 streams' routes are
+      # unchanged.
+      resumable = stream[:resumable] ? ", resumable: true" : ""
+      fields << "stream: {union: #{stream[:union].inspect}, events: {#{events}}.freeze, ends: {#{ends}}.freeze#{resumable}}.freeze"
     else
       fields << "stream: nil"
     end
@@ -204,14 +214,165 @@ module LingaraCodegen
     end.parse!(argv)
     view = JSON.parse(File.read(options[:view]))
     ops = operations(view)
+    events = EventsCodegen.entries(view)
     refuse_generated_unions(options[:out], ops)
+    EventsCodegen.refuse_generated_arms(options[:out], events)
     version = File.read(options[:version]).strip
     files = {
       "operations.rb" => operations_rb(ops),
       "streams.rb" => streams_rb(ops),
-      "version.rb" => version_rb(version, view.dig("info", "version"))
+      "version.rb" => version_rb(version, view.dig("info", "version")),
+      "events/catalogue.rb" => EventsCodegen.catalogue_rb(events)
     }
+    FileUtils.mkdir_p(File.join(options[:out], "events"))
     files.each { |name, text| File.write(File.join(options[:out], name), text) }
+  end
+end
+
+# The event catalogue's emitter (ADR 30.9.26aa D3): x-lingara-events into
+# events/catalogue.rb. An outbound entry is an arm, named by the view's
+# `arm`, whose data is its component's generated model; a component with no
+# properties has none (openapi-generator writes no file for it), so that
+# arm's data stays a Hash. An inbound entry is an InboundEvent constructor,
+# named after its data component.
+module EventsCodegen
+  RESERVED = %w[Event UnknownEvent InboundEvent].freeze
+
+  module_function
+
+  def entries(view)
+    schemas = view.dig("components", "schemas") || {}
+    view.fetch("x-lingara-events", []).map do |entry|
+      component = LingaraCodegen.ref_name(entry.fetch("data"))
+      schema = schemas[component] || abort("generate.rb: #{entry["type"]}'s data #{component} is not a component")
+      if entry.fetch("direction") == "out"
+        arm = entry.fetch("arm")
+        abort("generate.rb: the arm #{arm} is a name the catalogue writes itself") if RESERVED.include?(arm)
+        {type: entry.fetch("type"), direction: :out, arm: arm, model: schema["properties"].to_h.empty? ? nil : component}
+      else
+        {type: entry.fetch("type"), direction: :in, model: component, constructor: LingaraCodegen.snake(component)}
+      end
+    end
+  end
+
+  # openapi-generator's model named after an arm would be a second type
+  # under that name: the arm is the catalogue's.
+  def refuse_generated_arms(out, entries)
+    entries.each do |entry|
+      next unless entry[:arm]
+      file = File.join(out, "models", "#{LingaraCodegen.snake(entry[:arm])}.rb")
+      next unless File.exist?(file)
+      abort("generate.rb: #{file} is openapi-generator's model named after the event arm #{entry[:arm]}; " \
+            "name it in codegen/ruby.openapi-generator-ignore")
+    end
+  end
+
+  def catalogue_rb(entries)
+    outbound = entries.select { |e| e[:direction] == :out }
+    inbound = entries.select { |e| e[:direction] == :in }
+    <<~RUBY
+      #{LingaraCodegen::HEADER.chomp}
+
+      require "json"
+
+      module Lingara
+        module Events
+          # The envelope's fields, in the order every arm holds them.
+          ENVELOPE = %i[id type created_at api_version subject data].freeze
+
+          # One outbound event. Every arm, UnknownEvent included, is an Event, so
+          # `case event in Lingara::Events::Event` matches any of them.
+          module Event
+          end
+
+      #{outbound.map { |e| arm_class(e) }.join("\n")}
+          # An event of a type this library does not know: data is the raw JSON
+          # object, as a Hash. The catalogue only grows, so acknowledge it.
+          UnknownEvent = Data.define(*ENVELOPE) { include Event }
+
+          module Event
+            # Each known type's arm and the name of its data model (nil: a Hash).
+            ARMS = {
+      #{outbound.map { |e| "        #{e[:type].inspect} => [#{e[:arm]}, #{e[:model].inspect}].freeze" }.join(",\n")}
+            }.freeze
+          end
+
+      #{inbound_class(inbound)}
+      #{parse_methods}  end
+      end
+    RUBY
+  end
+
+  def arm_class(entry)
+    data = entry[:model] ? "a Lingara::#{entry[:model]}" : "a Hash"
+    "    # #{entry[:type]}: data is #{data}.\n    #{entry[:arm]} = Data.define(*ENVELOPE) { include Event }\n"
+  end
+
+  def inbound_class(inbound)
+    constructors = inbound.map { |e| "    #{e[:type].inspect} => #{e[:constructor].to_sym.inspect}" }.join(",\n")
+    methods = inbound.map do |e|
+      <<~RUBY.gsub(/^/, "  ").chomp
+        # #{e[:type]}, from a Lingara::#{e[:model]} or the Hash one is built from.
+        def self.#{e[:constructor]}(data)
+          new(#{e[:type].inspect}, data.is_a?(Lingara::#{e[:model]}) ? data : Lingara::#{e[:model]}.new(data))
+        end
+      RUBY
+    end
+    <<~RUBY.gsub(/^(?=.)/, "    ").chomp
+      # An event a client sends with send_event: one constructor per inbound
+      # type, each taking its data model. It serialises as {type, data}; the
+      # server assigns the rest.
+      class InboundEvent
+        # Each inbound type's constructor.
+        CONSTRUCTORS = {
+      #{constructors}
+        }.freeze
+
+        attr_reader :type, :data
+
+        private_class_method :new
+
+      #{methods.join("\n\n")}
+
+        def initialize(type, data)
+          @type = type
+          @data = data
+          freeze
+        end
+
+        def to_hash
+          {"type" => @type, "data" => @data.to_hash}
+        end
+      end
+    RUBY
+  end
+
+  def parse_methods
+    <<~RUBY.gsub(/^(?=.)/, "    ")
+
+      # The Event for one envelope's JSON text: its arm for a known type, or
+      # UnknownEvent. Text that is not an envelope, or a known type whose data
+      # its model refuses, raises TransportError :malformed_event.
+      def self.parse(json)
+        decode(JSON.parse(json))
+      rescue JSON::ParserError
+        raise Lingara::TransportError.new(:malformed_event, "an event is not JSON")
+      end
+
+      # The same, from an envelope already parsed into a Hash.
+      def self.decode(fields)
+        raise Lingara::TransportError.new(:malformed_event, "an event is not a JSON object") unless fields.is_a?(Hash)
+        envelope = Lingara::EventEnvelope.build_from_hash(fields)
+        arm, model = Event::ARMS.fetch(envelope.type, [UnknownEvent, nil])
+        data = model ? Lingara.const_get(model).build_from_hash(envelope.data) : envelope.data
+        arm.new(id: envelope.id, type: envelope.type, created_at: envelope.created_at, api_version: envelope.api_version,
+          subject: envelope.subject, data: data)
+      rescue Lingara::Error
+        raise
+      rescue
+        raise Lingara::TransportError.new(:malformed_event, "an event does not decode")
+      end
+    RUBY
   end
 end
 

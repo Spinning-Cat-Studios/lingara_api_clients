@@ -20,6 +20,7 @@ import java.util.Spliterators;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -38,6 +39,10 @@ import java.util.stream.StreamSupport;
  * java.util.concurrent.CancellationException}; a {@code close()} on the iterating thread, such as a
  * {@code break} out of {@code try}-with-resources, ends iteration silently.
  *
+ * <p>{@link #cursor()} is the {@code id:} of the last frame that carried one. Only {@link
+ * LingaraClient#tailEvents}'s stream reads it, to resume after an ending (CONTRACT.md K5a; ADR
+ * 30.9.26aa D7); that stream reconnects itself, and its {@code cursor()} is the tail's.
+ *
  * @param <E> the operation's event union
  */
 public final class EventStream<E> implements Iterable<E>, AutoCloseable {
@@ -55,6 +60,8 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
   private final long idleNanos;
   private final String servedVersion;
   private final ObjectMapper mapper;
+  // The tail's stream: every event comes from it, and none of the fields above is used.
+  private final Tail<E> tail;
 
   private final AtomicBoolean iterated = new AtomicBoolean();
   private final AtomicBoolean finished = new AtomicBoolean();
@@ -73,6 +80,8 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
 
   private boolean ended;
   private E next;
+  // The id of the last frame that carried one; written and read on the iterating thread.
+  private volatile String cursor;
 
   EventStream(
       Streams.Route route, Decoder<E> decoder, InputStream body, Duration idle, Settings settings) {
@@ -82,7 +91,28 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
     this.idleNanos = idle.toNanos();
     this.servedVersion = settings.servedVersion().orElse(null);
     this.mapper = settings.mapper();
+    this.tail = null;
   }
+
+  /** A stream whose events, cursor and close are a reconnecting tail's (K5a). */
+  EventStream(Tail<E> tail) {
+    this.route = null;
+    this.decoder = null;
+    this.body = null;
+    this.idleNanos = 0;
+    this.servedVersion = null;
+    this.mapper = null;
+    this.tail = tail;
+  }
+
+  /**
+   * What a tail lends the stream that iterates it.
+   *
+   * @param events the events, which end only when the tail is closed
+   * @param cursor the tail's cursor
+   * @param close closes the tail
+   */
+  record Tail<E>(Iterator<E> events, Supplier<Optional<String>> cursor, Runnable close) {}
 
   /**
    * What a stream shares with its client.
@@ -99,6 +129,16 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
    */
   public Optional<String> servedVersion() {
     return Optional.ofNullable(servedVersion);
+  }
+
+  /**
+   * Returns the {@code id:} of the last frame that carried one, or for {@code tailEvents} the
+   * tail's cursor: hand it back as {@code cursor} to resume after the last event seen.
+   *
+   * @return the cursor, empty before any frame carried an {@code id:}
+   */
+  public Optional<String> cursor() {
+    return tail != null ? tail.cursor().get() : Optional.ofNullable(cursor);
   }
 
   /**
@@ -129,6 +169,10 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
   @Override
   public void close() {
     closed = true;
+    if (tail != null) {
+      tail.close().run();
+      return;
+    }
     finish();
   }
 
@@ -136,7 +180,7 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
     @Override
     public boolean hasNext() {
       if (next == null && !ended && !closed) {
-        next = advance();
+        next = tail != null ? fromTail() : advance();
       }
       return next != null;
     }
@@ -150,6 +194,10 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
       next = null;
       return event;
     }
+  }
+
+  private E fromTail() {
+    return tail.events().hasNext() ? tail.events().next() : null;
   }
 
   /** Reads until an event to yield, or the end; the watchdog runs only inside this call. */
@@ -211,6 +259,9 @@ public final class EventStream<E> implements Iterable<E>, AutoCloseable {
 
   /** What one frame means: skip it (null), yield it, end quietly, or raise. */
   private Step<E> interpret(SseDecoder.Frame frame) {
+    if (!frame.id().isEmpty()) {
+      cursor = frame.id();
+    }
     if (!route.events().contains(frame.event())) {
       return null;
     }

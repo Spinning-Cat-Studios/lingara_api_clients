@@ -97,6 +97,32 @@ func decodeSendTutorMessageEvent(name string, frame []byte) (SendTutorMessageEve
 	return nil, false, nil
 }
 
+// StreamEventsEvent is one event of streamEvents's stream: type-switch on its
+// concrete branch. The error branch, and a Done-bodied one, are never yielded.
+type StreamEventsEvent interface{ isStreamEventsEvent() }
+
+func (StreamEventsEventEvent) isStreamEventsEvent() {}
+func (StreamEventsEventDone) isStreamEventsEvent()  {}
+func (StreamEventsEventError) isStreamEventsEvent() {}
+
+func decodeStreamEventsEvent(name string, frame []byte) (StreamEventsEvent, bool, error) {
+	switch name {
+	case "event":
+		var e StreamEventsEventEvent
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	case "done":
+		var e StreamEventsEventDone
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	case "error":
+		var e StreamEventsEventError
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	}
+	return nil, false, nil
+}
+
 // StreamLessonPlanEvent is one event of streamLessonPlan's stream: type-switch on its
 // concrete branch. The error branch, and a Done-bodied one, are never yielded.
 type StreamLessonPlanEvent interface{ isStreamLessonPlanEvent() }

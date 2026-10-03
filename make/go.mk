@@ -29,7 +29,7 @@ GOFMT ?= gofmt
 GO_DIR := go
 GO_VIEW := $(SPEC_VIEW_DIR)/openapi.3.0.json
 GO_MODULES := go go/codegen go/conformance snippets/go
-GO_GENERATED := models_gen.go streams_gen.go routes_gen.go version_gen.go
+GO_GENERATED := models_gen.go streams_gen.go routes_gen.go version_gen.go events_gen.go
 GO_HARNESS := target/go-conformance
 
 # Pinned, and run with `go run`, so no go.mod ever names them. oapi-codegen's
@@ -43,8 +43,9 @@ CONFORMANCE_CMD_go = $(GO_HARNESS)
 
 .PHONY: codegen-go check-codegen-go test-go lint-go help-go $(GO_HARNESS)
 
-# Writes the four *_gen.go files into $(1): oapi-codegen's models (it writes
-# to stdout with no `output` key), then go/codegen's three.
+# Writes the five *_gen.go files into $(1): oapi-codegen's models (it writes
+# to stdout with no `output` key), then go/codegen's four (events_gen.go is
+# ADR 30.9.26aa D3's).
 define go_codegen
 	$(OAPI_CODEGEN) -config $(GO_DIR)/oapi-codegen.yaml $(GO_VIEW) > $(1)/models_gen.go
 	$(GO) -C $(GO_DIR)/codegen run . -view $(abspath $(GO_VIEW)) -version $(abspath VERSION) -out $(abspath $(1))

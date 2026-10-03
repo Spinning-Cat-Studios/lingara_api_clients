@@ -23,7 +23,7 @@ PHP_DIR := php
 PHP_SRC := $(PHP_DIR)/src
 PHP_VENDOR := $(PHP_DIR)/vendor/autoload.php
 # Every generated path under php/src/, relative to it.
-PHP_GENERATED := Model ObjectSerializer.php Stream Internal/Operations.php Version.php
+PHP_GENERATED := Model ObjectSerializer.php Stream Events/Generated Internal/Operations.php Version.php
 
 PHP_HARNESS := $(PHP) $(PHP_DIR)/conformance/harness.php
 CONFORMANCE_CMD_php = $(PHP_HARNESS) --client=symfony

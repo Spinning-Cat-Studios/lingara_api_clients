@@ -36,6 +36,61 @@ func TestFixtureViewYieldsUnionsRoutesAndVersion(t *testing.T) {
 	}
 }
 
+// TestFixtureViewYieldsTheEventUnion: ADR 30.9.26aa D3. Over the fixture's
+// x-lingara-events, events_gen.go has the sealed Event interface, one arm
+// per outbound entry holding its data model, UnknownEvent, a constructor per
+// inbound entry named from its data component, and ParseEvent's switch.
+func TestFixtureViewYieldsTheEventUnion(t *testing.T) {
+	version := filepath.Join(t.TempDir(), "VERSION")
+	if err := os.WriteFile(version, []byte("1.2.3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	files, err := generate("testdata/view.json", version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	events := flat(files["events_gen.go"])
+	for _, want := range []string{
+		"type Event interface { Meta() EventMeta isEvent() }",
+		"type WordLearned struct { EventMeta Data WordLearnedData `json:\"data\"` }",
+		"func (WordLearned) isEvent() {}",
+		"type PingTest struct { EventMeta Data PingTestData `json:\"data\"` }",
+		"type UnknownEvent struct { EventMeta",
+		"func (UnknownEvent) isEvent() {}",
+		`func InboundWorldChanged(data WorldChanged) InboundEvent { return InboundEvent{eventType: "world.changed", data: data} }`,
+		`case "word.learned": e := WordLearned{EventMeta: meta}`,
+		"return UnknownEvent{EventMeta: meta, Data: data}, nil",
+	} {
+		if !strings.Contains(events, want) {
+			t.Errorf("events_gen.go lacks %s", want)
+		}
+	}
+	if strings.Contains(events, "type WorldChanged") || strings.Contains(events, `case "world.changed"`) {
+		t.Error("an inbound entry got an arm")
+	}
+}
+
+// TestAnEventArmNamedLikeAModelIsRefused: ADR 30.9.26aa D3. An arm, or an
+// inbound constructor, that a generated model already names would declare
+// one Go type twice, so codegen refuses it; so is a component named Event.
+func TestAnEventArmNamedLikeAModelIsRefused(t *testing.T) {
+	schemas := map[string]schema{"WordLearnedData": {}, "WorldChanged": {}, "WordLearned": {}, "InboundWorldChanged": {}}
+	out := eventEntry{Type: "word.learned", Direction: "out", Arm: "WordLearned", Data: "#/components/schemas/WordLearnedData"}
+	in := eventEntry{Type: "world.changed", Direction: "in", Data: "#/components/schemas/WorldChanged"}
+	for name, entries := range map[string][]eventEntry{"arm": {out}, "constructor": {in}} {
+		if _, err := eventsSource(entries, schemas); err == nil || !strings.Contains(err.Error(), "second Go type") {
+			t.Errorf("%s: got %v", name, err)
+		}
+	}
+	if _, err := eventsSource(nil, map[string]schema{"Event": {}}); err == nil {
+		t.Error("a component named Event was accepted")
+	}
+	missing := eventEntry{Type: "a.b", Direction: "out", Arm: "AB", Data: "#/components/schemas/Nope"}
+	if _, err := eventsSource([]eventEntry{missing}, schemas); err == nil {
+		t.Error("an entry whose data is not a component was accepted")
+	}
+}
+
 // flat collapses whitespace: gofmt aligns columns, so every comparison is
 // over single spaces.
 func flat(src []byte) string { return strings.Join(strings.Fields(string(src)), " ") }

@@ -19,7 +19,7 @@ final class GeneratedCodeTest extends TestCase
 
     /**
      * 29.9.26u AC2: no line of src/Model/, src/ObjectSerializer.php,
-     * src/Stream/ or Operations.php names GuzzleHttp\ or the generator's
+     * src/Stream/, src/Events/Generated/ or Operations.php names GuzzleHttp\ or the generator's
      * Configuration, ApiException or HeaderSelector, and every `use` or
      * fully qualified name is under Lingara\, Psr\ or PHP's own classes.
      */
@@ -85,7 +85,7 @@ final class GeneratedCodeTest extends TestCase
     private static function generatedFiles(): array
     {
         $files = [self::SRC . '/ObjectSerializer.php', self::SRC . '/Internal/Operations.php', self::SRC . '/Version.php'];
-        foreach (['Model', 'Stream'] as $dir) {
+        foreach (['Model', 'Stream', 'Events/Generated'] as $dir) {
             $it = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator(self::SRC . "/{$dir}", \FilesystemIterator::SKIP_DOTS));
             foreach ($it as $file) {
                 if ($file instanceof \SplFileInfo && $file->getExtension() === 'php') {

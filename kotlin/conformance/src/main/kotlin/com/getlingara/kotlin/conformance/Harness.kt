@@ -103,9 +103,11 @@ private class Harness(
         val mismatches = mutableListOf<String>()
         for (step in (case["steps"] as? JsonArray).orEmpty().map { it.jsonObject }) {
             step["advance_clock_s"]?.let { rig.advance(it.jsonPrimitive.content.toLong()) }
-            val call = step["call"] as? JsonObject ?: continue
             val expect = Compare.substitute(step["expect"] ?: continue, env.base).jsonObject
-            mismatches += Observe.runStep(rig, call, expect)
+            (step["call"] as? JsonObject)?.let { mismatches += Observe.runStep(rig, it, expect) }
+            for (kind in listOf("events", "tail")) {
+                (step[kind] as? JsonObject)?.let { mismatches += EventSteps.runStep(rig, kind, it, expect) }
+            }
         }
         return mismatches
     }

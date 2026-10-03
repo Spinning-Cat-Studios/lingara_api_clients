@@ -271,10 +271,14 @@ class EventStreamTest {
       assertEquals(endsOn, route.endsOn().keySet(), id);
       assertTrue(route.events().containsAll(route.endsOn().keySet()), id);
       assertEquals(Streams.Ending.RAISE, route.endsOn().get(entry.path("error").asText()), id);
-      assertNotNull(
-          LingaraClient.class.getMethod(
-              id, route.pathParameters().isEmpty() ? route.requestBody() : String.class),
-          id);
+      // streamEvents has neither a body nor a path parameter: its no-argument overload.
+      Class<?>[] parameters =
+          !route.pathParameters().isEmpty()
+              ? new Class<?>[] {String.class}
+              : route.requestBody() == null
+                  ? new Class<?>[0]
+                  : new Class<?>[] {route.requestBody()};
+      assertNotNull(LingaraClient.class.getMethod(id, parameters), id);
     }
     assertEquals(operations, Streams.ROUTES.keySet());
   }

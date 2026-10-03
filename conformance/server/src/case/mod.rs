@@ -10,8 +10,10 @@
 #![allow(dead_code)]
 
 pub mod check;
+mod header;
 mod load;
 
+pub use header::{HeaderMatch, SameAs};
 pub use load::{Loaded, load_dir};
 #[cfg(test)]
 pub use load::parse;
@@ -22,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 /// The groups a case may live in; the directory name is the group.
-pub const GROUPS: &[&str] = &["op", "k1", "k2", "k3", "k4", "k5", "k6"];
+pub const GROUPS: &[&str] = &["op", "k1", "k2", "k3", "k4", "k5", "k5a", "k6"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Behaviour {
@@ -31,15 +33,18 @@ pub enum Behaviour {
     K3,
     K4,
     K5,
+    /// The tail: a stream that resumes (ADR 30.9.26aa D7).
+    K5a,
     K6,
 }
 
-pub const BEHAVIOURS: [Behaviour; 6] = [
+pub const BEHAVIOURS: [Behaviour; 7] = [
     Behaviour::K1,
     Behaviour::K2,
     Behaviour::K3,
     Behaviour::K4,
     Behaviour::K5,
+    Behaviour::K5a,
     Behaviour::K6,
 ];
 
@@ -103,12 +108,18 @@ pub enum BaseUrl {
     Unreachable,
 }
 
-/// One step: a call with its expectation, or a clock advance. A struct
-/// rather than an untagged enum, so a malformed step gets a readable error.
+/// One step: a call, the feed helper or the tail helper, with its
+/// expectation; or a clock advance. A struct rather than an untagged enum,
+/// so a malformed step gets a readable error.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Step {
     pub call: Option<Call>,
+    /// `client.events(…)`, iterated to its end (ADR 30.9.26aa D6, D9).
+    pub events: Option<FeedStep>,
+    /// `client.tailEvents(…)`: `take` events, then the harness stops it
+    /// (ADR 30.9.26aa D7, D9).
+    pub tail: Option<TailStep>,
     pub expect: Option<Expect>,
     pub advance_clock_s: Option<u64>,
 }
@@ -121,6 +132,25 @@ pub struct Call {
     pub body: Option<Value>,
     pub parallel: Option<u32>,
     pub cancel_after_events: Option<u32>,
+    /// Passed to `sendEvent` when present (ADR 30.9.26aa D8).
+    pub idempotency_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FeedStep {
+    pub cursor: Option<String>,
+    pub start: Option<String>,
+    pub types: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TailStep {
+    pub cursor: Option<String>,
+    pub start: Option<String>,
+    pub types: Option<Vec<String>>,
+    pub take: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -135,6 +165,12 @@ pub struct Expect {
     pub sleeps_s: Option<Vec<u64>>,
     pub hook_calls: Option<Vec<Value>>,
     pub redacted: Option<Vec<String>>,
+    /// The envelope `id` of each event a helper yielded, in order.
+    pub event_ids: Option<Vec<String>>,
+    /// The `type` of each yielded event that was `UnknownEvent`, in order.
+    pub unknown_types: Option<Vec<String>>,
+    /// The helper's final `cursor`.
+    pub cursor: Option<HeaderMatch>,
 }
 
 #[derive(Debug, Clone, Copy, Deserialize)]
@@ -203,51 +239,6 @@ pub struct Request {
     pub headers: Option<BTreeMap<String, HeaderMatch>>,
     pub json: Option<Value>,
     pub form: Option<BTreeMap<String, String>>,
-}
-
-/// One header matcher. Written as a one-key map (`{ prefix: … }`); read
-/// through `HeaderMatchSpec` because the YAML deserialiser spells an
-/// externally tagged enum as a `!tag`, not a map.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(try_from = "HeaderMatchSpec")]
-pub enum HeaderMatch {
-    Equals(String),
-    Prefix(String),
-    Contains(String),
-    Pattern(String),
-    Absent(bool),
-    Basic([String; 2]),
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct HeaderMatchSpec {
-    equals: Option<String>,
-    prefix: Option<String>,
-    contains: Option<String>,
-    pattern: Option<String>,
-    absent: Option<bool>,
-    basic: Option<[String; 2]>,
-}
-
-impl TryFrom<HeaderMatchSpec> for HeaderMatch {
-    type Error = String;
-
-    fn try_from(spec: HeaderMatchSpec) -> Result<Self, String> {
-        let all = [
-            spec.equals.map(HeaderMatch::Equals),
-            spec.prefix.map(HeaderMatch::Prefix),
-            spec.contains.map(HeaderMatch::Contains),
-            spec.pattern.map(HeaderMatch::Pattern),
-            spec.absent.map(HeaderMatch::Absent),
-            spec.basic.map(HeaderMatch::Basic),
-        ];
-        let mut set = all.into_iter().flatten();
-        match (set.next(), set.next()) {
-            (Some(one), None) => Ok(one),
-            _ => Err("a header matcher is exactly one of equals, prefix, contains, pattern, absent, basic".into()),
-        }
-    }
 }
 
 #[derive(Debug, Clone, Deserialize)]

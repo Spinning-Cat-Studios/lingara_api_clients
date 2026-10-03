@@ -65,7 +65,9 @@ that `await` and an in-stream failure from the stream's items.
 `get_lesson_plan`, `get_usage`, `get_open_api_document`, `list_api_versions`
 and `get_api_version` resolve to an `ApiResponse<T>`, which derefs to `T` and
 carries `served_version()`. The last three need no credentials, so
-`Client::builder().build()?` is enough for them.
+`Client::builder().build()?` is enough for them. The events methods
+(`list_events`, `events`, `stream_events`, `tail_events`, `send_event` and
+`get_async_api_document`) are under [Webhooks and events](#webhooks-and-events).
 
 - `EventStream` implements `futures_core::Stream`, and also has its own
   `next()`, so the quick start needs no `futures` import.
@@ -112,6 +114,7 @@ is the one way to read a token.
 | `max_attempts` | `3`; `1` turns retries off |
 | `retry_after_cap` | 60 s |
 | `stream_idle_timeout` | 120 s, counted only while a read is waiting |
+| `tail_max_failures` | 8: the consecutive failed opens `tail_events` rides out (91 s of sleeps) |
 | `token_request_timeout` | 30 s |
 | `user_agent_suffix` | none: appended after the library's own token |
 | `http_client` | a reqwest client with a 30 s connect timeout and no total timeout |
@@ -132,12 +135,103 @@ the call continues. Under `panic = "abort"` nothing can catch a panic, so
 keep the hook panic-free there.
 
 **The `version` option and the generated-for version.** The crate's models
-were generated from one frozen API version, which the warning below names. Leave
+were generated from one frozen API version, `lingara::GENERATED_FOR_VERSION`,
+which the warning below names. Leave
 `version` unset and your OAuth client's server-side pin decides what is
 served; the crate never sends a default. When a response is served from
 another version, the crate logs one `log::warn!` per served id: the
 response shapes may differ from the models. Pin the OAuth client (or set
 `version`) to the generated-for version, or upgrade the crate.
+
+## Webhooks and events
+
+Every event, through every door, is one envelope: `id`, `created_at`,
+`api_version`, `subject` and a typed `data`. `lingara::events::Event` is a
+`#[non_exhaustive]` enum with one variant per type (`LessonPlanReady`,
+`LessonPlanFailed`, `UsageThresholdReached`, `WebhookTest`, `AppInstalled`,
+`AppUninstalled`) plus `Unknown`; `event.id()` and `event.event_type()` read
+any of them.
+
+**Pin your client to the version this crate was generated for**,
+`lingara::GENERATED_FOR_VERSION`. An event's `data` is rendered at your
+client's pinned version, and the variants hold this crate's models.
+
+### Receiving webhooks
+
+```rust
+use lingara::events::Webhook;
+
+let webhook = Webhook::new(&std::env::var("LINGARA_WEBHOOK_SECRET")?)?; // Webhook::with_secrets([old, new]) during a rotation
+// In an axum handler: async fn hook(headers: HeaderMap, body: Bytes) -> StatusCode
+let event = webhook.verify(&body, &headers)?;
+```
+
+- **Verify the raw body first.** `verify` takes `&[u8]`, the bytes exactly as
+  they arrived; a body that has been parsed and re-serialised no longer
+  matches its signature. In axum, take the body as `Bytes` (not `Json`) and
+  pass the `HeaderMap` as-is. In actix-web, take `web::Bytes` and collect
+  the headers in one line:
+  `let headers: HashMap<String, String> = req.headers().iter().filter_map(|(k, v)| Some((k.to_string(), v.to_str().ok()?.to_owned()))).collect();`
+  Header names are matched case-insensitively either way.
+- A failure is a `VerifyError` (`MissingHeader`, `MalformedHeader`,
+  `TimestampTooOld`, `TimestampTooNew`, `NoMatchingSignature`,
+  `MalformedPayload`; `reason()` is the contract's snake_case name). It is
+  deliberately **not** a `lingara::Error`, so a `match` on API errors never
+  swallows a forged webhook. Answer it with a `400`.
+- `Webhook::new` returns `BuildError::InvalidWebhookSecret` for a secret that
+  is not `lgr_whsec_` plus padded base64. Its `Debug` never shows the secret.
+  The timestamp tolerance is 300 s and is not configurable.
+- **Answer `2xx` fast, and deduplicate by `event.id()`.** Delivery is at
+  least once and unordered, and a slow or failed answer is retried for about
+  a day. The verifier stores nothing.
+- **Acknowledge `Event::Unknown` too, and log it.** It is a type newer than
+  this crate. Refusing it would only make Lingara retry it.
+- `verify_signature` checks the signature and timestamp alone, for a signed
+  body that is not an event.
+
+### The feed
+
+`client.events(EventsOptions { cursor: saved, ..EventsOptions::default() })`
+walks `GET /v1/events` page by page, as a `Stream` of `Result<Event, Error>`
+with its own `next()`. When it ends, save `feed.cursor()`. It never sleeps
+or polls, so call it again later from that cursor. Without a cursor, `start`
+decides where to begin: `EventStart::Latest` (now, the default) or
+`EventStart::Oldest` (everything still kept). A cursor older than 30 days is
+`Error::Api` with `code` `cursor_expired`: start again with no cursor, or
+with `start: Some(EventStart::Oldest)` to take what is still retained.
+`list_events` is the single-page operation underneath.
+
+### The tail
+
+`client.tail_events(options)` follows the live stream, `GET
+/v1/events/stream`, and reconnects by itself: at once after the server's
+quarter-hourly `done`, and after a dropped connection with a backoff of 1, 2,
+4, 8, 16, 30 and 30 s. The eighth failure in a row is returned
+(`tail_max_failures` changes the bound), so an outage is never hidden for
+ever. Its `cursor()` is the same token as the feed's, so
+`tail_events(EventsOptions { cursor: feed.cursor().map(Into::into), ..EventsOptions::default() })`
+moves from catching up to live with no gap. Drop it to stop, during a
+reconnect sleep included. `stream_events` is the raw one-connection stream.
+
+### Sending events
+
+```rust
+use lingara::events::{InboundEvent, SendEventOptions};
+
+let event = InboundEvent::WorldContextChanged(scene);
+let accepted = client.send_event(&event, SendEventOptions { idempotency_key: Some("game-save-17/scene-4".into()) }).await?;
+```
+
+- Without an `idempotency_key` the library generates a UUIDv4 for the call
+  and sends it on every retry. Supply your own when your game may resend
+  after a crash, because a generated key does not outlive the call. A
+  transport failure is not retried; resend with your own key.
+- **A reused key returns the first answer**, even for a different event: the
+  server never compares bodies.
+- Only a `reaction` whose `plan_status` is `Some(PlanStatus::Generating)`
+  promises a `lesson_plan.ready` or `lesson_plan.failed` event. A `Partial`
+  or `Complete` plan was served from the library and can be read now; an
+  event may still arrive for it, so tolerate one.
 
 ## The contract
 

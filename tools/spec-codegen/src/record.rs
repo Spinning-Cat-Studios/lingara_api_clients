@@ -32,6 +32,7 @@ pub(crate) fn record(doc: &Value, s: &Stream) -> Result<Value, Refusal> {
         parameters.push(json!(r));
     }
     let ending = Ending::read(s)?;
+    check_tail(s, &ending)?;
     check_done(doc, s, &ending)?;
     Ok(json!({
         "operationId": op_id,
@@ -93,6 +94,27 @@ impl Ending {
 
 fn string_list(ext: &Map<String, Value>, key: &str) -> Option<Vec<String>> {
     ext.get(key)?.as_array()?.iter().map(|v| v.as_str().map(str::to_owned)).collect()
+}
+
+/// ADR 30.9.26aa D7: a resumable stream is accepted only as a *tail*, whose
+/// `error` is in `ends_on` (`Ending::read` already holds every stream to
+/// that) and whose every other ending carries `Done`, so an ending only moves
+/// the cursor. A stream that resumes and ends on a payload the caller needs
+/// stays C2's to decide.
+fn check_tail(s: &Stream, ending: &Ending) -> Result<(), Refusal> {
+    if !ending.resumable {
+        return Ok(());
+    }
+    let needs = s.branches.iter().find(|b| {
+        b.event != ending.error && ending.ends_on.contains(&b.event) && b.data_ref != DONE_REF
+    });
+    match needs {
+        Some(b) => Err(Refusal(format!(
+            "operation {}: a resumable stream ends on {:?}, whose payload is not Done, so it is not a tail",
+            s.op_id, b.event
+        ))),
+        None => Ok(()),
+    }
 }
 
 /// D2 ends a stream unyielded on a `Done` payload, which is only safe while

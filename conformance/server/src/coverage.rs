@@ -49,8 +49,10 @@ pub fn check(spec: &Value, view: &Value, cases: &[Loaded]) -> Vec<String> {
 
 /// Rule 5 over each `x-lingara-streams` entry of the view (ADR 29.9.26ai
 /// D3): every `endsOn` event is one of its `events`, no keepalive is longer
-/// than 15 s, and no stream is resumable. It reads the view and trusts no
-/// producer, so it overlaps `spec-codegen`'s own refusal on purpose.
+/// than 15 s, and a resumable entry names its `error` in `endsOn` (the K5a
+/// tail, ADR 30.9.26aa D7; the `Done`-payload half is `spec-codegen`'s). It
+/// reads the view and trusts no producer, so it overlaps `spec-codegen`'s
+/// own refusal on purpose.
 pub fn terminal_problems(view: &Value) -> Vec<String> {
     let streams = view.get("x-lingara-streams").and_then(Value::as_array).cloned().unwrap_or_default();
     streams.iter().flat_map(entry_problems).collect()
@@ -73,9 +75,10 @@ fn entry_problems(entry: &Value) -> Vec<String> {
             "`{op}`: keepalive every {secs} s exceeds {MAX_KEEPALIVE_SECONDS} s, so D6's 120 s idle timeout is no longer eight missed keepalives; re-decide it in C2 (29.9.26n D6)"
         ));
     }
-    if entry.get("resumable") == Some(&Value::Bool(true)) {
+    let error = entry.get("error").filter(|e| e.is_string());
+    if entry.get("resumable") == Some(&Value::Bool(true)) && !error.is_some_and(|e| ends_on.contains(e)) {
         problems.push(format!(
-            "`{op}`: the stream is resumable, which re-opens C2's decision to send no Last-Event-ID (29.9.26n, What We Explicitly Avoid)"
+            "`{op}`: the stream is resumable but does not end on its error event, so it is not a K5a tail; any other resumable stream re-opens C2's decision to send no Last-Event-ID (29.9.26n, What We Explicitly Avoid; ADR 30.9.26aa D7)"
         ));
     }
     problems
@@ -89,7 +92,7 @@ pub fn run(spec: &Path, view: &Path, cases_dir: &Path) -> i32 {
         (spec, view) => problems.extend([spec.err(), view.err()].into_iter().flatten()),
     }
     if problems.is_empty() {
-        println!("conformance coverage: {} cases cover every operation and K1–K6", cases.len());
+        println!("conformance coverage: {} cases cover every operation, K1–K6 and K5a", cases.len());
         return 0;
     }
     problems.iter().for_each(|p| eprintln!("✗ {p}"));

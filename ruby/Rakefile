@@ -12,7 +12,7 @@ end
 
 # The hand-written Ruby the budgets cover (ADR 29.9.26t D7): lib/ but its
 # generated files, codegen/, conformance/ and test/.
-GENERATED = FileList["lib/lingara/models/*.rb", "lib/lingara/operations.rb", "lib/lingara/streams.rb", "lib/lingara/version.rb"]
+GENERATED = FileList["lib/lingara/models/*.rb", "lib/lingara/operations.rb", "lib/lingara/streams.rb", "lib/lingara/version.rb", "lib/lingara/events/catalogue.rb"]
 HAND_WRITTEN = FileList["lib/**/*.rb", "codegen/**/*.rb", "conformance/**/*.rb", "test/**/*.rb"] - GENERATED
 
 namespace :budget do

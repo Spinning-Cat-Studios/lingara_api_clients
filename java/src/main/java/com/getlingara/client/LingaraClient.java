@@ -4,6 +4,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.getlingara.client.events.Event;
+import com.getlingara.client.events.EventFeed;
+import com.getlingara.client.events.EventTail;
+import com.getlingara.client.events.EventsRequest;
+import com.getlingara.client.events.InboundEvent;
+import com.getlingara.client.events.SendEventOptions;
 import com.getlingara.client.internal.Deprecations;
 import com.getlingara.client.internal.ErrorMapper;
 import com.getlingara.client.internal.Retry;
@@ -11,10 +18,13 @@ import com.getlingara.client.internal.SpecVersion;
 import com.getlingara.client.internal.Streams;
 import com.getlingara.client.internal.UserAgent;
 import com.getlingara.client.model.CreateLessonPlanEvent;
+import com.getlingara.client.model.EventPage;
 import com.getlingara.client.model.GenerateVocabularyEvent;
+import com.getlingara.client.model.InboundEventAccepted;
 import com.getlingara.client.model.LessonPlan;
 import com.getlingara.client.model.LessonPlanCreateRequest;
 import com.getlingara.client.model.SendTutorMessageEvent;
+import com.getlingara.client.model.StreamEventsEvent;
 import com.getlingara.client.model.StreamLessonPlanEvent;
 import com.getlingara.client.model.TutorTurnRequest;
 import com.getlingara.client.model.Usage;
@@ -31,7 +41,10 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * The Lingara API client (ADR 29.9.26r D4). Build one with {@link #builder()}; it is safe for
@@ -67,6 +80,7 @@ public final class LingaraClient {
   private final String clientId;
   private final Deprecations deprecations;
   private final ObjectMapper mapper;
+  private final int tailMaxFailures;
 
   LingaraClient(LingaraClientBuilder options, TokenSource tokens, HttpClient http) {
     this.http = http;
@@ -81,6 +95,7 @@ public final class LingaraClient {
     this.clientId = options.clientId;
     this.deprecations = new Deprecations(options.onDeprecation);
     this.mapper = mapper();
+    this.tailMaxFailures = options.tailMaxFailures;
   }
 
   /**
@@ -105,7 +120,7 @@ public final class LingaraClient {
   }
 
   /**
-   * Starts a client's options. With no credentials the client can call the three operations that
+   * Starts a client's options. With no credentials the client can call the four operations that
    * need no token.
    *
    * @return a builder with every default
@@ -114,7 +129,7 @@ public final class LingaraClient {
     return new Builder();
   }
 
-  // ── The nine operations ───────────────────────────────────────────────────────────────────
+  // ── The thirteen operations ───────────────────────────────────────────────────────────────
 
   /**
    * Streams a vocabulary list (scope {@code vocab:generate}).
@@ -204,6 +219,113 @@ public final class LingaraClient {
     return json("/v1/versions/" + encodeSegment(id), false, VersionDetail.class);
   }
 
+  /**
+   * Fetches the API's AsyncAPI document, which describes its events. It needs no token.
+   *
+   * @return the document
+   */
+  public ApiResponse<JsonNode> getAsyncApiDocument() {
+    return json("/v1/asyncapi.json", false, JsonNode.class);
+  }
+
+  // ── Events (ADR 30.9.26aa) ────────────────────────────────────────────────────────────────
+
+  /**
+   * Lists one page of events, oldest first (scope {@code events:read}). Send its {@code
+   * next_cursor} back as {@code cursor} to continue; {@link #events} does that for you.
+   *
+   * @param request the cursor or start, the types and the page size
+   * @return the page
+   */
+  public ApiResponse<EventPage> listEvents(EventsRequest request) {
+    String query = query(request.cursor(), request.start(), request.types(), request.limit());
+    return json(get("/v1/events" + query, "application/json"), EventPage.class);
+  }
+
+  /**
+   * Reads every event from {@code request}'s cursor up to now, page by page, each parsed into an
+   * {@link Event} (scope {@code events:read}). It never sleeps or polls; see {@link EventFeed}.
+   *
+   * @param request the cursor, or the start without one, and the types
+   * @return the feed, which sends its first request when first iterated
+   */
+  public EventFeed events(EventsRequest request) {
+    return new EventFeed(request, this::listEventsJson);
+  }
+
+  /**
+   * Opens one connection of the event stream from now, every type (scope {@code events:read}).
+   *
+   * @return the open stream
+   */
+  public EventStream<StreamEventsEvent> streamEvents() {
+    return streamEvents(EventsRequest.of());
+  }
+
+  /**
+   * Opens one connection of the event stream (scope {@code events:read}): K5's stream, which ends
+   * on {@code done} unyielded or raises its {@code error}. {@link #tailEvents} reconnects.
+   *
+   * @param request the cursor, start and types, sent as the query
+   * @return the open stream
+   */
+  public EventStream<StreamEventsEvent> streamEvents(EventsRequest request) {
+    String query = query(request.cursor(), request.start(), request.types(), null);
+    Call call = get(Streams.STREAM_EVENTS.path() + query, "text/event-stream");
+    return stream(Streams.STREAM_EVENTS, call, Streams::decodeStreamEvents);
+  }
+
+  /**
+   * Tails the event stream, reconnecting after every ending from the last {@code id:} seen
+   * (CONTRACT.md K5a; scope {@code events:read}). The first open is sent when the stream is first
+   * iterated; see {@link EventTail}. Its {@link EventStream#cursor()} hands over to and from {@link
+   * #events}.
+   *
+   * @param request the cursor, sent as {@code Last-Event-ID}, or the start without one, and the
+   *     types
+   * @return the tail, which ends only when closed or when its failures exceed the bound
+   */
+  public EventStream<Event> tailEvents(EventsRequest request) {
+    // Every reopen repeats the first URL: types, and start only when there was no cursor.
+    String start = request.cursor() == null ? request.start() : null;
+    String path = Streams.STREAM_EVENTS.path() + query(null, start, request.types(), null);
+    EventTail.Backoff backoff =
+        new EventTail.Backoff(policy.sleeper(), policy.cap(), tailMaxFailures);
+    EventTail tail = new EventTail(request.cursor(), id -> openTail(path, id), backoff);
+    return new EventStream<>(new EventStream.Tail<>(tail, tail::cursor, tail::close));
+  }
+
+  /**
+   * Sends one event from your game (scope {@code events:write}, and {@code lesson_plans:write} when
+   * it asks for generation), with a generated {@code Idempotency-Key}.
+   *
+   * @param event the event
+   * @return the accepted event; only {@code reaction.plan_status} {@code generating} promises a
+   *     {@code lesson_plan.*} event
+   */
+  public ApiResponse<InboundEventAccepted> sendEvent(InboundEvent event) {
+    return sendEvent(event, SendEventOptions.defaults());
+  }
+
+  /**
+   * Sends one event under the caller's {@code Idempotency-Key}, or a generated one: either way the
+   * same key on every K4 attempt, so a retry gets the first answer (ADR 30.9.26aa D8).
+   *
+   * @param event the event
+   * @param options the key, or none to generate a UUIDv4 once for this call
+   * @return the accepted event
+   */
+  public ApiResponse<InboundEventAccepted> sendEvent(InboundEvent event, SendEventOptions options) {
+    String key =
+        options.idempotencyKey() != null ? options.idempotencyKey() : UUID.randomUUID().toString();
+    ObjectNode body = mapper.createObjectNode().put("type", event.type());
+    body.set("data", mapper.valueToTree(event.data()));
+    Map<String, String> headers = Map.of("Idempotency-Key", key);
+    Call call =
+        new Call("POST", "/v1/events", bytes(body), "application/json", true, headers, false);
+    return json(call, InboundEventAccepted.class);
+  }
+
   @Override
   public String toString() {
     return "LingaraClient{baseUrl="
@@ -221,12 +343,33 @@ public final class LingaraClient {
 
   // ── The request pipeline ──────────────────────────────────────────────────────────────────
 
-  /** One {@code /v1} request, before auth. */
-  private record Call(String method, String path, byte[] body, String accept, boolean needsToken) {}
+  /**
+   * One {@code /v1} request, before auth: {@code headers} are its own ({@code Idempotency-Key},
+   * {@code Last-Event-ID}), and {@code once} sends it with no K4 loop, as a tail open does (K5a).
+   */
+  private record Call(
+      String method,
+      String path,
+      byte[] body,
+      String accept,
+      boolean needsToken,
+      Map<String, String> headers,
+      boolean once) {
+    Call(String method, String path, byte[] body, String accept, boolean needsToken) {
+      this(method, path, body, accept, needsToken, Map.of(), false);
+    }
+  }
+
+  private static Call get(String path, String accept) {
+    return new Call("GET", path, null, accept, true);
+  }
 
   private <T> ApiResponse<T> json(String path, boolean needsToken, Class<T> type) {
-    HttpResponse<InputStream> response =
-        send(new Call("GET", path, null, "application/json", needsToken));
+    return json(new Call("GET", path, null, "application/json", needsToken), type);
+  }
+
+  private <T> ApiResponse<T> json(Call call, Class<T> type) {
+    HttpResponse<InputStream> response = send(call);
     Optional<String> served = deprecations.observe(response.headers(), response.request().uri());
     byte[] body;
     try (InputStream in = response.body()) {
@@ -241,17 +384,35 @@ public final class LingaraClient {
     }
   }
 
+  private JsonNode listEventsJson(EventsRequest page) {
+    String query = query(page.cursor(), page.start(), page.types(), page.limit());
+    return json(get("/v1/events" + query, "application/json"), JsonNode.class).body();
+  }
+
+  /** One tail open: K1's refresh, but no K4 loop, and the cursor as {@code Last-Event-ID}. */
+  private EventStream<Event> openTail(String path, String lastEventId) {
+    Map<String, String> headers =
+        lastEventId == null ? Map.of() : Map.of("Last-Event-ID", lastEventId);
+    Call call = new Call("GET", path, null, "text/event-stream", true, headers, true);
+    return stream(Streams.STREAM_EVENTS, call, LingaraClient::tailEvent);
+  }
+
+  /** A tail's {@code event} frame, parsed into the union; the other two end the connection. */
+  private static Event tailEvent(String event, JsonNode data, ObjectMapper mapper) {
+    return "event".equals(event) ? Event.parse(data) : null;
+  }
+
   private <E> EventStream<E> open(
       Streams.Route route, Object body, String id, EventStream.Decoder<E> decoder) {
     String path = route.path().replace("{id}", id == null ? "" : encodeSegment(id));
-    byte[] payload;
-    try {
-      payload = body == null ? null : mapper.writeValueAsBytes(body);
-    } catch (IOException e) {
-      throw new IllegalArgumentException("the request body cannot be encoded as JSON", e);
-    }
-    HttpResponse<InputStream> response =
-        send(new Call(route.method(), path, payload, "text/event-stream", true));
+    byte[] payload = body == null ? null : bytes(body);
+    Call call = new Call(route.method(), path, payload, "text/event-stream", true);
+    return stream(route, call, decoder);
+  }
+
+  private <E> EventStream<E> stream(
+      Streams.Route route, Call call, EventStream.Decoder<E> decoder) {
+    HttpResponse<InputStream> response = send(call);
     if (!ErrorMapper.mediaType(response.headers()).equals("text/event-stream")) {
       Retry.discard(response);
       throw new TransportException(TransportKind.MALFORMED_RESPONSE, null);
@@ -298,6 +459,9 @@ public final class LingaraClient {
   }
 
   private HttpResponse<InputStream> attempts(Call call, AccessToken token) {
+    if (call.once()) {
+      return sendOnce(call, token);
+    }
     return Retry.withRetries(policy, () -> sendOnce(call, token));
   }
 
@@ -334,6 +498,7 @@ public final class LingaraClient {
     if (version != null) {
       builder.header("Lingara-Version", version);
     }
+    call.headers().forEach(builder::header);
     if (requestTimeout != null) {
       builder.timeout(requestTimeout);
     }
@@ -356,6 +521,34 @@ public final class LingaraClient {
       out.add(secret.exposeSecret());
     }
     return out;
+  }
+
+  private byte[] bytes(Object body) {
+    try {
+      return mapper.writeValueAsBytes(body);
+    } catch (IOException e) {
+      throw new IllegalArgumentException("the request body cannot be encoded as JSON", e);
+    }
+  }
+
+  /** An events query: each value encoded, and {@code types} one comma-separated value. */
+  static String query(String cursor, String start, List<String> types, Integer limit) {
+    List<String> pairs = new ArrayList<>();
+    if (cursor != null) {
+      pairs.add("cursor=" + encodeSegment(cursor));
+    }
+    if (start != null) {
+      pairs.add("start=" + encodeSegment(start));
+    }
+    if (!types.isEmpty()) {
+      String joined =
+          types.stream().map(LingaraClient::encodeSegment).collect(Collectors.joining(","));
+      pairs.add("types=" + joined);
+    }
+    if (limit != null) {
+      pairs.add("limit=" + limit);
+    }
+    return pairs.isEmpty() ? "" : "?" + String.join("&", pairs);
   }
 
   /** Percent-encodes everything but {@code A–Z a–z 0–9 - . _ ~}, as the other libraries do. */

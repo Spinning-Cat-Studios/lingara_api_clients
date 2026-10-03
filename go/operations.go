@@ -2,10 +2,12 @@ package lingara
 
 import "context"
 
-// The nine operations, thin: each takes its method and path from
-// routes_gen.go, so a renamed path is a codegen diff rather than a silent
-// break. A method's name is the operationId with its first letter upper-cased
-// and Go's initialisms applied (ADR 29.9.26q D3).
+// The operations, thin: each takes its method and path from routes_gen.go, so
+// a renamed path is a codegen diff rather than a silent break. A method's name
+// is the operationId with its first letter upper-cased and Go's initialisms
+// applied (ADR 29.9.26q D3). The three events operations, ListEvents,
+// StreamEvents and SendEvent, live beside their helpers in events_*.go (ADR
+// 30.9.26aa D10).
 
 // GenerateVocabulary streams a vocabulary list (scope vocab:generate).
 func (c *Client) GenerateVocabulary(ctx context.Context, body VocabRequest) (*Stream[GenerateVocabularyEvent], error) {
@@ -44,6 +46,12 @@ func (c *Client) GetUsage(ctx context.Context) (*Result[Usage], error) {
 // GetOpenAPIDocument fetches the API's OpenAPI document. It needs no token.
 func (c *Client) GetOpenAPIDocument(ctx context.Context) (*Result[map[string]any], error) {
 	return getJSON[map[string]any](ctx, c, "getOpenApiDocument", "")
+}
+
+// GetAsyncAPIDocument fetches the AsyncAPI document that describes the API's
+// events. It needs no token.
+func (c *Client) GetAsyncAPIDocument(ctx context.Context) (*Result[map[string]any], error) {
+	return getJSON[map[string]any](ctx, c, "getAsyncApiDocument", "")
 }
 
 // ListAPIVersions lists the API's versions. It needs no token.

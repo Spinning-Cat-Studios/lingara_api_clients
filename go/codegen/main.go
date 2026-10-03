@@ -1,5 +1,5 @@
-// Command codegen writes the Go library's streams_gen.go, routes_gen.go and
-// version_gen.go (ADR 29.9.26q D2). oapi-codegen writes the models but reads
+// Command codegen writes the Go library's streams_gen.go, routes_gen.go,
+// version_gen.go (ADR 29.9.26q D2) and events_gen.go (ADR 30.9.26aa D3). oapi-codegen writes the models but reads
 // neither x-lingara-streams nor, in models-only mode, any route, and its
 // oneOf output would import its runtime package. So this reads the same 3.0
 // generator view and writes, through go/format:
@@ -9,7 +9,10 @@
 //   - routes_gen.go: every operation's method and path, whether it needs a
 //     token, and for a stream its body, event names and terminal table;
 //   - version_gen.go: the library's Version, from VERSION, and the /v1
-//     version the models were generated from, from the view's info.version.
+//     version the models were generated from, from the view's info.version;
+//   - events_gen.go: x-lingara-events as the sealed Event interface, one arm
+//     per outbound type plus UnknownEvent, InboundEvent's constructors, and
+//     ParseEvent.
 //
 // It has no dependency, like the library it writes.
 package main
@@ -22,6 +25,7 @@ import (
 	"go/format"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -36,6 +40,7 @@ type view struct {
 	} `json:"info"`
 	Paths      map[string]map[string]json.RawMessage `json:"paths"`
 	Streams    []streamEntry                         `json:"x-lingara-streams"`
+	Events     []eventEntry                          `json:"x-lingara-events"`
 	Components struct {
 		Schemas map[string]schema `json:"schemas"`
 	} `json:"components"`
@@ -83,13 +88,22 @@ type stream struct {
 
 type event struct{ name, branch string }
 
+// eventEntry is one x-lingara-events entry (ADR 30.9.26aa D2). An outbound
+// entry carries arm; an inbound one does not.
+type eventEntry struct {
+	Type      string `json:"type"`
+	Direction string `json:"direction"`
+	Arm       string `json:"arm"`
+	Data      string `json:"data"`
+}
+
 // ending is one endsOn event and what it does (CONTRACT.md K5, Ending).
 type ending struct{ name, outcome string }
 
 func main() {
 	viewPath := flag.String("view", "", "the 3.0 generator view")
 	versionPath := flag.String("version", "", "the repository's VERSION file")
-	out := flag.String("out", "", "the directory to write the three files into")
+	out := flag.String("out", "", "the directory to write the four files into")
 	flag.Parse()
 	if *viewPath == "" || *versionPath == "" || *out == "" {
 		fmt.Fprintln(os.Stderr, "usage: codegen -view <openapi.3.0.json> -version <VERSION> -out <dir>")
@@ -106,7 +120,7 @@ func run(viewPath, versionPath, out string) error {
 	if err != nil {
 		return err
 	}
-	for _, name := range []string{"streams_gen.go", "routes_gen.go", "version_gen.go"} {
+	for _, name := range []string{"streams_gen.go", "routes_gen.go", "version_gen.go", "events_gen.go"} {
 		if err := os.WriteFile(filepath.Join(out, name), files[name], 0o644); err != nil {
 			return err
 		}
@@ -114,7 +128,7 @@ func run(viewPath, versionPath, out string) error {
 	return nil
 }
 
-// generate returns the three files' formatted bytes, keyed by file name.
+// generate returns the four files' formatted bytes, keyed by file name.
 func generate(viewPath, versionPath string) (map[string][]byte, error) {
 	raw, err := os.ReadFile(viewPath)
 	if err != nil {
@@ -135,10 +149,15 @@ func generate(viewPath, versionPath string) (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	events, err := eventsSource(v.Events, v.Components.Schemas)
+	if err != nil {
+		return nil, err
+	}
 	sources := map[string]string{
 		"streams_gen.go": streamsSource(routes),
 		"routes_gen.go":  routesSource(routes),
 		"version_gen.go": versionSource(strings.TrimSpace(string(version)), v.Info.Version),
+		"events_gen.go":  events,
 	}
 	files := make(map[string][]byte, len(sources))
 	for name, src := range sources {
@@ -321,4 +340,125 @@ const Version = %q
 // per version id (ADR 30.9.26a).
 const GeneratedForVersion = %q
 `, version, generatedFor)
+}
+
+// reservedEventNames are the types events_gen.go and events.go define
+// besides the arms, so no arm or component may take one (ADR 30.9.26aa D2).
+var reservedEventNames = []string{"Event", "UnknownEvent", "InboundEvent", "EventMeta"}
+
+// checkEvents refuses what would give two Go types one name: an arm or an
+// inbound constructor named like a generated model, which models_gen.go
+// would then declare as well, and a component named like one of
+// reservedEventNames. Each entry's data must be a component.
+func checkEvents(entries []eventEntry, schemas map[string]schema) error {
+	for _, name := range reservedEventNames {
+		if _, ok := schemas[name]; ok {
+			return fmt.Errorf("x-lingara-events: component %s is a name events_gen.go defines", name)
+		}
+	}
+	for _, e := range entries {
+		if _, ok := schemas[refName(e.Data)]; !ok {
+			return fmt.Errorf("x-lingara-events: %s: data %q is not a component", e.Type, e.Data)
+		}
+		name, err := eventTypeName(e)
+		if err != nil {
+			return err
+		}
+		if _, ok := schemas[name]; ok || slices.Contains(reservedEventNames, name) {
+			return fmt.Errorf("x-lingara-events: %s: %s would name a second Go type", e.Type, name)
+		}
+	}
+	return nil
+}
+
+// eventTypeName is the Go name an entry generates: an outbound entry's arm
+// type, or an inbound entry's constructor, Inbound plus its data component.
+func eventTypeName(e eventEntry) (string, error) {
+	switch {
+	case e.Direction == "out" && e.Arm != "":
+		return e.Arm, nil
+	case e.Direction == "in" && e.Arm == "":
+		return "Inbound" + refName(e.Data), nil
+	}
+	return "", fmt.Errorf("x-lingara-events: %s: direction %q with arm %q", e.Type, e.Direction, e.Arm)
+}
+
+// eventsPreamble opens events_gen.go: the union and its escape arm.
+const eventsPreamble = `
+// Event is one Lingara event, as a webhook, the feed or the tail delivers it
+// (ADR 30.9.26aa D3): type-switch on its arm. A type this library does not
+// know is an UnknownEvent, never an error.
+type Event interface {
+	Meta() EventMeta
+	isEvent()
+}
+
+// UnknownEvent is an event whose type this library does not know: a newer
+// catalogue's. Acknowledge it like any other, and log it.
+type UnknownEvent struct {
+	EventMeta
+	// Data is the event's data, as received.
+	Data json.RawMessage ` + "`json:\"data\"`" + `
+}
+
+func (UnknownEvent) isEvent() {}
+`
+
+func eventsSource(entries []eventEntry, schemas map[string]schema) (string, error) {
+	if err := checkEvents(entries, schemas); err != nil {
+		return "", err
+	}
+	var b strings.Builder
+	b.WriteString(header + "\nimport \"encoding/json\"\n" + eventsPreamble)
+	for _, e := range entries {
+		if e.Direction == "out" {
+			fmt.Fprintf(&b, "\n// %s is the %s event.\ntype %s struct {\n\tEventMeta\n\tData %s `json:\"data\"`\n}\n\nfunc (%s) isEvent() {}\n",
+				e.Arm, e.Type, e.Arm, refName(e.Data), e.Arm)
+		}
+	}
+	writeInbound(&b, entries)
+	writeParseEvent(&b, entries)
+	return b.String(), nil
+}
+
+// writeInbound writes InboundEvent and one constructor per inbound entry,
+// named from its data component, never from its type (ADR 30.9.26aa D2).
+func writeInbound(b *strings.Builder, entries []eventEntry) {
+	b.WriteString(`
+// InboundEvent is an event for SendEvent. Build one with a constructor: each
+// fixes the wire type its data belongs to. The zero value is refused.
+type InboundEvent struct {
+	eventType string
+	data      any
+}
+`)
+	for _, e := range entries {
+		if e.Direction == "in" {
+			data := refName(e.Data)
+			fmt.Fprintf(b, "\n// Inbound%s is the %s event.\nfunc Inbound%s(data %s) InboundEvent {\n\treturn InboundEvent{eventType: %q, data: data}\n}\n",
+				data, e.Type, data, data, e.Type)
+		}
+	}
+}
+
+// writeParseEvent writes ParseEvent: the envelope first, then a switch on its
+// type that decodes data into the arm's model.
+func writeParseEvent(b *strings.Builder, entries []eventEntry) {
+	b.WriteString(`
+// ParseEvent reads one event envelope. A known type whose data does not
+// decode is an error; an unknown type is an UnknownEvent.
+func ParseEvent(raw []byte) (Event, error) {
+	meta, data, err := readEnvelope(raw)
+	if err != nil {
+		return nil, err
+	}
+	switch meta.Type {
+`)
+	for _, e := range entries {
+		if e.Direction == "out" {
+			fmt.Fprintf(b, "\tcase %q:\n\t\te := %s{EventMeta: meta}\n\t\tif err := decodeEventData(meta.Type, data, &e.Data); err != nil {\n\t\t\treturn nil, err\n\t\t}\n\t\treturn e, nil\n",
+				e.Type, e.Arm)
+		}
+	}
+	b.WriteString("\t}\n\treturn UnknownEvent{EventMeta: meta, Data: data}, nil\n}\n")
 }

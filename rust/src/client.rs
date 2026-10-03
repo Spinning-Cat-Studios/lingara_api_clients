@@ -1,6 +1,7 @@
-//! The client and its nine operations (CONTRACT.md K1–K6; ADR 29.9.26p D4).
-//! Its options are `ClientBuilder`'s (`builder.rs`); auth, retries and error
-//! mapping are the request pipeline's (`pipeline.rs`).
+//! The client and its nine original operations (CONTRACT.md K1–K6; ADR
+//! 29.9.26p D4). The events operations and helpers are `events/`'s (ADR
+//! 30.9.26aa D10). Its options are `ClientBuilder`'s (`builder.rs`); auth,
+//! retries and error mapping are the request pipeline's (`pipeline.rs`).
 
 use std::fmt;
 use std::ops::Deref;
@@ -34,6 +35,8 @@ pub(crate) struct Inner {
     pub versions: VersionObserver,
     pub policy: RetryPolicy,
     pub idle: Duration,
+    /// K5a's bound on consecutive failed tail opens.
+    pub tail_max_failures: u32,
     pub user_agent: String,
     pub tokens: Option<Arc<dyn TokenSource>>,
     /// Kept beside `tokens` only so `Debug` can render the client id.

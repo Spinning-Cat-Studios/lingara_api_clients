@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Lingara;
 
+use Lingara\Events\EventFeed;
+use Lingara\Events\EventTail;
+use Lingara\Events\Generated\InboundEvent;
 use Lingara\Exception\LingaraException;
 use Lingara\Exception\TransportException;
 use Lingara\Exception\TransportKind;
@@ -17,6 +20,8 @@ use Lingara\Internal\Secrets;
 use Lingara\Internal\SystemClock;
 use Lingara\Internal\Transport;
 use Lingara\Internal\UserAgent;
+use Lingara\Model\EventPage;
+use Lingara\Model\InboundEventAccepted;
 use Lingara\Model\LessonPlan;
 use Lingara\Model\LessonPlanCreateRequest;
 use Lingara\Model\ModelInterface;
@@ -41,10 +46,11 @@ use Psr\SimpleCache\CacheInterface;
  *     );
  *     $usage = $client->getUsage()->value;
  *
- * Omit both credentials for a client that calls only the three public
+ * Omit both credentials for a client that calls only the four public
  * operations. `clock` and `sleeper` are testing seams: the clock is read for
  * token freshness and HTTP-date Retry-After values, and the sleeper is handed
- * every Retry-After wait in seconds.
+ * every Retry-After wait, and every tail reconnect delay, in seconds.
+ * `tailMaxFailures` bounds tailEvents()' consecutive failed reopens (K5a).
  */
 final class Client
 {
@@ -58,6 +64,8 @@ final class Client
     private readonly Retry $retry;
     private readonly Deprecations $deprecations;
     private readonly string $userAgent;
+    /** @var \Closure(float): void */
+    private readonly \Closure $sleeper;
 
     /**
      * @param list<string>|null                    $scopes
@@ -87,9 +95,13 @@ final class Client
         ?ClockInterface $clock = null,
         ?callable $sleeper = null,
         ?HttpStack $http = null,
+        private readonly int $tailMaxFailures = 8,
     ) {
         $credentials = compact('clientId', 'clientSecret', 'authMethod', 'scopes', 'tokenCache');
         self::check($credentials, $tokenSource, $version, $streamIdleTimeout);
+        if ($tailMaxFailures < 1) {
+            throw new \InvalidArgumentException('tailMaxFailures must be at least 1');
+        }
         $http ??= HttpStack::detect();
         $clock ??= new SystemClock();
         $sleeper ??= self::defaultSleeper(...);
@@ -98,6 +110,7 @@ final class Client
         $this->handle = Secrets::handle();
         Secrets::put($this->handle, 'transport', $http->transport($streamIdleTimeout, $tokenRequestTimeout));
         $this->retry = new Retry($maxAttempts, $retryAfterCap, $clock, $sleeper);
+        $this->sleeper = \Closure::fromCallable($sleeper);
         $this->deprecations = new Deprecations($onDeprecation, $logger);
         $this->userAgent = UserAgent::build($userAgentSuffix);
         $this->tokenSource = $tokenSource ?? ($clientId === null || $clientSecret === null ? null : new ClientCredentials(
@@ -118,7 +131,7 @@ final class Client
         ));
     }
 
-    // ── The nine operations, over Operations ──────────────────────────────
+    // ── The thirteen operations, over Operations ──────────────────────────
 
     /** Streams a vocabulary list (scope vocab:generate). */
     public function generateVocabulary(VocabRequest $request): EventStream
@@ -172,6 +185,97 @@ final class Client
     public function getOpenApiDocument(): ApiResponse
     {
         return $this->json('getOpenApiDocument', [], \stdClass::class);
+    }
+
+    /**
+     * The API's AsyncAPI document, which lists its events, decoded as
+     * objects. Needs no token.
+     *
+     * @return ApiResponse<\stdClass>
+     */
+    public function getAsyncApiDocument(): ApiResponse
+    {
+        return $this->json('getAsyncApiDocument', [], \stdClass::class);
+    }
+
+    /**
+     * One page of events (scope events:read): the page as it was sent.
+     * events() walks every page and parses each item into an Event.
+     *
+     * @param list<string>|null $types
+     *
+     * @return ApiResponse<EventPage>
+     */
+    public function listEvents(?string $cursor = null, ?string $start = null, ?array $types = null, ?int $limit = null): ApiResponse
+    {
+        return $this->json('listEvents', [], EventPage::class, EventFeed::query($cursor, $start, $types, $limit));
+    }
+
+    /**
+     * Every event after `cursor`, page after page, to the end of the feed
+     * (scope events:read; ADR 30.9.26aa D6). Without a cursor, `start` is
+     * `latest` (the server's default) or `oldest`. Nothing is sent until the
+     * feed is iterated.
+     *
+     * @param list<string>|null $types
+     */
+    public function events(?string $cursor = null, ?string $start = null, ?array $types = null): EventFeed
+    {
+        return new EventFeed($this->eventPage(...), $cursor, $start, $types);
+    }
+
+    /**
+     * One connection to the events stream, under K5 (scope events:read): it
+     * ends on `done`, unyielded, or throws its `error`. tailEvents() is the
+     * stream that reconnects; this is the raw operation it is built on.
+     *
+     * @param list<string>|null $types
+     */
+    public function streamEvents(?string $cursor = null, ?string $start = null, ?array $types = null, ?string $lastEventId = null): EventStream
+    {
+        $headers = $lastEventId === null ? [] : ['Last-Event-ID' => $lastEventId];
+        return $this->stream('streamEvents', [], null, EventFeed::query($cursor, $start, $types), $headers);
+    }
+
+    /**
+     * Every event after `cursor`, live, reconnecting after every ending
+     * (scope events:read; K5a, ADR 30.9.26aa D7). The cursor is sent as
+     * Last-Event-ID, so `tailEvents(cursor: $feed->cursor())` takes over from
+     * the feed with no gap. Nothing is sent until the tail is iterated.
+     *
+     * @param list<string>|null $types
+     */
+    public function tailEvents(?string $cursor = null, ?string $start = null, ?array $types = null): EventTail
+    {
+        // The first request's URL is every reopen's: Last-Event-ID, never a
+        // cursor query, carries the position.
+        $query = EventFeed::query(null, $cursor === null ? $start : null, $types);
+        $open = fn(?string $lastEventId): EventStream => $this->stream(
+            'streamEvents',
+            [],
+            null,
+            $query,
+            $lastEventId === null ? [] : ['Last-Event-ID' => $lastEventId],
+            false,
+        );
+        return new EventTail($open, $cursor, $this->sleeper, $this->tailMaxFailures, $this->retry->retryAfterCap);
+    }
+
+    /**
+     * Sends one event from the game (scope events:write, and
+     * lesson_plans:write when it asks for generation; ADR 30.9.26aa D8).
+     * Without `idempotencyKey`, a UUIDv4 is made once for this call and sent
+     * on every K4 attempt, so a retried 429 or 503 gets the first answer.
+     * Pass your own key to resend safely after a crash: a reused key returns
+     * the first answer, whatever the body.
+     *
+     * @return ApiResponse<InboundEventAccepted>
+     */
+    public function sendEvent(InboundEvent $event, ?string $idempotencyKey = null): ApiResponse
+    {
+        $headers = ['Idempotency-Key' => $idempotencyKey ?? self::uuid4()];
+        $payload = json_encode($event, JSON_THROW_ON_ERROR);
+        return $this->json('sendEvent', [], InboundEventAccepted::class, [], $headers, $payload);
     }
 
     /**
@@ -247,33 +351,67 @@ final class Client
     }
 
     /**
-     * $model is the operation's `200` schema, as Operations names it, or
+     * $model is the operation's success schema, as Operations names it, or
      * \stdClass for a bare `type: object`; ClientTest holds the two together.
      *
      * @template T of object
      *
-     * @param list<string>    $args
-     * @param class-string<T> $model
+     * @param list<string>          $args
+     * @param class-string<T>       $model
+     * @param array<string, string> $query
+     * @param array<string, string> $headers
      *
      * @return ApiResponse<T>
      */
-    private function json(string $operationId, array $args, string $model): ApiResponse
+    private function json(string $operationId, array $args, string $model, array $query = [], array $headers = [], ?string $payload = null): ApiResponse
     {
         $operation = Operations::OPERATIONS[$operationId];
-        $url = $this->url($operation['path'], $operation['pathParams'], $args);
-        [$response, $token] = $this->send($operationId, $url, null);
+        $url = $this->url($operation['path'], $operation['pathParams'], $args, $query);
+        [$response, $token] = $this->send($operationId, $url, $payload, $headers);
         $served = $this->deprecations->observe($response, $url);
         $body = $this->transport()->readAll($response->getBody(), $this->streamIdleTimeout, self::secrets($token));
         return new ApiResponse($this->decodeResponse($model, $body), $served);
     }
 
-    /** @param list<string> $args */
-    private function stream(string $operationId, array $args, ?ModelInterface $request): EventStream
+    /**
+     * One listEvents page for EventFeed, decoded as objects but not as a
+     * model: the feed parses each item into an Event itself.
+     *
+     * @param array<string, string> $query
+     */
+    private function eventPage(array $query): mixed
     {
+        $url = $this->url(Operations::OPERATIONS['listEvents']['path'], [], [], $query);
+        [$response, $token] = $this->send('listEvents', $url, null);
+        $this->deprecations->observe($response, $url);
+        $body = $this->transport()->readAll($response->getBody(), $this->streamIdleTimeout, self::secrets($token));
+        try {
+            return Json::decode($body);
+        } catch (\JsonException) {
+            throw new TransportException(TransportKind::MalformedResponse, 'the response body does not decode');
+        }
+    }
+
+    /**
+     * A stream, once its headers are in. $retry false bypasses K4's attempt
+     * loop, as a tail's open does (K5a).
+     *
+     * @param list<string>          $args
+     * @param array<string, string> $query
+     * @param array<string, string> $headers
+     */
+    private function stream(
+        string $operationId,
+        array $args,
+        ?ModelInterface $request,
+        array $query = [],
+        array $headers = [],
+        bool $retry = true,
+    ): EventStream {
         $operation = Operations::OPERATIONS[$operationId];
-        $url = $this->url($operation['path'], $operation['pathParams'], $args);
+        $url = $this->url($operation['path'], $operation['pathParams'], $args, $query);
         $payload = $request === null ? null : json_encode(ObjectSerializer::sanitizeForSerialization($request), JSON_THROW_ON_ERROR);
-        [$response, $token] = $this->send($operationId, $url, $payload);
+        [$response, $token] = $this->send($operationId, $url, $payload, $headers, $retry);
         if (ErrorMapper::mediaType($response) !== 'text/event-stream') {
             $response->getBody()->close();
             throw new TransportException(TransportKind::MalformedResponse, 'a 200 stream answered ' . ErrorMapper::mediaType($response));
@@ -285,29 +423,34 @@ final class Client
 
     /**
      * Sends one call: its token and K1's one 401 retry, K4's Retry-After loop
-     * (a fresh budget for the retried request), and the refusal mapping.
-     * Returns a 2xx response and the token it carried. A client with no
-     * token source sends an operation that needs one without Authorization;
-     * the server's 401 is the answer.
+     * (a fresh budget for the retried request; none when $retry is false),
+     * and the refusal mapping. $headers go on every attempt, so an
+     * Idempotency-Key is the same on each (ADR 30.9.26aa D8). Returns a 2xx
+     * response and the token it carried. A client with no token source sends
+     * an operation that needs one without Authorization; the server's 401 is
+     * the answer.
      *
      * No closure here captures a raw token: a closure's captured variables
      * show in any dump of a stack frame that holds it.
+     *
+     * @param array<string, string> $headers
      *
      * @return array{ResponseInterface, ?AccessToken}
      *
      * @throws LingaraException
      */
-    private function send(string $operationId, string $url, ?string $payload): array
+    private function send(string $operationId, string $url, ?string $payload, array $headers = [], bool $retry = true): array
     {
         $operation = Operations::OPERATIONS[$operationId];
         $tokens = $operation['needsToken'] ? $this->tokenSource : null;
         $token = $tokens?->token();
-        $response = $this->retry->run(fn(): ResponseInterface => $this->attempt($operation, $url, $payload, $token));
+        $call = ['url' => $url, 'payload' => $payload, 'headers' => $headers];
+        $response = $this->attempts($retry, fn(): ResponseInterface => $this->attempt($operation, $call, $token));
         if ($tokens !== null && $token !== null && $response->getStatusCode() === 401) {
             $response->getBody()->close();
             $tokens->invalidate($token);
             $token = $tokens->token();
-            $response = $this->retry->run(fn(): ResponseInterface => $this->attempt($operation, $url, $payload, $token));
+            $response = $this->attempts($retry, fn(): ResponseInterface => $this->attempt($operation, $call, $token));
         }
         $status = $response->getStatusCode();
         if ($status < 200 || $status > 299) {
@@ -333,14 +476,26 @@ final class Client
         return $transport instanceof Transport ? $transport : throw new \LogicException('the client has no transport');
     }
 
-    /** @param array{method: string, stream: mixed} $operation */
-    private function attempt(array $operation, string $url, ?string $payload, ?AccessToken $token): ResponseInterface
+    /** @param callable(): ResponseInterface $attempt */
+    private function attempts(bool $retry, callable $attempt): ResponseInterface
     {
-        $request = $this->transport()->request($operation['method'], $url)
+        return $retry ? $this->retry->run($attempt) : $attempt();
+    }
+
+    /**
+     * @param array{method: string, stream: mixed}                                $operation
+     * @param array{url: string, payload: ?string, headers: array<string, string>} $call
+     */
+    private function attempt(array $operation, array $call, ?AccessToken $token): ResponseInterface
+    {
+        $request = $this->transport()->request($operation['method'], $call['url'])
             ->withHeader('Accept', $operation['stream'] === null ? 'application/json' : 'text/event-stream')
             ->withHeader('User-Agent', $this->userAgent);
-        if ($payload !== null) {
-            $request = $request->withHeader('Content-Type', 'application/json')->withBody($this->transport()->body($payload));
+        foreach ($call['headers'] as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        if ($call['payload'] !== null) {
+            $request = $request->withHeader('Content-Type', 'application/json')->withBody($this->transport()->body($call['payload']));
         }
         if ($token !== null) {
             $request = $request->withHeader('Authorization', 'Bearer ' . $token->exposeSecret());
@@ -353,12 +508,13 @@ final class Client
 
     /**
      * The base URL and the route's path, each path parameter percent-encoded
-     * but for A–Z a–z 0–9 - . _ ~.
+     * but for A–Z a–z 0–9 - . _ ~, then the query, if any, encoded alike.
      *
-     * @param list<string> $names
-     * @param list<string> $args
+     * @param list<string>          $names
+     * @param list<string>          $args
+     * @param array<string, string> $query
      */
-    private function url(string $path, array $names, array $args): string
+    private function url(string $path, array $names, array $args, array $query = []): string
     {
         foreach ($names as $i => $name) {
             $value = $args[$i] ?? '';
@@ -367,7 +523,16 @@ final class Client
             }
             $path = str_replace("{{$name}}", rawurlencode($value), $path);
         }
-        return $this->baseUrl . $path;
+        return $this->baseUrl . $path . ($query === [] ? '' : '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986));
+    }
+
+    /** A UUIDv4 from the platform CSPRNG, for an Idempotency-Key (K4; ADR 30.9.26aa D8). */
+    private static function uuid4(): string
+    {
+        $bytes = random_bytes(16);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
     }
 
     /**

@@ -1,12 +1,14 @@
-# The four stream unions and their branch components are
+# The five stream unions and their branch components are
 # php/codegen/generate.php's, not openapi-generator's (ADR 29.9.26u D2): its
 # PHP `oneOf` model is the {event, data} wrapper and picks its branch from
 # inside the decoded object. One glob per union covers the union and every
 # `<Union><Event>` branch. The leading `**/` matches the root-relative
 # src/Model/<file>, as for Ruby. generate.php refuses a model directory
-# holding any of these names, so a fifth stream this file does not name
-# fails codegen-php.
+# holding any of these names, so a sixth stream this file does not name
+# fails codegen-php. StreamEventsEvent is the events tail's union (ADR
+# 30.9.26aa).
 **/Model/GenerateVocabularyEvent*.php
 **/Model/CreateLessonPlanEvent*.php
 **/Model/StreamLessonPlanEvent*.php
 **/Model/SendTutorMessageEvent*.php
+**/Model/StreamEventsEvent*.php

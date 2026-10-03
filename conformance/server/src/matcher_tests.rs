@@ -199,3 +199,38 @@ exchanges:
     assert!(exchanges.take(&request("POST", "/v1/vocab/stream", &[], "{\"level\":3}")).is_err());
     assert!(exchanges.take(&request("POST", "/v1/vocab/stream", &[], "{\"level\": 2}")).is_ok());
 }
+
+const SAME_KEY: &str = "
+id: k4.same-key
+title: t
+behaviours: [K4]
+steps:
+  - call: { operation: sendEvent }
+    expect: { outcome: completed }
+exchanges:
+  items:
+    - request: { method: POST, path: /v1/events, headers: { idempotency-key: { pattern: '^[0-9a-f-]{36}$' } } }
+      response: { status: 429, headers: { retry-after: 1 } }
+    - request: { method: POST, path: /v1/events, headers: { idempotency-key: { same_as: { request: 0, header: idempotency-key } } } }
+      response: { status: 202 }
+";
+
+/// 30.9.26aa AC15: `same_as` passes a header equal to the one an earlier
+/// item's request carried, and fails a different one without consuming it.
+#[test]
+fn same_as_compares_with_an_earlier_request() {
+    let key = "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37";
+    let case = loaded("k4/same-key.yaml", SAME_KEY);
+    let mut exchanges = Exchanges::new(&case.case);
+    assert!(exchanges.take(&request("POST", "/v1/events", &[("idempotency-key", key)], "")).is_ok());
+    let other = request("POST", "/v1/events", &[("idempotency-key", "0f1e2d3c-4b5a-4978-8796-a5b4c3d2e1f0")], "");
+    let refused = exchanges.take(&other).unwrap_err();
+    assert!(refused.reason.contains("is not item 0's `idempotency-key`"), "{}", refused.reason);
+    let missing = exchanges.take(&request("POST", "/v1/events", &[], "")).unwrap_err();
+    assert!(missing.reason.contains("idempotency-key"), "{}", missing.reason);
+    assert!(exchanges.take(&request("POST", "/v1/events", &[("idempotency-key", key)], "")).is_ok());
+
+    let forward = SAME_KEY.replace("request: 0", "request: 1");
+    let err = crate::case::parse(&forward, std::path::Path::new("k4/same-key.yaml")).unwrap_err();
+    assert!(err.contains("same_as: item 1 is not an earlier item"), "{err}");
+}

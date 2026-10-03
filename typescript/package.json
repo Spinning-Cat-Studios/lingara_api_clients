@@ -1,6 +1,6 @@
 {
   "name": "@lingara/api",
-  "version": "0.1.0-alpha.6",
+  "version": "0.1.0-alpha.10",
   "description": "The official Lingara API library for Node, Deno and Bun. No runtime dependencies.",
   "license": "MIT",
   "repository": {
@@ -41,7 +41,7 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
-    "codegen": "openapi-typescript ../spec/generator/openapi.3.1.json -o src/generated/schema.ts && node scripts/codegenStreams.mjs ../spec/generator/openapi.3.1.json src/generated/streams.ts",
+    "codegen": "openapi-typescript ../spec/generator/openapi.3.1.json -o src/generated/schema.ts && node scripts/codegenStreams.mjs ../spec/generator/openapi.3.1.json src/generated/streams.ts && node scripts/codegenEvents.mjs ../spec/generator/openapi.3.1.json src/generated/events.ts",
     "check": "eslint . && tsc --noEmit"
   },
   "devDependencies": {
@@ -51,6 +51,7 @@
     "eslint": "^10.11.0",
     "openapi-typescript": "^7.13.0",
     "publint": "^0.3.24",
+    "standardwebhooks": "^1.1.1",
     "tsup": "^8.5.1",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.71.0",

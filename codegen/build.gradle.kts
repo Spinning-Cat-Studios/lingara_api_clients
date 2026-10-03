@@ -86,8 +86,18 @@ val generateJavaStreams = tasks.register<JavaExec>("generateJavaStreams") {
     )
 }
 
-tasks.register<Sync>("generateJava") {
+// The event union, UnknownEvent, InboundEvent and their parser, from
+// x-lingara-events (ADR 30.9.26aa D3), into com/getlingara/client/events/.
+val generateJavaEvents = tasks.register<JavaExec>("generateJavaEvents") {
     dependsOn(generateJavaStreams)
+    outputs.upToDateWhen { false }
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "com.getlingara.codegen.EventsCodegen"
+    args(view.path, stagedSources.get().asFile.path)
+}
+
+tasks.register<Sync>("generateJava") {
+    dependsOn(generateJavaEvents)
     outputs.upToDateWhen { false }
     from(stagedSources) {
         include("com/getlingara/client/**")
@@ -143,9 +153,12 @@ val generateKotlinModels = tasks.register<GenerateTask>("generateKotlinModels") 
     )
     // An unknown integer format falls back to kotlin.Int silently, a 32-bit
     // field that overflows, which GeneratedModelTypesTest guards. Timestamps
-    // and ids stay the server's strings.
+    // and ids stay the server's strings. A free-form value (EventEnvelope's
+    // `data`, ADR 30.9.26aa) would be kotlin.Any, which has no serializer; it
+    // is the JSON tree instead.
     typeMappings.set(
         mapOf(
+            "AnyType" to "JsonElement",
             "integer+uint64" to "kotlin.ULong",
             "integer+uint32" to "kotlin.Long",
             "integer+uint8" to "kotlin.Int",
@@ -153,6 +166,7 @@ val generateKotlinModels = tasks.register<GenerateTask>("generateKotlinModels") 
             "string+uuid" to "kotlin.String",
         ),
     )
+    importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement"))
 }
 
 val generateKotlinStreams = tasks.register<JavaExec>("generateKotlinStreams") {
@@ -168,8 +182,17 @@ val generateKotlinStreams = tasks.register<JavaExec>("generateKotlinStreams") {
     )
 }
 
-tasks.register<Sync>("generateKotlin") {
+// The event union and its parser (ADR 30.9.26aa D3), as for Java.
+val generateKotlinEvents = tasks.register<JavaExec>("generateKotlinEvents") {
     dependsOn(generateKotlinStreams)
+    outputs.upToDateWhen { false }
+    classpath = sourceSets.main.get().runtimeClasspath
+    mainClass = "com.getlingara.codegen.EventsCodegen"
+    args("--kotlin", view.path, kotlinStagedSources.get().asFile.path)
+}
+
+tasks.register<Sync>("generateKotlin") {
+    dependsOn(generateKotlinEvents)
     outputs.upToDateWhen { false }
     from(kotlinStagedSources) {
         include("com/getlingara/kotlin/**")

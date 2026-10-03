@@ -11,6 +11,30 @@ const (
 	Oauth2Scopes = "oauth2.Scopes"
 )
 
+// Defines values for AppContextSlice.
+const (
+	AppContextSliceLanguages   AppContextSlice = "languages"
+	AppContextSlicePlanSummary AppContextSlice = "plan_summary"
+	AppContextSliceReviewDue   AppContextSlice = "review_due"
+	AppContextSliceTutorTopic  AppContextSlice = "tutor_topic"
+)
+
+// Valid indicates whether the value is a known member of the AppContextSlice enum.
+func (e AppContextSlice) Valid() bool {
+	switch e {
+	case AppContextSliceLanguages:
+		return true
+	case AppContextSlicePlanSummary:
+		return true
+	case AppContextSliceReviewDue:
+		return true
+	case AppContextSliceTutorTopic:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateLessonPlanEventErrorEvent.
 const (
 	CreateLessonPlanEventErrorEventError CreateLessonPlanEventErrorEvent = "error"
@@ -131,6 +155,42 @@ func (e GenerateVocabularyEventStartedEvent) Valid() bool {
 	}
 }
 
+// Defines values for PlanFailReason.
+const (
+	PlanFailReasonGenerationFailed PlanFailReason = "generation_failed"
+	PlanFailReasonTimedOut         PlanFailReason = "timed_out"
+)
+
+// Valid indicates whether the value is a known member of the PlanFailReason enum.
+func (e PlanFailReason) Valid() bool {
+	switch e {
+	case PlanFailReasonGenerationFailed:
+		return true
+	case PlanFailReasonTimedOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanReadyStatus.
+const (
+	PlanReadyStatusComplete PlanReadyStatus = "complete"
+	PlanReadyStatusPartial  PlanReadyStatus = "partial"
+)
+
+// Valid indicates whether the value is a known member of the PlanReadyStatus enum.
+func (e PlanReadyStatus) Valid() bool {
+	switch e {
+	case PlanReadyStatusComplete:
+		return true
+	case PlanReadyStatusPartial:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlanStatus.
 const (
 	PlanStatusComplete   PlanStatus = "complete"
@@ -146,6 +206,27 @@ func (e PlanStatus) Valid() bool {
 	case PlanStatusGenerating:
 		return true
 	case PlanStatusPartial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ReactionStatus.
+const (
+	ReactionStatusFailed  ReactionStatus = "failed"
+	ReactionStatusRefused ReactionStatus = "refused"
+	ReactionStatusStarted ReactionStatus = "started"
+)
+
+// Valid indicates whether the value is a known member of the ReactionStatus enum.
+func (e ReactionStatus) Valid() bool {
+	switch e {
+	case ReactionStatusFailed:
+		return true
+	case ReactionStatusRefused:
+		return true
+	case ReactionStatusStarted:
 		return true
 	default:
 		return false
@@ -206,6 +287,51 @@ const (
 func (e SendTutorMessageEventNoticeEvent) Valid() bool {
 	switch e {
 	case SendTutorMessageEventNoticeEventNotice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StreamEventsEventDoneEvent.
+const (
+	StreamEventsEventDoneEventDone StreamEventsEventDoneEvent = "done"
+)
+
+// Valid indicates whether the value is a known member of the StreamEventsEventDoneEvent enum.
+func (e StreamEventsEventDoneEvent) Valid() bool {
+	switch e {
+	case StreamEventsEventDoneEventDone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StreamEventsEventErrorEvent.
+const (
+	StreamEventsEventErrorEventError StreamEventsEventErrorEvent = "error"
+)
+
+// Valid indicates whether the value is a known member of the StreamEventsEventErrorEvent enum.
+func (e StreamEventsEventErrorEvent) Valid() bool {
+	switch e {
+	case StreamEventsEventErrorEventError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StreamEventsEventEventEvent.
+const (
+	StreamEventsEventEventEventEvent StreamEventsEventEventEvent = "event"
+)
+
+// Valid indicates whether the value is a known member of the StreamEventsEventEventEvent enum.
+func (e StreamEventsEventEventEvent) Valid() bool {
+	switch e {
+	case StreamEventsEventEventEventEvent:
 		return true
 	default:
 		return false
@@ -287,6 +413,24 @@ func (e StreamLessonPlanEventStartedEvent) Valid() bool {
 	}
 }
 
+// Defines values for ThresholdScope.
+const (
+	ThresholdScopeAccount ThresholdScope = "account"
+	ThresholdScopeClient  ThresholdScope = "client"
+)
+
+// Valid indicates whether the value is a known member of the ThresholdScope enum.
+func (e ThresholdScope) Valid() bool {
+	switch e {
+	case ThresholdScopeAccount:
+		return true
+	case ThresholdScopeClient:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TurnRole.
 const (
 	TurnRoleAssistant TurnRole = "assistant"
@@ -299,6 +443,30 @@ func (e TurnRole) Valid() bool {
 	case TurnRoleAssistant:
 		return true
 	case TurnRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UsageThresholdReachedDataThresholdPct.
+const (
+	UsageThresholdReachedDataThresholdPctN100 UsageThresholdReachedDataThresholdPct = 100
+	UsageThresholdReachedDataThresholdPctN50  UsageThresholdReachedDataThresholdPct = 50
+	UsageThresholdReachedDataThresholdPctN70  UsageThresholdReachedDataThresholdPct = 70
+	UsageThresholdReachedDataThresholdPctN90  UsageThresholdReachedDataThresholdPct = 90
+)
+
+// Valid indicates whether the value is a known member of the UsageThresholdReachedDataThresholdPct enum.
+func (e UsageThresholdReachedDataThresholdPct) Valid() bool {
+	switch e {
+	case UsageThresholdReachedDataThresholdPctN100:
+		return true
+	case UsageThresholdReachedDataThresholdPctN50:
+		return true
+	case UsageThresholdReachedDataThresholdPctN70:
+		return true
+	case UsageThresholdReachedDataThresholdPctN90:
 		return true
 	default:
 		return false
@@ -332,6 +500,42 @@ func (e VersionState) Valid() bool {
 	}
 }
 
+// Defines values for EventStart.
+const (
+	EventStartLatest EventStart = "latest"
+	EventStartOldest EventStart = "oldest"
+)
+
+// Valid indicates whether the value is a known member of the EventStart enum.
+func (e EventStart) Valid() bool {
+	switch e {
+	case EventStartLatest:
+		return true
+	case EventStartOldest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListEventsParamsStart.
+const (
+	ListEventsParamsStartLatest ListEventsParamsStart = "latest"
+	ListEventsParamsStartOldest ListEventsParamsStart = "oldest"
+)
+
+// Valid indicates whether the value is a known member of the ListEventsParamsStart enum.
+func (e ListEventsParamsStart) Valid() bool {
+	switch e {
+	case ListEventsParamsStartLatest:
+		return true
+	case ListEventsParamsStartOldest:
+		return true
+	default:
+		return false
+	}
+}
+
 // AllowanceRow defines model for AllowanceRow.
 type AllowanceRow struct {
 	Feature   string `json:"feature"`
@@ -340,6 +544,23 @@ type AllowanceRow struct {
 	ResetAt   *int64 `json:"reset_at,omitempty"`
 	Used      uint32 `json:"used"`
 	Window    string `json:"window"`
+}
+
+// AppContextSlice defines model for AppContextSlice.
+type AppContextSlice string
+
+// AppInstalledData defines model for AppInstalledData.
+type AppInstalledData struct {
+	ClientID  string            `json:"client_id"`
+	Context   []AppContextSlice `json:"context"`
+	InstallID string            `json:"install_id"`
+	TutorNote bool              `json:"tutor_note"`
+}
+
+// AppUninstalledData defines model for AppUninstalledData.
+type AppUninstalledData struct {
+	ClientID  string `json:"client_id"`
+	InstallID string `json:"install_id"`
 }
 
 // CreateLessonPlanEventError defines model for CreateLessonPlanEventError.
@@ -388,6 +609,23 @@ type ErrorEnvelope struct {
 	Error string `json:"error"`
 }
 
+// EventEnvelope defines model for EventEnvelope.
+type EventEnvelope struct {
+	APIVersion string                 `json:"api_version"`
+	CreatedAt  time.Time              `json:"created_at"`
+	Data       map[string]interface{} `json:"data"`
+	ID         string                 `json:"id"`
+	Subject    string                 `json:"subject"`
+	Type       string                 `json:"type"`
+}
+
+// EventPage defines model for EventPage.
+type EventPage struct {
+	HasMore    bool            `json:"has_more"`
+	Items      []EventEnvelope `json:"items"`
+	NextCursor string          `json:"next_cursor"`
+}
+
 // GenerateVocabularyEventDone defines model for GenerateVocabularyEventDone.
 type GenerateVocabularyEventDone struct {
 	Data  Done                             `json:"data"`
@@ -424,6 +662,14 @@ type GenerateVocabularyEventStarted struct {
 // GenerateVocabularyEventStartedEvent defines model for GenerateVocabularyEventStarted.Event.
 type GenerateVocabularyEventStartedEvent string
 
+// InboundEventAccepted defines model for InboundEventAccepted.
+type InboundEventAccepted struct {
+	CreatedAt time.Time       `json:"created_at"`
+	ID        string          `json:"id"`
+	Reaction  *ReactionReport `json:"reaction,omitempty"`
+	Type      string          `json:"type"`
+}
+
 // LessonPlan defines model for LessonPlan.
 type LessonPlan struct {
 	AiGenerated bool               `json:"ai_generated"`
@@ -454,11 +700,36 @@ type LessonPlanCreateRequest struct {
 	TargetLang string `json:"target_lang"`
 }
 
+// LessonPlanFailedData defines model for LessonPlanFailedData.
+type LessonPlanFailedData struct {
+	PlanID string         `json:"plan_id"`
+	Reason PlanFailReason `json:"reason"`
+}
+
+// LessonPlanReadyData defines model for LessonPlanReadyData.
+type LessonPlanReadyData struct {
+	Level      int16           `json:"level"`
+	PlanID     string          `json:"plan_id"`
+	SourceLang string          `json:"source_lang"`
+	Status     PlanReadyStatus `json:"status"`
+	TargetLang string          `json:"target_lang"`
+	Title      *string         `json:"title"`
+}
+
 // Notice defines model for Notice.
 type Notice struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
+
+// Npc defines model for Npc.
+type Npc struct {
+	Name    string  `json:"name"`
+	Persona *string `json:"persona,omitempty"`
+}
+
+// PlanFailReason defines model for PlanFailReason.
+type PlanFailReason string
 
 // PlanPending defines model for PlanPending.
 type PlanPending struct {
@@ -481,6 +752,9 @@ type PlanQuestion struct {
 	Prompt      string    `json:"prompt"`
 	Type        string    `json:"type"`
 }
+
+// PlanReadyStatus defines model for PlanReadyStatus.
+type PlanReadyStatus string
 
 // PlanResult defines model for PlanResult.
 type PlanResult struct {
@@ -508,6 +782,20 @@ type PlanWord struct {
 	Translation   string  `json:"translation"`
 	Word          string  `json:"word"`
 }
+
+// ReactionReport defines model for ReactionReport.
+type ReactionReport struct {
+	Code   *string `json:"code,omitempty"`
+	Error  *string `json:"error,omitempty"`
+	PlanID *string `json:"plan_id,omitempty"`
+
+	// PlanStatus The plan's status when the event was accepted. Only `generating` promises that `lesson_plan.ready` or `lesson_plan.failed` will follow. Any other value is a plan served from the library, which you can read now with `GET /v1/lesson-plans/{id}`.
+	PlanStatus *PlanStatus    `json:"plan_status,omitempty"`
+	Status     ReactionStatus `json:"status"`
+}
+
+// ReactionStatus defines model for ReactionStatus.
+type ReactionStatus string
 
 // SendTutorMessageEventDelta defines model for SendTutorMessageEventDelta.
 type SendTutorMessageEventDelta struct {
@@ -551,6 +839,33 @@ type StreamError struct {
 	Message string  `json:"message"`
 	PlanID  *string `json:"plan_id,omitempty"`
 }
+
+// StreamEventsEventDone defines model for StreamEventsEventDone.
+type StreamEventsEventDone struct {
+	Data  Done                       `json:"data"`
+	Event StreamEventsEventDoneEvent `json:"event"`
+}
+
+// StreamEventsEventDoneEvent defines model for StreamEventsEventDone.Event.
+type StreamEventsEventDoneEvent string
+
+// StreamEventsEventError defines model for StreamEventsEventError.
+type StreamEventsEventError struct {
+	Data  StreamError                 `json:"data"`
+	Event StreamEventsEventErrorEvent `json:"event"`
+}
+
+// StreamEventsEventErrorEvent defines model for StreamEventsEventError.Event.
+type StreamEventsEventErrorEvent string
+
+// StreamEventsEventEvent defines model for StreamEventsEventEvent.
+type StreamEventsEventEvent struct {
+	Data  EventEnvelope               `json:"data"`
+	Event StreamEventsEventEventEvent `json:"event"`
+}
+
+// StreamEventsEventEventEvent defines model for StreamEventsEventEvent.Event.
+type StreamEventsEventEventEvent string
 
 // StreamLessonPlanEventError defines model for StreamLessonPlanEventError.
 type StreamLessonPlanEventError struct {
@@ -597,6 +912,9 @@ type StreamLessonPlanEventStarted struct {
 // StreamLessonPlanEventStartedEvent defines model for StreamLessonPlanEventStarted.Event.
 type StreamLessonPlanEventStartedEvent string
 
+// ThresholdScope defines model for ThresholdScope.
+type ThresholdScope string
+
 // TurnDelta defines model for TurnDelta.
 type TurnDelta struct {
 	Text string `json:"text"`
@@ -637,8 +955,20 @@ type UsageLedger struct {
 	Units uint64    `json:"units"`
 }
 
+// UsageThresholdReachedData defines model for UsageThresholdReachedData.
+type UsageThresholdReachedData struct {
+	ClientID     *string                               `json:"client_id,omitempty"`
+	Month        string                                `json:"month"`
+	Scope        ThresholdScope                        `json:"scope"`
+	ThresholdPct UsageThresholdReachedDataThresholdPct `json:"threshold_pct"`
+}
+
+// UsageThresholdReachedDataThresholdPct defines model for UsageThresholdReachedData.ThresholdPct.
+type UsageThresholdReachedDataThresholdPct int
+
 // VersionDetail defines model for VersionDetail.
 type VersionDetail struct {
+	Asyncapi VersionSpec           `json:"asyncapi"`
 	History  []VersionHistoryEntry `json:"history"`
 	ID       string                `json:"id"`
 	Lts      bool                  `json:"lts"`
@@ -719,6 +1049,48 @@ type VocabStarted struct {
 	Meta VocabMeta `json:"meta"`
 }
 
+// WebhookTestData defines model for WebhookTestData.
+type WebhookTestData = map[string]interface{}
+
+// WorldContextChanged defines model for WorldContextChanged.
+type WorldContextChanged struct {
+	Generate   *bool     `json:"generate,omitempty"`
+	Level      uint8     `json:"level"`
+	Npc        *Npc      `json:"npc,omitempty"`
+	Scene      string    `json:"scene"`
+	SourceLang string    `json:"source_lang"`
+	Tags       *[]string `json:"tags,omitempty"`
+	TargetLang string    `json:"target_lang"`
+}
+
+// WorldPracticeRequested defines model for WorldPracticeRequested.
+type WorldPracticeRequested struct {
+	Generate   *bool     `json:"generate,omitempty"`
+	Level      uint8     `json:"level"`
+	SourceLang string    `json:"source_lang"`
+	Tags       *[]string `json:"tags,omitempty"`
+	TargetLang string    `json:"target_lang"`
+	Topic      string    `json:"topic"`
+}
+
+// EventCursor defines model for EventCursor.
+type EventCursor = string
+
+// EventLimit defines model for EventLimit.
+type EventLimit = int
+
+// EventStart defines model for EventStart.
+type EventStart string
+
+// EventTypes defines model for EventTypes.
+type EventTypes = []string
+
+// IdempotencyKey defines model for IdempotencyKey.
+type IdempotencyKey = string
+
+// LastEventID defines model for LastEventId.
+type LastEventID = string
+
 // LingaraVersion defines model for LingaraVersion.
 type LingaraVersion = string
 
@@ -731,6 +1103,9 @@ type VersionID = string
 // ErrorResponse defines model for Error.
 type ErrorResponse = ErrorEnvelope
 
+// Gone defines model for Gone.
+type Gone = ErrorEnvelope
+
 // PaymentRequired defines model for PaymentRequired.
 type PaymentRequired = ErrorEnvelope
 
@@ -739,6 +1114,45 @@ type Unavailable = ErrorEnvelope
 
 // VersionDiscontinued defines model for VersionDiscontinued.
 type VersionDiscontinued = ErrorEnvelope
+
+// GetAsyncAPIDocumentParams defines parameters for GetAsyncAPIDocument.
+type GetAsyncAPIDocumentParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
+	// Cursor Where to continue from: an earlier page's `next_cursor`, or a stream event's `id:`. A cursor older than 30 days answers `410` with code `cursor_expired`.
+	Cursor *EventCursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Start Where to begin without a cursor: `latest` for events from now on, or `oldest` for every event still kept.
+	Start *ListEventsParamsStart `form:"start,omitempty" json:"start,omitempty"`
+
+	// Types Only these event types, comma-separated. Without it, every type your token's scopes can read.
+	Types *EventTypes `form:"types,omitempty" json:"types,omitempty"`
+
+	// Limit The most events one page returns, from 1 to 100.
+	Limit *EventLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ListEventsParamsStart defines parameters for ListEvents.
+type ListEventsParamsStart string
+
+// SendEventJSONBody defines parameters for SendEvent.
+type SendEventJSONBody = map[string]interface{}
+
+// SendEventParams defines parameters for SendEvent.
+type SendEventParams struct {
+	// IdempotencyKey A value you choose for each event and reuse when you retry it: 1 to 255 visible ASCII characters, such as a UUID. A retry with the same key gets the first answer back and is not billed again, even if its body differs. Without a valid key the request answers `400` with code `idempotency_key_required`.
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
 
 // GetLessonPlanParams defines parameters for GetLessonPlan.
 type GetLessonPlanParams struct {
@@ -769,3 +1183,6 @@ type GetAPIVersionParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
 	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
 }
+
+// SendEventJSONRequestBody defines body for SendEvent for application/json ContentType.
+type SendEventJSONRequestBody = SendEventJSONBody

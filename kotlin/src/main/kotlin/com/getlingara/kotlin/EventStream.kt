@@ -34,6 +34,9 @@ import kotlin.time.Duration.Companion.nanoseconds
  *
  * Cancelling the collector closes the connection and throws its own `CancellationException`. A
  * [close] from another coroutine ends the collection normally, with no further event.
+ *
+ * [cursor] is the `id:` of the last frame that carried one; only the events tail reads it, to resume
+ * after an ending (CONTRACT.md K5a; ADR 30.9.26aa D7).
  */
 public class EventStream<E : Any> internal constructor(
     private val route: Streams.Route<E>,
@@ -55,6 +58,11 @@ public class EventStream<E : Any> internal constructor(
     @Volatile private var readPending = false
 
     @Volatile private var lastByteNanos = System.nanoTime()
+
+    /** The `id:` of the last frame that carried one, or `null` before any did. */
+    @Volatile
+    public var cursor: String? = null
+        private set
 
     /** One watchdog per stream, in the library's scope so its timer is real time (D9). */
     internal val watchdog: Job = LibraryScope.launch { watch() }
@@ -125,6 +133,7 @@ public class EventStream<E : Any> internal constructor(
 
     /** What one frame means: skip it (`null`), emit it, end quietly, or throw. */
     private fun interpret(frame: SseDecoder.Frame): Step<E>? {
+        if (frame.id.isNotEmpty()) cursor = frame.id
         if (frame.event !in route.events) return null
         val data =
             try {

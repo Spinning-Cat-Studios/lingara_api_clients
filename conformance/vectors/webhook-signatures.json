@@ -1,0 +1,479 @@
+{
+  "description": "ADR 30.9.26aa D5: the one source of truth for every library's webhook verifier. Each vector's secrets decode to visibly fake ASCII; its body is the exact bytes received (UTF-8). expect is {ok: {id, type, unknown?}}, {error: <reason>} or {refused: true} for a construction refusal. verifySignature passes every ok and malformed_payload vector and raises every other error vector's reason.",
+  "vectors": [
+    {
+      "name": "valid-single-signature",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "rotation-second-signature-matches",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMiE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg= v1,sDBl60zoJgAq34tzQXRePXeF21cTsxFxN4VLjnRBGto="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "two-secrets-old-signature-matches",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMiE=",
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "unknown-version-prefix-skipped",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1a,bm90LWFuLWFzeW1tZXRyaWMtc2lnbmF0dXJl v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "upstream-vector",
+      "secrets": [
+        "lgr_whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+      ],
+      "headers": {
+        "webhook-id": "msg_p5jXN8AQM9LWM0D4loKWxJek",
+        "webhook-timestamp": "1614265330",
+        "webhook-signature": "v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE="
+      },
+      "body": "{\"test\": 2432232314}",
+      "now": 1614265330,
+      "expect": {
+        "error": "malformed_payload"
+      }
+    },
+    {
+      "name": "non-ascii-body",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,9NaUyGmAgn9Cg5W2uwcPWfvzTbuYoIxp7TeMo+0G2BI="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"夜市 — café 🌧\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "mixed-case-header-names",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "Webhook-Id": "lgr_evt_conformance1",
+        "WEBHOOK-TIMESTAMP": "1790000000",
+        "Webhook-Signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "unknown-event-type",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,Vxw4TZ+2VbvtjcGy+UStDTJkn2htWudgo8H461AFw6k="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.archived\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\"}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.archived",
+          "unknown": true
+        }
+      }
+    },
+    {
+      "name": "tampered-body",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night markets\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "no_matching_signature"
+      }
+    },
+    {
+      "name": "wrong-secret",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,sDBl60zoJgAq34tzQXRePXeF21cTsxFxN4VLjnRBGto="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "no_matching_signature"
+      }
+    },
+    {
+      "name": "signature-not-base64",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,!!not*base64!!"
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "no_matching_signature"
+      }
+    },
+    {
+      "name": "empty-signature-list",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": ""
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "no_matching_signature"
+      }
+    },
+    {
+      "name": "timestamp-300s-old",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1789999820",
+        "webhook-signature": "v1,CIhAAcD+3y1oLFY/vAS9LXsQitq3uPhtc0uxoLQcDRI="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "timestamp-300s-ahead",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000420",
+        "webhook-signature": "v1,AnZGiaFMsXq2nHrHkNCBQh3zIOA6zWI8Y7Q/4obfy0k="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "ok": {
+          "id": "lgr_evt_conformance1",
+          "type": "lesson_plan.ready"
+        }
+      }
+    },
+    {
+      "name": "timestamp-301s-old",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1789999819",
+        "webhook-signature": "v1,MQqLKBXfobSjHuX2kbkFF6DloD6ysAT/1qWaOTe7ECc="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "timestamp_too_old"
+      }
+    },
+    {
+      "name": "timestamp-301s-ahead",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000421",
+        "webhook-signature": "v1,jbiNjBcgY+1mPlKAQ1fQGawWqnoKgR7r60R0YTxWkD4="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "timestamp_too_new"
+      }
+    },
+    {
+      "name": "timestamp-not-integer",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000.5",
+        "webhook-signature": "v1,LccYbdibKZVlIFqN9AyjaWAHthrU+kxpMwbIuXoFeNE="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "malformed_header"
+      }
+    },
+    {
+      "name": "missing-webhook-id",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "missing_header"
+      }
+    },
+    {
+      "name": "missing-webhook-timestamp",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "missing_header"
+      }
+    },
+    {
+      "name": "missing-webhook-signature",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000"
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "missing_header"
+      }
+    },
+    {
+      "name": "id-mismatch",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance2",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,EaXD1HjjbbTf5iSpjJxehbdzcrvIkavYmHeBjQFJ9Ak="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "malformed_payload"
+      }
+    },
+    {
+      "name": "body-not-json",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,SNSHzGZOr9hcWYoaJ4ukYpSGXnEAxOER5/LFR1KwFb0="
+      },
+      "body": "not json",
+      "now": 1790000120,
+      "expect": {
+        "error": "malformed_payload"
+      }
+    },
+    {
+      "name": "known-type-bad-data",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,Q2KZVzghAyblKX3ZB0oy9zEX3wiW4OHV8RJlwqvy60U="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":5}}",
+      "now": 1790000120,
+      "expect": {
+        "error": "malformed_payload"
+      }
+    },
+    {
+      "name": "secret-without-prefix",
+      "secrets": [
+        "Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "refused": true
+      }
+    },
+    {
+      "name": "secret-whsec-prefix",
+      "secrets": [
+        "whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "refused": true
+      }
+    },
+    {
+      "name": "secret-not-base64",
+      "secrets": [
+        "lgr_whsec_!!!!not-base64!!!!"
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "refused": true
+      }
+    },
+    {
+      "name": "secret-unpadded",
+      "secrets": [
+        "lgr_whsec_Y29uZm9ybWFuY2Utd2ViaG9vay1zZWNyZXQtMDAwMSE"
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "refused": true
+      }
+    },
+    {
+      "name": "secret-too-short",
+      "secrets": [
+        "lgr_whsec_c2l4dGVlbi1ieXRlLWtleQ=="
+      ],
+      "headers": {
+        "webhook-id": "lgr_evt_conformance1",
+        "webhook-timestamp": "1790000000",
+        "webhook-signature": "v1,ZRFIf6k6HRUSlW3UviXBk0LNBTVB4Mg55dHYWVdLnNg="
+      },
+      "body": "{\"id\":\"lgr_evt_conformance1\",\"type\":\"lesson_plan.ready\",\"created_at\":\"2026-10-01T09:12:44Z\",\"api_version\":\"2026-09-equipped-boxfish\",\"subject\":\"lgr_sub_conformance\",\"data\":{\"plan_id\":\"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37\",\"status\":\"complete\",\"title\":\"At the night market\",\"source_lang\":\"en\",\"target_lang\":\"zh\",\"level\":2}}",
+      "now": 1790000120,
+      "expect": {
+        "refused": true
+      }
+    }
+  ]
+}

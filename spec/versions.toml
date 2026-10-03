@@ -66,8 +66,23 @@ at = "2026-09-29T21:23:50Z"
 [[version]]
 id = "2026-09-equipped-boxfish"
 minted_at = "2026-09-29T21:23:50Z"
-state = "development"
+state = "supported"
+spec_sha256 = "c9288b3a78b29e5eb4fec70e85183dfaff2f67bd7e63a8ed09b139abb17a531c"
+asyncapi_sha256 = "a822959b8e640e9700d1b495ab7516b46bc58702633bb4e3104974b35313261a"
 
 [[version.history]]
 state = "development"
 at = "2026-09-29T21:23:50Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-10-01T06:48:23Z"
+
+[[version]]
+id = "2026-10-affable-towhee"
+minted_at = "2026-10-01T06:48:23Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-10-01T06:48:23Z"

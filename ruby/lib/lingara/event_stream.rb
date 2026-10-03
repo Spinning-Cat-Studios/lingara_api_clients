@@ -103,7 +103,7 @@ module Lingara
       stream = @operation[:stream]
       return unless stream[:events].key?(frame.event)
       ending = stream[:ends][frame.event]
-      raise stream_error(frame.data) if ending == :raise
+      raise Refusal.stream_error(frame.data, @served_version) if ending == :raise
       return finish(phase, frame) if ending == :quiet
       event = Lingara.const_get(stream[:union]).decode(frame.event, frame.data)
       return if event.nil?
@@ -117,19 +117,6 @@ module Lingara
       phase.leave(StreamResult.new(served_version: @served_version))
     rescue JSON::ParserError
       raise TransportError.new(:malformed_event, "#{frame.event}: data is not JSON")
-    end
-
-    # An error event: ApiError with status 200, never yielded or retried.
-    def stream_error(data)
-      fields = begin
-        parsed = JSON.parse(data)
-        parsed.is_a?(Hash) ? parsed : {}
-      rescue JSON::ParserError
-        {}
-      end
-      text = ->(key, fallback) { fields[key].is_a?(String) ? fields[key] : fallback }
-      ApiError.new(status: 200, code: text.call("code", "stream_error"), message: text.call("message", "the stream reported an error"),
-        plan_id: text.call("plan_id", nil), served_version: @served_version)
     end
   end
 end

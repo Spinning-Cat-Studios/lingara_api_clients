@@ -7,3 +7,4 @@
 **/model/CreateLessonPlanEvent*.kt
 **/model/StreamLessonPlanEvent*.kt
 **/model/SendTutorMessageEvent*.kt
+**/model/StreamEventsEvent*.kt

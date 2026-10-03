@@ -32,11 +32,12 @@ $(TS_STAMP): $(TS_DIR)/package.json $(TS_DIR)/package-lock.json
 	$(TS_NPM) ci --no-audit --no-fund
 	@touch $@
 
-# Writes $(1)/schema.ts, $(1)/streams.ts and $(1)/specVersion.ts (ADR
-# 30.9.26a §4) from the 3.1 view.
+# Writes $(1)/schema.ts, $(1)/streams.ts, $(1)/events.ts (ADR 30.9.26aa D3)
+# and $(1)/specVersion.ts (ADR 30.9.26a §4) from the 3.1 view.
 define ts_codegen
 	$(TS_BIN)/openapi-typescript $(TS_VIEW) -o $(1)/schema.ts --silent
 	node $(TS_DIR)/scripts/codegenStreams.mjs $(TS_VIEW) $(1)/streams.ts
+	node $(TS_DIR)/scripts/codegenEvents.mjs $(TS_VIEW) $(1)/events.ts
 	node $(TS_DIR)/scripts/codegenSpecVersion.mjs $(TS_VIEW) $(1)/specVersion.ts
 endef
 
@@ -49,9 +50,11 @@ check-codegen-typescript: $(TS_STAMP)
 	@tmp=$$(mktemp -d); \
 	$(TS_BIN)/openapi-typescript $(TS_VIEW) -o $$tmp/schema.ts --silent && \
 	node $(TS_DIR)/scripts/codegenStreams.mjs $(TS_VIEW) $$tmp/streams.ts && \
+	node $(TS_DIR)/scripts/codegenEvents.mjs $(TS_VIEW) $$tmp/events.ts && \
 	node $(TS_DIR)/scripts/codegenSpecVersion.mjs $(TS_VIEW) $$tmp/specVersion.ts && \
 	diff -u $(TS_DIR)/src/generated/schema.ts $$tmp/schema.ts && \
 	diff -u $(TS_DIR)/src/generated/streams.ts $$tmp/streams.ts && \
+	diff -u $(TS_DIR)/src/generated/events.ts $$tmp/events.ts && \
 	diff -u $(TS_DIR)/src/generated/specVersion.ts $$tmp/specVersion.ts; \
 	status=$$?; rm -rf $$tmp; \
 	if [ $$status -ne 0 ]; then echo "✗ typescript/src/generated is stale: run make codegen-typescript"; exit 1; fi; \

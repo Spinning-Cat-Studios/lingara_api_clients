@@ -52,6 +52,7 @@ export class EventStream<E extends { event: string }> implements AsyncIterableIt
   #started: Promise<OpenedStream> | undefined;
   #reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   #servedVersion: string | undefined;
+  #lastEventId: string | undefined;
   #eof = false;
   #done = false;
 
@@ -71,6 +72,14 @@ export class EventStream<E extends { event: string }> implements AsyncIterableIt
       (opened) => opened.servedVersion,
       () => undefined,
     );
+  }
+
+  /**
+   * The last `id:` the stream has carried, as of the frame last handled
+   * (CONTRACT.md K5, Parsing). Only the tail reads it (K5a).
+   */
+  get lastEventId(): string | undefined {
+    return this.#lastEventId;
   }
 
   [Symbol.asyncIterator](): this {
@@ -137,6 +146,7 @@ export class EventStream<E extends { event: string }> implements AsyncIterableIt
   }
 
   #handle(frame: Frame): IteratorResult<Yielded<E>> | undefined {
+    if (frame.id !== undefined) this.#lastEventId = frame.id;
     const events: readonly string[] = STREAMS[this.#init.operation].events;
     if (!events.includes(frame.event)) return undefined;
     const data = decode(frame.data);

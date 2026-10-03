@@ -17,6 +17,11 @@ pub struct Observed {
     pub hook_calls: Vec<Value>,
     /// Every rendering of the client and of a raised error.
     pub renderings: Vec<String>,
+    /// An `events` or `tail` step's yielded ids, the types of those that
+    /// were `UnknownEvent`, and the helper's final cursor (ADR 30.9.26aa D9).
+    pub event_ids: Vec<String>,
+    pub unknown_types: Vec<String>,
+    pub cursor: Option<String>,
 }
 
 /// JSON with `null`-valued keys dropped and object keys sorted.
@@ -69,6 +74,8 @@ pub fn compare(expect: &Value, seen: &Observed) -> Vec<String> {
         ("served_version", seen.served_version.clone().map(Value::String).unwrap_or(Value::Null)),
         ("sleeps_s", Value::from(seen.sleeps_s.clone())),
         ("hook_calls", Value::Array(seen.hook_calls.clone())),
+        ("event_ids", Value::from(seen.event_ids.clone())),
+        ("unknown_types", Value::from(seen.unknown_types.clone())),
     ];
     for (label, got) in pairs {
         if let Some(want) = expect.get(label) {
@@ -78,6 +85,9 @@ pub fn compare(expect: &Value, seen: &Observed) -> Vec<String> {
     if let Some(error) = expect.get("error") {
         compare_error(error, seen, &mut out);
     }
+    if let Some(matcher) = expect.get("cursor") {
+        compare_cursor(matcher, seen.cursor.as_deref(), &mut out);
+    }
     let secrets = expect.get("redacted").and_then(Value::as_array).cloned().unwrap_or_default();
     for secret in secrets.iter().filter_map(Value::as_str) {
         if seen.renderings.iter().any(|r| r.contains(secret)) {
@@ -85,6 +95,21 @@ pub fn compare(expect: &Value, seen: &Observed) -> Vec<String> {
         }
     }
     out
+}
+
+/// `expect.cursor` is a header-style matcher on the helper's final cursor.
+fn compare_cursor(matcher: &Value, cursor: Option<&str>, out: &mut Vec<String>) {
+    let want = |key: &str| matcher.get(key).and_then(Value::as_str);
+    let pass = match (cursor, want("equals"), want("prefix"), want("contains")) {
+        (got, None, None, None) if matcher.get("absent") == Some(&Value::Bool(true)) => got.is_none(),
+        (Some(got), Some(equals), _, _) => got == equals,
+        (Some(got), _, Some(prefix), _) => got.starts_with(prefix),
+        (Some(got), _, _, Some(part)) => got.contains(part),
+        _ => false,
+    };
+    if !pass {
+        out.push(format!("cursor: expected {matcher}, got {cursor:?}"));
+    }
 }
 
 fn compare_error(expected: &Value, seen: &Observed, out: &mut Vec<String>) {

@@ -69,6 +69,12 @@ public class LingaraClientBuilder internal constructor() {
     /** The HTTP client, for proxies, TLS and executors; `null` builds one with a 30 s connect timeout. */
     public var httpClient: HttpClient? = null
 
+    /**
+     * The consecutive failures `tailEvents` rides out before it throws the last: 8 by default, 91 s
+     * of reconnect sleeps (CONTRACT.md K5a). Raise it for a game that should wait out a longer outage.
+     */
+    public var tailMaxFailures: Int = 8
+
     /** Authenticates with the client-credentials grant (K1). Omit it for a credential-free client. */
     public fun clientCredentials(
         id: String,
@@ -98,6 +104,7 @@ public class LingaraClientBuilder internal constructor() {
         require(version?.isEmpty() != true) { "version needs a version id" }
         require(tokenSource == null || clientId == null) { "tokenSource and clientCredentials are exclusive" }
         require(maxAttempts >= 1) { "maxAttempts needs at least 1" }
+        require(tailMaxFailures >= 1) { "tailMaxFailures needs at least 1" }
         val http = httpClient ?: HttpClient.newBuilder().connectTimeout(java.time.Duration.ofSeconds(30)).build()
         return LingaraClient(this, tokens(http), http)
     }

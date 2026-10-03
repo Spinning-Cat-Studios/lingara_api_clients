@@ -1,0 +1,1960 @@
+{
+  "asyncapi": "3.0.0",
+  "info": {
+    "title": "Lingara events",
+    "x-i18n": "asyncapi.info",
+    "version": "2026-10-affable-towhee",
+    "description": "The events Lingara sends about your account, to a webhook endpoint you register or through the event feed and stream, and the events your game or integration can send to Lingara. Every outbound event is the same envelope on every transport."
+  },
+  "servers": {
+    "api": {
+      "host": "api.getlingara.com",
+      "protocol": "https",
+      "x-i18n": "asyncapi.servers.api",
+      "description": "The Lingara API, which serves the event feed and stream and accepts inbound events."
+    },
+    "receiver": {
+      "host": "{receiver}",
+      "protocol": "https",
+      "x-i18n": "asyncapi.servers.receiver",
+      "description": "Your own HTTPS endpoint, registered as a webhook endpoint.",
+      "variables": {
+        "receiver": {
+          "examples": [
+            "hooks.example.com"
+          ]
+        }
+      }
+    }
+  },
+  "defaultContentType": "application/json",
+  "channels": {
+    "webhook": {
+      "address": null,
+      "x-lingara-transport": "webhook",
+      "x-i18n": "asyncapi.channels.webhook",
+      "description": "Events delivered to a webhook endpoint you register: one `POST` per event, to your own URL.",
+      "servers": [
+        {
+          "$ref": "#/servers/receiver"
+        }
+      ],
+      "messages": {
+        "lessonPlanReady": {
+          "$ref": "#/components/messages/LessonPlanReady"
+        },
+        "lessonPlanFailed": {
+          "$ref": "#/components/messages/LessonPlanFailed"
+        },
+        "usageThresholdReached": {
+          "$ref": "#/components/messages/UsageThresholdReached"
+        },
+        "webhookTest": {
+          "$ref": "#/components/messages/WebhookTest"
+        },
+        "appInstalled": {
+          "$ref": "#/components/messages/AppInstalled"
+        },
+        "appUninstalled": {
+          "$ref": "#/components/messages/AppUninstalled"
+        }
+      }
+    },
+    "feed": {
+      "address": "/v1/events",
+      "x-lingara-transport": "feed",
+      "x-i18n": "asyncapi.channels.feed",
+      "description": "Events read page by page from `GET /v1/events`, oldest first.",
+      "servers": [
+        {
+          "$ref": "#/servers/api"
+        }
+      ],
+      "messages": {
+        "lessonPlanReady": {
+          "$ref": "#/components/messages/LessonPlanReady"
+        },
+        "lessonPlanFailed": {
+          "$ref": "#/components/messages/LessonPlanFailed"
+        },
+        "usageThresholdReached": {
+          "$ref": "#/components/messages/UsageThresholdReached"
+        },
+        "appInstalled": {
+          "$ref": "#/components/messages/AppInstalled"
+        },
+        "appUninstalled": {
+          "$ref": "#/components/messages/AppUninstalled"
+        }
+      }
+    },
+    "stream": {
+      "address": "/v1/events/stream",
+      "x-lingara-transport": "stream",
+      "x-i18n": "asyncapi.channels.stream",
+      "description": "Events pushed as they happen over `GET /v1/events/stream`, a server-sent event stream.",
+      "servers": [
+        {
+          "$ref": "#/servers/api"
+        }
+      ],
+      "messages": {
+        "lessonPlanReady": {
+          "$ref": "#/components/messages/LessonPlanReady"
+        },
+        "lessonPlanFailed": {
+          "$ref": "#/components/messages/LessonPlanFailed"
+        },
+        "usageThresholdReached": {
+          "$ref": "#/components/messages/UsageThresholdReached"
+        },
+        "appInstalled": {
+          "$ref": "#/components/messages/AppInstalled"
+        },
+        "appUninstalled": {
+          "$ref": "#/components/messages/AppUninstalled"
+        }
+      }
+    },
+    "inbound": {
+      "address": "/v1/events",
+      "x-lingara-transport": "inbound",
+      "x-i18n": "asyncapi.channels.inbound",
+      "description": "Events your game or integration sends to Lingara with `POST /v1/events`.",
+      "servers": [
+        {
+          "$ref": "#/servers/api"
+        }
+      ],
+      "messages": {
+        "worldContextChanged": {
+          "$ref": "#/components/messages/WorldContextChanged"
+        },
+        "worldPracticeRequested": {
+          "$ref": "#/components/messages/WorldPracticeRequested"
+        }
+      }
+    },
+    "app": {
+      "address": null,
+      "x-lingara-transport": "app",
+      "x-i18n": "asyncapi.channels.app",
+      "description": "Requests Lingara sends to your app's `render_url` for a card to draw, each signed with your app's `lgr_whsec_` secret as a webhook delivery is, and the card your app replies with.",
+      "servers": [
+        {
+          "$ref": "#/servers/receiver"
+        }
+      ],
+      "messages": {
+        "appRender": {
+          "$ref": "#/components/messages/AppRender"
+        },
+        "appAction": {
+          "$ref": "#/components/messages/AppAction"
+        },
+        "appCard": {
+          "$ref": "#/components/messages/AppCard"
+        }
+      }
+    }
+  },
+  "operations": {
+    "sendLessonPlanReadyWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/lessonPlanReady"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/lessonPlanEvents"
+        }
+      ]
+    },
+    "sendLessonPlanFailedWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/lessonPlanFailed"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/lessonPlanEvents"
+        }
+      ]
+    },
+    "sendUsageThresholdReachedWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/usageThresholdReached"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/usageEvents"
+        }
+      ]
+    },
+    "sendWebhookTestWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/webhookTest"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendLessonPlanReadyFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/lessonPlanReady"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/lessonPlanEvents"
+        }
+      ]
+    },
+    "sendLessonPlanFailedFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/lessonPlanFailed"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/lessonPlanEvents"
+        }
+      ]
+    },
+    "sendUsageThresholdReachedFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/usageThresholdReached"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/usageEvents"
+        }
+      ]
+    },
+    "sendLessonPlanReadyStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/lessonPlanReady"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/lessonPlanEvents"
+        }
+      ]
+    },
+    "sendLessonPlanFailedStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/lessonPlanFailed"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/lessonPlanEvents"
+        }
+      ]
+    },
+    "sendUsageThresholdReachedStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/usageThresholdReached"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/usageEvents"
+        }
+      ]
+    },
+    "sendAppInstalledWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/appInstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppUninstalledWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/appUninstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppInstalledFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/appInstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppUninstalledFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/appUninstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppInstalledStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/appInstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppUninstalledStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/appUninstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "receiveWorldContextChanged": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/inbound"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/inbound/messages/worldContextChanged"
+        }
+      ],
+      "x-i18n": "asyncapi.operations.receive_world_context_changed",
+      "description": "Lingara records a `world.context_changed` event sent with `POST /v1/events`. With `generate: true` it also starts a lesson plan, which needs `lesson_plans:write`.",
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/inboundEvents"
+        },
+        {
+          "$ref": "#/components/securitySchemes/inboundReaction"
+        }
+      ]
+    },
+    "receiveWorldPracticeRequested": {
+      "action": "receive",
+      "channel": {
+        "$ref": "#/channels/inbound"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/inbound/messages/worldPracticeRequested"
+        }
+      ],
+      "x-i18n": "asyncapi.operations.receive_world_practice_requested",
+      "description": "Lingara records a `world.practice_requested` event sent with `POST /v1/events` and starts a lesson plan for it unless `generate` is `false`. The plan needs `lesson_plans:write`.",
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/inboundEvents"
+        },
+        {
+          "$ref": "#/components/securitySchemes/inboundReaction"
+        }
+      ]
+    },
+    "sendAppRender": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/app"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/app/messages/appRender"
+        }
+      ],
+      "reply": {
+        "channel": {
+          "$ref": "#/channels/app"
+        },
+        "messages": [
+          {
+            "$ref": "#/channels/app/messages/appCard"
+          }
+        ]
+      }
+    },
+    "sendAppAction": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/app"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/app/messages/appAction"
+        }
+      ],
+      "reply": {
+        "channel": {
+          "$ref": "#/channels/app"
+        },
+        "messages": [
+          {
+            "$ref": "#/channels/app/messages/appCard"
+          }
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EventEnvelope": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "api_version": {
+            "type": "string"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "created_at",
+          "api_version",
+          "subject",
+          "data"
+        ]
+      },
+      "LessonPlanReadyData": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PlanReadyStatus"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "int16",
+            "minimum": -32768,
+            "maximum": 32767
+          }
+        },
+        "required": [
+          "plan_id",
+          "status",
+          "title",
+          "source_lang",
+          "target_lang",
+          "level"
+        ]
+      },
+      "PlanReadyStatus": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "partial"
+        ]
+      },
+      "LessonPlanFailedData": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PlanFailReason"
+          }
+        },
+        "required": [
+          "plan_id",
+          "reason"
+        ]
+      },
+      "PlanFailReason": {
+        "type": "string",
+        "enum": [
+          "generation_failed",
+          "timed_out"
+        ]
+      },
+      "UsageThresholdReachedData": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/ThresholdScope"
+          },
+          "threshold_pct": {
+            "type": "integer",
+            "enum": [
+              50,
+              70,
+              90,
+              100
+            ]
+          },
+          "month": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "scope",
+          "threshold_pct",
+          "month"
+        ]
+      },
+      "ThresholdScope": {
+        "type": "string",
+        "enum": [
+          "account",
+          "client"
+        ]
+      },
+      "WebhookTestData": {
+        "type": "object"
+      },
+      "AppInstalledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AppContextSlice"
+            }
+          },
+          "tutor_note": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id",
+          "context",
+          "tutor_note"
+        ]
+      },
+      "AppUninstalledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
+      "AppContextSlice": {
+        "type": "string",
+        "enum": [
+          "languages",
+          "plan_summary",
+          "review_due",
+          "tutor_topic"
+        ]
+      },
+      "WorldContextChanged": {
+        "type": "object",
+        "properties": {
+          "scene": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "npc": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Npc"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24,
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            },
+            "maxItems": 8
+          },
+          "generate": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "scene",
+          "source_lang",
+          "target_lang",
+          "level"
+        ]
+      },
+      "WorldPracticeRequested": {
+        "type": "object",
+        "properties": {
+          "topic": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 24,
+              "pattern": "^[a-z0-9][a-z0-9._-]*$"
+            },
+            "maxItems": 8
+          },
+          "generate": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "topic",
+          "source_lang",
+          "target_lang",
+          "level"
+        ]
+      },
+      "Npc": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "persona": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "AppRenderRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "slot": {
+            "$ref": "#/components/schemas/AppSlotName"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContextSlice"
+            }
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "install_id",
+          "subject",
+          "slot",
+          "locale",
+          "context"
+        ]
+      },
+      "AppActionRequest": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "subject": {
+            "type": "string"
+          },
+          "slot": {
+            "$ref": "#/components/schemas/AppSlotName"
+          },
+          "locale": {
+            "type": "string"
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ContextSlice"
+            }
+          },
+          "action_id": {
+            "type": "string"
+          },
+          "card_etag": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "id",
+          "install_id",
+          "subject",
+          "slot",
+          "locale",
+          "context",
+          "action_id",
+          "card_etag"
+        ]
+      },
+      "AppSlotName": {
+        "type": "string",
+        "enum": [
+          "plans.empty_detail",
+          "home.side"
+        ]
+      },
+      "ContextSlice": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "source_lang": {
+                "type": "string"
+              },
+              "target_lang": {
+                "type": "string"
+              },
+              "level": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "format": "uint8",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "kind": {
+                "type": "string",
+                "const": "languages"
+              }
+            },
+            "required": [
+              "kind",
+              "source_lang",
+              "target_lang"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "plan_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "title": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "target_lang": {
+                "type": "string"
+              },
+              "set_count": {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              },
+              "sets_completed": {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              },
+              "kind": {
+                "type": "string",
+                "const": "plan_summary"
+              }
+            },
+            "required": [
+              "kind",
+              "plan_id",
+              "target_lang",
+              "set_count",
+              "sets_completed"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "due": {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              },
+              "learned": {
+                "type": "integer",
+                "format": "uint32",
+                "minimum": 0
+              },
+              "kind": {
+                "type": "string",
+                "const": "review_due"
+              }
+            },
+            "required": [
+              "kind",
+              "due",
+              "learned"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "topic": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string",
+                "const": "tutor_topic"
+              }
+            },
+            "required": [
+              "kind",
+              "topic"
+            ]
+          }
+        ]
+      },
+      "AppCardReply": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "card": {
+            "$ref": "#/components/schemas/Card"
+          },
+          "tutor_note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "card"
+        ]
+      },
+      "Card": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "elements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CardElement"
+            }
+          }
+        },
+        "required": [
+          "elements"
+        ]
+      },
+      "CardElement": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "level": {
+                "type": "integer",
+                "format": "uint8",
+                "minimum": 0,
+                "maximum": 255
+              },
+              "type": {
+                "type": "string",
+                "const": "heading"
+              }
+            },
+            "required": [
+              "type",
+              "text",
+              "level"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "lang": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "text"
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "word": {
+                "type": "string"
+              },
+              "reading": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "gloss": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "lang": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "term"
+              }
+            },
+            "required": [
+              "type",
+              "word"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ListItem"
+                }
+              },
+              "type": {
+                "type": "string",
+                "const": "list"
+              }
+            },
+            "required": [
+              "type",
+              "items"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "value": {
+                "type": "number",
+                "format": "double"
+              },
+              "label": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "progress"
+              }
+            },
+            "required": [
+              "type",
+              "value",
+              "label"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "type": {
+                "type": "string",
+                "const": "divider"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "action": {
+                "type": "string"
+              },
+              "style": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ButtonStyle"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "button"
+              }
+            },
+            "required": [
+              "type",
+              "label",
+              "action"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "const": "link"
+              }
+            },
+            "required": [
+              "type",
+              "label",
+              "url"
+            ]
+          }
+        ]
+      },
+      "ListItem": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "text": {
+                "type": "string"
+              },
+              "lang": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "text"
+              }
+            },
+            "required": [
+              "type",
+              "text"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "word": {
+                "type": "string"
+              },
+              "reading": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "gloss": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "lang": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "const": "term"
+              }
+            },
+            "required": [
+              "type",
+              "word"
+            ]
+          }
+        ]
+      },
+      "ButtonStyle": {
+        "type": "string",
+        "enum": [
+          "primary",
+          "secondary"
+        ]
+      }
+    },
+    "messages": {
+      "LessonPlanReady": {
+        "name": "lesson_plan.ready",
+        "x-i18n": "asyncapi.messages.lesson_plan_ready",
+        "description": "A lesson plan is ready to use. It fires at most twice for one plan: when the plan is first usable, with `status` `partial` or `complete`, and again if a `partial` plan is later completed.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "lesson_plan.ready"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/LessonPlanReadyData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_3f2b8c1d9e7a4f6b8c0d1e2f3a4b5c6d",
+              "type": "lesson_plan.ready",
+              "created_at": "2026-10-01T09:30:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "plan_id": "6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+                "status": "complete",
+                "title": "Ordering at a café",
+                "source_lang": "en",
+                "target_lang": "zh-Hans",
+                "level": 2
+              }
+            }
+          }
+        ]
+      },
+      "LessonPlanFailed": {
+        "name": "lesson_plan.failed",
+        "x-i18n": "asyncapi.messages.lesson_plan_failed",
+        "description": "A lesson plan could not be generated. `reason` is `generation_failed` or `timed_out`.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "lesson_plan.failed"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/LessonPlanFailedData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+              "type": "lesson_plan.failed",
+              "created_at": "2026-10-01T09:45:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "plan_id": "6f1c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+                "reason": "timed_out"
+              }
+            }
+          }
+        ]
+      },
+      "UsageThresholdReached": {
+        "name": "usage.threshold_reached",
+        "x-i18n": "asyncapi.messages.usage_threshold_reached",
+        "description": "A metered account or client has used a share of its monthly spend cap. Only the highest threshold crossed is reported, so usage that jumps from 40% to 95% sends one event with `threshold_pct` `90`. An integration billed from an allowance never receives it.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "usage.threshold_reached"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/UsageThresholdReachedData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b",
+              "type": "usage.threshold_reached",
+              "created_at": "2026-10-01T12:00:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "scope": "client",
+                "threshold_pct": 100,
+                "month": "2026-10",
+                "client_id": "lgr_cid_4hT9kQ2mZx7Lp1Vb8Nc3Rw"
+              }
+            }
+          }
+        ]
+      },
+      "WebhookTest": {
+        "name": "webhook.test",
+        "x-i18n": "asyncapi.messages.webhook_test",
+        "description": "A test event, sent to one webhook endpoint when you ask for it. It never appears in the feed or the stream.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "webhook.test"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/WebhookTestData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_1234567890abcdef1234567890abcdef",
+              "type": "webhook.test",
+              "created_at": "2026-10-01T08:00:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {}
+            }
+          }
+        ]
+      },
+      "AppInstalled": {
+        "name": "app.installed",
+        "x-i18n": "asyncapi.messages.app_installed",
+        "description": "A learner installed your app. Only your app's own client receives it, never another client of the same account. `context` lists what the learner agreed your app may be shown.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "app.installed"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AppInstalledData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_5a6b7c8d9e0f11223344556677889900",
+              "type": "app.installed",
+              "created_at": "2026-10-01T09:20:04Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "client_id": "lgr_cid_4hT9kQ2mZx7Lp1Vb8Nc3Rw",
+                "install_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+                "context": [
+                  "languages"
+                ],
+                "tutor_note": false
+              }
+            }
+          }
+        ]
+      },
+      "AppUninstalled": {
+        "name": "app.uninstalled",
+        "x-i18n": "asyncapi.messages.app_uninstalled",
+        "description": "A learner removed your app. Only your app's own client receives it. Stop using anything you kept for this install.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "app.uninstalled"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AppUninstalledData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_00998877665544332211ffeeddccbbaa",
+              "type": "app.uninstalled",
+              "created_at": "2026-10-02T10:00:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "client_id": "lgr_cid_4hT9kQ2mZx7Lp1Vb8Nc3Rw",
+                "install_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f"
+              }
+            }
+          }
+        ]
+      },
+      "WorldContextChanged": {
+        "name": "world.context_changed",
+        "x-i18n": "asyncapi.messages.world_context_changed",
+        "description": "Your game tells Lingara that the learner's world has changed.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "type",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "world.context_changed"
+            },
+            "data": {
+              "$ref": "#/components/schemas/WorldContextChanged"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "world.context_changed",
+              "data": {
+                "scene": "A night market in Taipei, just after rain",
+                "npc": {
+                  "name": "Auntie Lin",
+                  "persona": "a street-food vendor who likes to haggle"
+                },
+                "source_lang": "en",
+                "target_lang": "zh",
+                "level": 3,
+                "tags": [
+                  "market",
+                  "food",
+                  "chapter-2"
+                ],
+                "generate": true
+              }
+            }
+          }
+        ]
+      },
+      "WorldPracticeRequested": {
+        "name": "world.practice_requested",
+        "x-i18n": "asyncapi.messages.world_practice_requested",
+        "description": "Your game asks Lingara for practice that fits the learner's world.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "type",
+            "data"
+          ],
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "world.practice_requested"
+            },
+            "data": {
+              "$ref": "#/components/schemas/WorldPracticeRequested"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "world.practice_requested",
+              "data": {
+                "topic": "Asking for directions",
+                "source_lang": "en",
+                "target_lang": "zh",
+                "level": 2
+              }
+            }
+          }
+        ]
+      },
+      "AppRender": {
+        "name": "app.render",
+        "x-i18n": "asyncapi.messages.app_render",
+        "description": "Lingara asks your app for a card to draw in a slot. `context` holds only what the learner agreed your app may be shown.",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/AppRenderRequest"
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "app.render",
+              "id": "lgr_msg_0f3a9c1e5b7d4a2c8e6f1b3d5a7c9e0f",
+              "install_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "slot": "plans.empty_detail",
+              "locale": "ja",
+              "context": [
+                {
+                  "kind": "languages",
+                  "source_lang": "en",
+                  "target_lang": "ja",
+                  "level": 3
+                },
+                {
+                  "kind": "review_due",
+                  "due": 12,
+                  "learned": 340
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "AppAction": {
+        "name": "app.action",
+        "x-i18n": "asyncapi.messages.app_action",
+        "description": "The learner pressed a button on your card. `action_id` is the button's `action`; `card_etag` names the card they saw and is not for verifying.",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/AppActionRequest"
+        },
+        "examples": [
+          {
+            "payload": {
+              "type": "app.action",
+              "id": "lgr_msg_1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d",
+              "install_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "slot": "plans.empty_detail",
+              "locale": "ja",
+              "context": [
+                {
+                  "kind": "languages",
+                  "source_lang": "en",
+                  "target_lang": "ja",
+                  "level": 3
+                }
+              ],
+              "action_id": "next_kanji",
+              "card_etag": "c1_8f14e45fceea167a5a36dedd4bea2543"
+            }
+          }
+        ]
+      },
+      "AppCard": {
+        "name": "app.card",
+        "x-i18n": "asyncapi.messages.app_card",
+        "description": "Your app's reply to either request: a card built from eight element types, and an optional note for the learner's tutor. Reply within 3 seconds to a render and 5 to an action, with status `200` and at most 32 KiB of `application/json`.",
+        "contentType": "application/json",
+        "payload": {
+          "$ref": "#/components/schemas/AppCardReply"
+        },
+        "examples": [
+          {
+            "payload": {
+              "card": {
+                "elements": [
+                  {
+                    "type": "heading",
+                    "text": "Today's five",
+                    "level": 1
+                  },
+                  {
+                    "type": "list",
+                    "items": [
+                      {
+                        "type": "term",
+                        "word": "漢字",
+                        "reading": "かんじ",
+                        "gloss": "kanji",
+                        "lang": "ja"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "progress",
+                    "value": 0.4,
+                    "label": "2 of 5"
+                  },
+                  {
+                    "type": "button",
+                    "label": "Next",
+                    "action": "next_kanji",
+                    "style": "primary"
+                  },
+                  {
+                    "type": "link",
+                    "label": "Why these?",
+                    "url": "https://apps.example.com/why"
+                  }
+                ]
+              },
+              "tutor_note": "The learner is practising 漢字 from their JLPT N5 plan."
+            }
+          }
+        ]
+      }
+    },
+    "securitySchemes": {
+      "lessonPlanEvents": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "availableScopes": {
+              "vocab:generate": "Generate vocabulary lists.",
+              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
+              "lesson_plans:write": "Create lesson plans.",
+              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
+              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
+              "events:read": "Read events about your account, and register endpoints that receive them.",
+              "events:write": "Send events from your game or integration to Lingara."
+            }
+          }
+        },
+        "scopes": [
+          "events:read",
+          "lesson_plans:read"
+        ]
+      },
+      "usageEvents": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "availableScopes": {
+              "vocab:generate": "Generate vocabulary lists.",
+              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
+              "lesson_plans:write": "Create lesson plans.",
+              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
+              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
+              "events:read": "Read events about your account, and register endpoints that receive them.",
+              "events:write": "Send events from your game or integration to Lingara."
+            }
+          }
+        },
+        "scopes": [
+          "events:read",
+          "usage:read"
+        ]
+      },
+      "endpointOwner": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "availableScopes": {
+              "vocab:generate": "Generate vocabulary lists.",
+              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
+              "lesson_plans:write": "Create lesson plans.",
+              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
+              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
+              "events:read": "Read events about your account, and register endpoints that receive them.",
+              "events:write": "Send events from your game or integration to Lingara."
+            }
+          }
+        },
+        "scopes": [
+          "events:read"
+        ]
+      },
+      "inboundEvents": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "availableScopes": {
+              "vocab:generate": "Generate vocabulary lists.",
+              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
+              "lesson_plans:write": "Create lesson plans.",
+              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
+              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
+              "events:read": "Read events about your account, and register endpoints that receive them.",
+              "events:write": "Send events from your game or integration to Lingara."
+            }
+          }
+        },
+        "scopes": [
+          "events:write"
+        ]
+      },
+      "inboundReaction": {
+        "type": "oauth2",
+        "flows": {
+          "clientCredentials": {
+            "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "availableScopes": {
+              "vocab:generate": "Generate vocabulary lists.",
+              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
+              "lesson_plans:write": "Create lesson plans.",
+              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
+              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
+              "events:read": "Read events about your account, and register endpoints that receive them.",
+              "events:write": "Send events from your game or integration to Lingara."
+            }
+          }
+        },
+        "scopes": [
+          "events:write",
+          "lesson_plans:write"
+        ]
+      }
+    }
+  }
+}

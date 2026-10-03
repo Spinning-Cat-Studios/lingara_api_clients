@@ -40,14 +40,15 @@ foreach ($client->generateVocabulary($request) as $event) {
 }
 ```
 
-Omit both credentials for a client that calls only the three public
-operations: `getOpenApiDocument`, `listApiVersions` and `getApiVersion`.
+Omit both credentials for a client that calls only the four public
+operations: `getOpenApiDocument`, `getAsyncApiDocument`, `listApiVersions`
+and `getApiVersion`.
 
 Every option is a named argument of `new Client(...)`: `authMethod`,
 `scopes`, `tokenSource`, `tokenCache`, `baseUrl`, `tokenUrl`, `version`,
 `onDeprecation`, `logger`, `maxAttempts`, `retryAfterCap`,
 `streamIdleTimeout`, `tokenRequestTimeout`, `userAgentSuffix`, `clock`,
-`sleeper` and `http`. Durations are `float` seconds.
+`sleeper`, `http` and `tailMaxFailures`. Durations are `float` seconds.
 
 ## Streams
 
@@ -74,6 +75,95 @@ try {
     $stream->close();
 }
 ```
+
+## Webhooks and events
+
+Lingara tells your game when something happens (a lesson plan is ready, a
+usage threshold is reached) through three doors that carry one envelope:
+a signed webhook, a feed you page through, and a live tail. Each event is a
+`Lingara\Events\Event`: one class per type under `Lingara\Events\Generated\`
+(`LessonPlanReady`, `LessonPlanFailed`, …), each with `id`, `type`,
+`createdAt`, `apiVersion`, `subject` and a typed `data`.
+
+**Verify the raw body first.** `Webhook` checks the Standard Webhooks
+signature against your `lgr_whsec_…` secret, then parses the body. Pass the
+body exactly as it arrived (`file_get_contents('php://input')`, or
+`$request->getContent()` in Symfony and Laravel), never a decoded and
+re-encoded one, which no longer matches its signature. The headers are an
+array, such as `getallheaders()`, or any PSR-7 request:
+
+```php
+use Lingara\Events\Webhook;
+use Lingara\Events\VerificationException;
+
+$webhook = new Webhook(getenv('LINGARA_WEBHOOK_SECRET')); // or [$new, $old] during a rotation
+try {
+    $event = $webhook->verify(file_get_contents('php://input'), getallheaders());
+} catch (VerificationException $e) {
+    http_response_code(400);                              // $e->reason() says why
+    exit;
+}
+http_response_code(204);
+```
+
+`VerificationException` is deliberately not a `LingaraException`, so a
+catch-all around your API calls never swallows a forged delivery. Answer
+`2xx` fast and do the work afterwards, and deduplicate by `$event->id`:
+delivery is at least once and unordered. An event type newer than this
+library arrives as `UnknownEvent`, with its `data` as decoded JSON:
+acknowledge it like any other, or Lingara keeps redelivering it for about a
+day, and log it, or you lose it. `verifySignature()` checks the signature
+alone, for a signed body that is not an event.
+
+**The feed.** `events()` walks every page after a cursor and stops at the
+end; it never sleeps or polls. Save `cursor()` and pass it next time.
+Without a cursor it starts from now, or from the oldest retained event with
+`start: 'oldest'`. A cursor older than the 30-day window is an
+`ApiException` with `errorCode()` `cursor_expired`: start again without one.
+
+```php
+$feed = $client->events(cursor: $saved);
+foreach ($feed as $event) {
+    // …
+}
+$saved = $feed->cursor();
+```
+
+`listEvents()` is the single page it is built on.
+
+**The tail.** `tailEvents()` streams events live and reconnects after every
+ending, resuming from its `cursor()`, so it never ends on its own: leave the
+`foreach` to stop it. It throws after `tailMaxFailures` (8) failed
+reconnects in a row, about 90 seconds of backoff; catch that and restart
+from `cursor()` to ride out a longer outage. The feed's cursor and the
+tail's are one token, so `tailEvents(cursor: $feed->cursor())` takes over
+from a catch-up with no gap. `streamEvents()` is the one connection it is
+built on.
+
+**Sending.** `sendEvent()` tells Lingara what happened in your game:
+
+```php
+use Lingara\Events\Generated\InboundEvent;
+use Lingara\Model\WorldContextChanged;
+
+$accepted = $client->sendEvent(InboundEvent::worldContextChanged(new WorldContextChanged([
+    'scene' => 'A night market after rain', 'source_lang' => 'en', 'target_lang' => 'zh', 'level' => 2, 'generate' => true,
+])))->value;
+```
+
+Each call carries an `Idempotency-Key`: a fresh UUIDv4 unless you pass
+`idempotencyKey:`, and the same one on every retry of that call. Pass your
+own when your game may resend after a crash, because a generated key is gone
+once the call returns. A reused key returns the first answer, whatever the
+body, so never reuse one for a different event. Only
+`reaction.plan_status == generating` promises a `lesson_plan.ready` or
+`lesson_plan.failed`; a `partial` or `complete` plan is readable now, though
+an event for it may still arrive.
+
+**Pin the version.** `data` is rendered at your client's pinned API
+version, and this library's models were generated for
+`Lingara\Version::GENERATED_FOR_VERSION`: pin your OAuth client to that
+version.
 
 ## HTTP clients
 
@@ -137,15 +227,17 @@ warning per version goes to `logger`, a PSR-3 logger that defaults to
 
 `clock` (a PSR-20 clock) and `sleeper` (`callable(float $seconds): void`)
 exist for tests: the clock is read for token freshness and HTTP-date
-`Retry-After` values, and the sleeper is handed every `Retry-After` wait.
+`Retry-After` values, and the sleeper is handed every `Retry-After` wait and
+every tail reconnect delay. `Webhook` takes a clock as its last argument too.
 
 ## Generated code
 
 `src/Model/` and `src/ObjectSerializer.php` are generated by
-openapi-generator, and `src/Stream/`, `src/Internal/Operations.php` and
-`src/Version.php` by this package's own generator. They are generated
-support, not API, and are never edited by hand. `Lingara\Internal\` is not
-API either.
+openapi-generator, and `src/Stream/`, `src/Events/Generated/`,
+`src/Internal/Operations.php` and `src/Version.php` by this package's own
+generator. They are never edited by hand. The models, the stream and event
+classes and `InboundEvent` are API; `ObjectSerializer` and
+`Lingara\Internal\` are not.
 
 ## The contract
 

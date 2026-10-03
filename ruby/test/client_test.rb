@@ -22,13 +22,14 @@ class ClientTest < Minitest::Test
     server&.close
   end
 
-  # 29.9.26t AC28: the nine client methods and operations.rb's keys name the
-  # same operations under D3's snake_case rule, both ways.
+  # 29.9.26t AC28: the client's operation methods and operations.rb's keys
+  # name the same operations under D3's snake_case rule, both ways. The
+  # feed and tail helpers (ADR 30.9.26aa D6, D7) are not operations.
   def test_operation_methods_match_generated_operations
     snake = ->(id) { id.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase }
-    methods = Lingara::Client.public_instance_methods(false) - %i[inspect to_s token_source pretty_print]
+    methods = Lingara::Client.public_instance_methods(false) - %i[inspect to_s token_source pretty_print events tail_events]
     assert_equal Lingara::OPERATIONS.keys.map { |id| snake.call(id).to_sym }.sort, methods.sort
-    assert_equal 9, methods.size
+    assert_equal 13, methods.size
   end
 
   # 29.9.26t AC29: Client.new refuses version: "", client_id: without

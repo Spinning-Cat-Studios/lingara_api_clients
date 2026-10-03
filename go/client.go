@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -20,6 +21,7 @@ type Client struct {
 	userAgent string
 	policy    retryPolicy
 	idle      time.Duration
+	tailMax   int
 	tokens    TokenSource
 	versions  *versionObserver
 }
@@ -55,6 +57,7 @@ func New(opts ...Option) (*Client, error) {
 		userAgent: userAgent(o.userAgent),
 		policy:    retryPolicy{maxAttempts: o.maxAttempts, retryAfterCap: o.retryAfterCap, clock: o.clock, sleep: o.sleep},
 		idle:      o.idleTimeout,
+		tailMax:   o.tailMax,
 		tokens:    o.tokenSource,
 		versions:  newVersionObserver(o.hook),
 	}
@@ -77,6 +80,12 @@ type request struct {
 	body       []byte
 	accept     string
 	needsToken bool
+	// header is sent on every attempt: Idempotency-Key (K4) and
+	// Last-Event-ID (K5a), ADR 30.9.26aa.
+	header http.Header
+	// single sends one attempt and hands a 429 or 503 back as its error:
+	// a tail open bypasses K4's attempt loop (CONTRACT.md K5a).
+	single bool
 }
 
 // send runs the pipeline: auth and the one 401 retry, the Retry-After loop,
@@ -85,8 +94,12 @@ type request struct {
 // A client with no token source sends an operation that needs one without
 // Authorization, and the server's 401 is the answer.
 func (c *Client) send(ctx, reqCtx context.Context, r request) (*http.Response, error) {
+	policy := c.policy
+	if r.single {
+		policy.maxAttempts = 1
+	}
 	attempts := func(tok *Token) (*http.Response, error) {
-		return withRetries(ctx, c.policy, func() (*http.Response, error) { return c.sendOnce(ctx, reqCtx, r, tok) })
+		return withRetries(ctx, policy, func() (*http.Response, error) { return c.sendOnce(ctx, reqCtx, r, tok) })
 	}
 	var res *http.Response
 	var err error
@@ -113,6 +126,9 @@ func (c *Client) sendOnce(ctx, reqCtx context.Context, r request, tok *Token) (*
 	if err != nil {
 		return nil, &TransportError{Kind: Connect, Err: err}
 	}
+	for name, values := range r.header {
+		req.Header[name] = values
+	}
 	req.Header.Set("Accept", r.accept)
 	req.Header.Set("User-Agent", c.userAgent)
 	if r.body != nil {
@@ -137,7 +153,13 @@ func (c *Client) sendOnce(ctx, reqCtx context.Context, r request, tok *Token) (*
 // before it returns.
 func getJSON[T any](ctx context.Context, c *Client, operationID, id string) (*Result[T], error) {
 	rt := routes[operationID]
-	res, err := c.send(ctx, ctx, request{method: rt.method, url: c.url(rt.path, id), accept: "application/json", needsToken: rt.needsToken})
+	return sendJSON[T](ctx, c, request{method: rt.method, url: c.url(rt.path, id), accept: "application/json", needsToken: rt.needsToken})
+}
+
+// sendJSON sends one JSON request and decodes its 2xx body. The deprecation
+// hook, if any, is called before it returns.
+func sendJSON[T any](ctx context.Context, c *Client, r request) (*Result[T], error) {
+	res, err := c.send(ctx, ctx, r)
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +176,15 @@ func getJSON[T any](ctx context.Context, c *Client, operationID, id string) (*Re
 	return &Result[T]{Value: value, ServedVersion: served}, nil
 }
 
-// streamCall names one stream operation and its input: a path id, or a body.
+// streamCall names one stream operation and its input: a path id, or a body,
+// and any query, extra headers or single attempt (a tail open, K5a).
 type streamCall struct {
 	operationID string
 	id          string
 	body        any
+	query       url.Values
+	header      http.Header
+	single      bool
 }
 
 // openStream sends a stream operation's request eagerly and returns once its
@@ -174,7 +200,10 @@ func openStream[E any](ctx context.Context, c *Client, op streamCall, decode fun
 		}
 	}
 	reqCtx, cancel := context.WithCancelCause(ctx)
-	res, err := c.send(ctx, reqCtx, request{method: rt.method, url: c.url(rt.path, op.id), body: payload, accept: "text/event-stream", needsToken: rt.needsToken})
+	res, err := c.send(ctx, reqCtx, request{
+		method: rt.method, url: withQuery(c.url(rt.path, op.id), op.query), body: payload, accept: "text/event-stream",
+		needsToken: rt.needsToken, header: op.header, single: op.single,
+	})
 	if err != nil {
 		cancel(errClosed)
 		return nil, err
@@ -194,6 +223,14 @@ func openStream[E any](ctx context.Context, c *Client, op streamCall, decode fun
 // url is the base URL and the route's path, with {id} percent-encoded.
 func (c *Client) url(path, id string) string {
 	return c.baseURL + strings.ReplaceAll(path, "{id}", encodeSegment(id))
+}
+
+// withQuery appends a query string, when there is one.
+func withQuery(u string, q url.Values) string {
+	if len(q) == 0 {
+		return u
+	}
+	return u + "?" + q.Encode()
 }
 
 // encodeSegment percent-encodes everything but A–Z a–z 0–9 - . _ ~, as the

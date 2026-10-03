@@ -1,0 +1,26 @@
+id: op.fake-game-loop
+title: "The fake game's loop: take the horizon cursor, send world.context_changed with generate, then read the feed from that cursor to the plan's lesson_plan.ready"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - events: { start: latest }
+    expect: { outcome: completed, event_ids: [], cursor: { equals: h0 } }
+  - call:
+      operation: sendEvent
+      body: {"type":"world.context_changed","data":{"scene":"A night market after rain","source_lang":"en","target_lang":"zh","level":2,"generate":true}}
+    expect: { outcome: completed, status: 202, body: {"id":"lgr_evt_conformance9","type":"world.context_changed","created_at":"2026-10-01T09:12:44Z","reaction":{"status":"started","plan_id":"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37","plan_status":"generating"}} }
+  - events: { cursor: h0 }
+    expect: { outcome: completed, event_ids: ["lgr_evt_conformance2","lgr_evt_conformance5"], unknown_types: [], cursor: { equals: c2 } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_fakegame, token_type: Bearer, expires_in: 3600, scope: "events:read events:write lesson_plans:read lesson_plans:write" } }
+    - request: { method: GET, path: /v1/events, query: {"start":"latest"}, headers: { authorization: { equals: Bearer lgr_at_fakegame } } }
+      response: { status: 200, json: {"items":[],"next_cursor":"h0","has_more":false} }
+    - request: { method: POST, path: /v1/events, headers: { idempotency-key: { pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' } }, json: {"type":"world.context_changed","data":{"scene":"A night market after rain","source_lang":"en","target_lang":"zh","level":2,"generate":true}} }
+      response: { status: 202, json: {"id":"lgr_evt_conformance9","type":"world.context_changed","created_at":"2026-10-01T09:12:44Z","reaction":{"status":"started","plan_id":"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37","plan_status":"generating"}} }
+    - request: { method: GET, path: /v1/events, query: {"cursor":"h0"}, headers: { authorization: { equals: Bearer lgr_at_fakegame } } }
+      response: { status: 200, json: {"items":[{"id":"lgr_evt_conformance2","type":"lesson_plan.failed","created_at":"2026-10-01T09:13:02Z","api_version":"2026-09-equipped-boxfish","subject":"lgr_sub_conformance","data":{"plan_id":"0f1e2d3c-4b5a-4978-8796-a5b4c3d2e1f0","reason":"generation_failed"}}],"next_cursor":"c1","has_more":true} }
+    - request: { method: GET, path: /v1/events, query: {"cursor":"c1"}, headers: { authorization: { equals: Bearer lgr_at_fakegame } } }
+      response: { status: 200, json: {"items":[{"id":"lgr_evt_conformance5","type":"lesson_plan.ready","created_at":"2026-10-01T09:14:44Z","api_version":"2026-09-equipped-boxfish","subject":"lgr_sub_conformance","data":{"plan_id":"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37","status":"complete","title":"A night market after rain","source_lang":"en","target_lang":"zh","level":2}}],"next_cursor":"c2","has_more":false} }

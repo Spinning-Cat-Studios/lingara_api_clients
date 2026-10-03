@@ -6,3 +6,4 @@
 **/model/CreateLessonPlanEvent*.java
 **/model/StreamLessonPlanEvent*.java
 **/model/SendTutorMessageEvent*.java
+**/model/StreamEventsEvent*.java

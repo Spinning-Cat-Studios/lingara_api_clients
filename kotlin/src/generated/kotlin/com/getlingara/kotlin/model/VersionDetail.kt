@@ -34,6 +34,7 @@ import kotlinx.serialization.Contextual
  * @param summary 
  * @param history 
  * @param spec 
+ * @param asyncapi 
  */
 @Serializable
 
@@ -61,7 +62,10 @@ public data class VersionDetail (
     val history: kotlin.collections.List<VersionHistoryEntry>,
 
     @SerialName(value = "spec")
-    val spec: VersionSpec
+    val spec: VersionSpec,
+
+    @SerialName(value = "asyncapi")
+    val asyncapi: VersionSpec
 
 ) {
 

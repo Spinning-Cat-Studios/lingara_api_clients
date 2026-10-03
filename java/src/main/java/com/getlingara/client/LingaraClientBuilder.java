@@ -35,6 +35,7 @@ abstract class LingaraClientBuilder {
   Sleeper sleeper = d -> TimeUnit.NANOSECONDS.sleep(d.toNanos());
   HttpClient httpClient;
   Duration requestTimeout;
+  int tailMaxFailures = 8;
 
   LingaraClientBuilder() {}
 
@@ -245,11 +246,24 @@ abstract class LingaraClientBuilder {
   }
 
   /**
+   * Sets how many consecutive failures {@code tailEvents} rides out before it raises the last: 8 by
+   * default, which is 91 s of reconnect sleeps (CONTRACT.md K5a). Raise it for a game that should
+   * wait out a longer outage.
+   *
+   * @param tailMaxFailures the bound
+   * @return this builder
+   */
+  public LingaraClient.Builder tailMaxFailures(int tailMaxFailures) {
+    this.tailMaxFailures = tailMaxFailures;
+    return self();
+  }
+
+  /**
    * Builds the client.
    *
    * @return the client
    * @throws IllegalStateException for an empty {@code version}, for {@code tokenSource} beside
-   *     {@code clientCredentials}, and for {@code maxAttempts} below 1
+   *     {@code clientCredentials}, and for {@code maxAttempts} or {@code tailMaxFailures} below 1
    */
   public LingaraClient build() {
     if (version != null && version.isEmpty()) {
@@ -260,6 +274,9 @@ abstract class LingaraClientBuilder {
     }
     if (maxAttempts < 1) {
       throw new IllegalStateException("maxAttempts needs at least 1");
+    }
+    if (tailMaxFailures < 1) {
+      throw new IllegalStateException("tailMaxFailures needs at least 1");
     }
     HttpClient http =
         httpClient != null

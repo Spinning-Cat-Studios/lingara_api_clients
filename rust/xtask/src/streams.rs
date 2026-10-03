@@ -25,6 +25,9 @@ pub struct Stream {
     events: Vec<Event>,
     /// Each `endsOn` event and its outcome, in source order (ADR 29.9.26ai D2).
     ends: Vec<(String, &'static str)>,
+    /// A tail: its endings close the connection, not the subscription
+    /// (ADR 30.9.26aa D7).
+    resumable: bool,
 }
 
 struct Event {
@@ -67,6 +70,7 @@ fn read_one(view: &Value, entry: &Value) -> Result<Stream, String> {
         union,
         events,
         ends,
+        resumable: entry.get("resumable").and_then(Value::as_bool).unwrap_or(false),
         operation_id,
     })
 }
@@ -168,7 +172,7 @@ fn route(s: &Stream) -> TokenStream {
         Some(body) => quote! { Some(#body) },
         None => quote! { None },
     };
-    let params = &s.path_params;
+    let (params, resumable) = (&s.path_params, s.resumable);
     let events = s.events.iter().map(|e| &e.name);
     let ends = s.ends.iter().map(|(name, outcome)| {
         let outcome = ident(outcome);
@@ -184,6 +188,7 @@ fn route(s: &Stream) -> TokenStream {
             path_params: &[#(#params),*],
             events: &[#(#events),*],
             ends: &[#(#ends),*],
+            resumable: #resumable,
         };
     }
 }

@@ -42,7 +42,7 @@ pub async fn stream<E: Serialize + DeserializeOwned>(opened: Result<EventStream<
     Observed { outcome: "completed", status: Some(200), events, served_version, ..Observed::default() }
 }
 
-fn failed(err: Error, events: Vec<Value>, served_version: Option<String>) -> Observed {
+pub fn failed(err: Error, events: Vec<Value>, served_version: Option<String>) -> Observed {
     let mut renderings = vec![err.to_string(), format!("{err:?}"), format!("{err:#?}")];
     let mut source = std::error::Error::source(&err);
     while let Some(s) = source {

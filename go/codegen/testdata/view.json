@@ -34,8 +34,16 @@
       "error": "error"
     }
   ],
+  "x-lingara-events": [
+    { "type": "word.learned", "direction": "out", "arm": "WordLearned", "data": "#/components/schemas/WordLearnedData", "transports": ["feed", "stream", "webhook"] },
+    { "type": "ping.test", "direction": "out", "arm": "PingTest", "data": "#/components/schemas/PingTestData", "transports": ["webhook"] },
+    { "type": "world.changed", "direction": "in", "data": "#/components/schemas/WorldChanged", "transports": ["inbound"] }
+  ],
   "components": {
     "schemas": {
+      "WordLearnedData": { "type": "object", "properties": { "word": { "type": "string" } }, "required": ["word"] },
+      "PingTestData": { "type": "object" },
+      "WorldChanged": { "type": "object", "properties": { "scene": { "type": "string" } }, "required": ["scene"] },
       "WordsRequest": { "type": "object" },
       "Done": { "type": "object" },
       "StreamWordsEvent": {

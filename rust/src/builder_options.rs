@@ -28,6 +28,13 @@ impl ClientBuilder {
         self
     }
 
+    /// How many consecutive failed opens `tail_events` rides out before it
+    /// raises the last one (CONTRACT.md K5a). Default 8: 91 s of sleeps.
+    pub fn tail_max_failures(mut self, failures: u32) -> Self {
+        self.tail_max_failures = failures.max(1);
+        self
+    }
+
     /// Bounds each token exchange attempt. Default 30 s.
     pub fn token_request_timeout(mut self, timeout: Duration) -> Self {
         self.token_request_timeout = timeout;

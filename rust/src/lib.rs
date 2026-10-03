@@ -22,7 +22,8 @@
 //!
 //! Every library keeps one contract, `conformance/CONTRACT.md` in the
 //! repository: the token handling, retries, errors and streams below are
-//! its K1–K6.
+//! its K1–K6, and [`events`] holds its K5a tail, its event helpers and its
+//! appendix W webhook verifier.
 
 #[cfg(not(any(feature = "rustls", feature = "native-tls")))]
 compile_error!("lingara needs a TLS backend: enable the `rustls` feature (the default) or the `native-tls` feature");
@@ -31,6 +32,7 @@ mod builder;
 mod builder_options;
 mod client;
 mod error;
+pub mod events;
 mod generated;
 pub mod models;
 mod pipeline;
@@ -51,6 +53,10 @@ pub use error::{ApiError, Error, MaintenanceError, OAuthError, TransportError, T
 /// A boxed, `Send` future: what `TokenSource` and `Sleeper` return, so an
 /// implementation needs no direct `futures` dependency.
 pub use futures_util::future::BoxFuture;
+/// Pin your client to this version: an event's `data` is rendered at your
+/// client's pin, and this crate's models are this version's (ADR 30.9.26aa
+/// D3).
+pub use generated::spec_version::GENERATED_FOR_VERSION;
 pub use seams::{Clock, Sleeper, SystemClock, TokioSleeper};
 pub use stream::EventStream;
 pub use token::{AccessToken, ClientCredentials, TokenAuth, TokenSource};

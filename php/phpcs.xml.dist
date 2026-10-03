@@ -13,6 +13,7 @@
     <file>tests</file>
     <exclude-pattern>src/Model/*</exclude-pattern>
     <exclude-pattern>src/Stream/*</exclude-pattern>
+    <exclude-pattern>src/Events/Generated/*</exclude-pattern>
     <exclude-pattern>src/ObjectSerializer.php</exclude-pattern>
     <exclude-pattern>src/Internal/Operations.php</exclude-pattern>
     <exclude-pattern>src/Version.php</exclude-pattern>

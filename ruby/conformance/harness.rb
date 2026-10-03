@@ -26,9 +26,14 @@ module Harness
     "sendTutorMessage" => :send_tutor_message
   }.freeze
   JSON_CALLS = {
-    "getUsage" => :get_usage, "getOpenApiDocument" => :get_open_api_document, "listApiVersions" => :list_api_versions
+    "getUsage" => :get_usage, "getOpenApiDocument" => :get_open_api_document, "listApiVersions" => :list_api_versions,
+    "getAsyncApiDocument" => :get_async_api_document
   }.freeze
   WITH_ID = {"getLessonPlan" => :get_lesson_plan, "getApiVersion" => :get_api_version, "streamLessonPlan" => :stream_lesson_plan}.freeze
+  # The event operations take the case's params as keywords (ADR 30.9.26aa).
+  EVENT_CALLS = %w[listEvents streamEvents sendEvent].freeze
+  # The event helpers a step drives: `events` to its end, `tail` for `take`.
+  HELPERS = {"events" => :events, "tail" => :tail_events}.freeze
 
   # One case's client, its virtual clock, and what one step recorded.
   class Rig
@@ -110,16 +115,52 @@ module Harness
       result { client.public_send(WITH_ID[operation], id) }
     elsif JSON_CALLS.key?(operation)
       result { client.public_send(JSON_CALLS[operation]) }
+    elsif EVENT_CALLS.include?(operation)
+      invoke_event(client, call)
     else
       {outcome: "harness: no operation #{operation}"}
     end
   end
 
-  def result
+  # sendEvent's InboundEvent is built from the case's {type, data} through
+  # the public constructors, and its 202 is the only 2xx it answers.
+  def invoke_event(client, call)
+    params = (call["params"] || {}).transform_keys(&:to_sym)
+    case call["operation"]
+    when "streamEvents" then consume(client, [:stream_events], params, call["cancel_after_events"])
+    when "listEvents" then result { client.list_events(**params) }
+    else
+      body = call["body"] || {}
+      constructor = Lingara::Events::InboundEvent::CONSTRUCTORS.fetch(body["type"])
+      event = Lingara::Events::InboundEvent.public_send(constructor, body["data"])
+      result(202) { client.send_event(event, **{idempotency_key: call["idempotency_key"]}.compact) }
+    end
+  end
+
+  def result(status = 200)
     response = yield
-    {outcome: "completed", status: 200, body: response.value, served_version: response.served_version}
+    {outcome: "completed", status: status, body: response.value, served_version: response.served_version}
   rescue Lingara::Error => e
     failed(e, nil)
+  end
+
+  # Drives one event helper: `events` to its end, or `tail` until `take`
+  # events, then leaves its block, which is the tail's cancellation.
+  def drive(client, kind, options)
+    keywords = {cursor: options["cursor"], start: options["start"], types: options["types"]}.compact
+    helper = client.public_send(HELPERS.fetch(kind), **keywords)
+    seen = []
+    outcome = begin
+      helper.each do |event|
+        seen << event
+        break if seen.size == options["take"]
+      end
+      {outcome: "completed"}
+    rescue Lingara::Error => e
+      failed(e, nil)
+    end
+    outcome.merge(event_ids: seen.map(&:id), unknown_types: seen.grep(Lingara::Events::UnknownEvent).map(&:type),
+      cursor: helper.cursor)
   end
 
   # Drains a stream through its block; after +cancel_after+ events it breaks
@@ -216,19 +257,37 @@ module Harness
       out << "outcome: expected #{expect["outcome"]}, got #{seen[:outcome]}#{detail}"
     end
     compare_values(expect, seen, out)
+    compare_cursor(expect["cursor"], seen[:cursor], out) if expect.key?("cursor")
     compare_error(expect["error"], seen, out) if expect["error"]
     compare_redacted(expect["redacted"] || [], seen, out)
   end
 
   def compare_values(expect, seen, out)
     got = {"status" => seen[:status] || seen.dig(:fields, "status"), "body" => seen[:body], "events" => seen[:events] || [],
-           "served_version" => seen[:served_version], "sleeps_s" => seen[:sleeps], "hook_calls" => seen[:hooks] || []}
+           "served_version" => seen[:served_version], "sleeps_s" => seen[:sleeps], "hook_calls" => seen[:hooks] || [],
+           "event_ids" => seen[:event_ids] || [], "unknown_types" => seen[:unknown_types] || []}
     got.each do |label, value|
       next unless expect.key?(label)
       want = canon(expect[label])
       have = canon(value)
       out << "#{label}: expected #{want}, got #{have}" unless want == have
     end
+  end
+
+  # The helper's final cursor against a matcher: equals, prefix, contains,
+  # pattern or absent.
+  def compare_cursor(matcher, cursor, out)
+    name, want = matcher.first
+    ok = case name
+    when "equals" then cursor == want
+    when "prefix" then cursor.to_s.start_with?(want)
+    when "contains" then cursor.to_s.include?(want)
+    when "pattern" then cursor.to_s.match?(Regexp.new(want))
+    when "absent" then cursor.nil?
+    else false
+    end
+    out << "cursor: expected #{canon(matcher)}, got #{cursor.inspect}" unless ok
+    out
   end
 
   def compare_error(want, seen, out)
@@ -268,13 +327,31 @@ module Harness
     end
   end
 
+  def run_helper(rig, kind, options, expect)
+    rig.reset
+    seen = drive(rig.client, kind, options)
+    seen[:sleeps] = rig.sleeps_s
+    seen[:hooks] = rig.hook_calls
+    seen[:renderings] = (seen[:renderings] || []) + renderings(rig.client) + renderings(rig.client.token_source)
+    compare(expect, seen).map { |m| "#{kind}: #{m}" }
+  end
+
+  # A call step, an event-helper step, or neither (a bare advance_clock_s).
+  def run_any(rig, step, base)
+    helper = HELPERS.keys.find { |kind| step.key?(kind) }
+    if step["call"] && step["expect"] then run_step(rig, step["call"], substitute(step["expect"], base))
+    elsif helper then run_helper(rig, helper, step[helper] || {}, substitute(step["expect"] || {}, base))
+    else []
+    end
+  end
+
   def steps(env, kase)
     block = kase["client"] || {}
     base, token_url = urls(env, block)
     rig = Rig.new(block, base, token_url)
     (kase["steps"] || []).flat_map do |step|
       rig.advance(step["advance_clock_s"]) if step["advance_clock_s"]
-      (step["call"] && step["expect"]) ? run_step(rig, step["call"], substitute(step["expect"], env[:base])) : []
+      run_any(rig, step, env[:base])
     end
   rescue => e
     ["harness: #{e.class}: #{e.message}"]

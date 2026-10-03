@@ -17,6 +17,9 @@ use crate::token::AccessToken;
 
 include!(concat!(env!("OUT_DIR"), "/build_info.rs"));
 
+const SSE: &str = "text/event-stream";
+const JSON: &str = "application/json";
+
 /// `lingara-rust/<version> (rust/<rustc>; <target>)`, then a caller's own
 /// product token after one space (K6).
 pub(crate) fn user_agent(suffix: Option<&str>) -> String {
@@ -28,12 +31,18 @@ pub(crate) fn user_agent(suffix: Option<&str>) -> String {
 }
 
 /// One `/v1` request, before auth.
-struct Req<'a, B: ?Sized> {
-    method: Method,
-    url: &'a str,
-    body: Option<&'a B>,
-    accept: &'static str,
-    needs_token: bool,
+pub(crate) struct Req<'a, B: ?Sized> {
+    pub method: Method,
+    pub url: &'a str,
+    pub body: Option<&'a B>,
+    pub accept: &'static str,
+    pub needs_token: bool,
+    /// Sent unchanged on every attempt: an `Idempotency-Key` (K4) or a
+    /// `Last-Event-ID` (K5a).
+    pub headers: &'a [(&'static str, String)],
+    /// K4's `Retry-After` loop. A tail open bypasses it: the tail's own
+    /// failure count is its only retry budget (CONTRACT.md K5a).
+    pub retries: bool,
 }
 
 impl Client {
@@ -49,23 +58,43 @@ impl Client {
         for param in route.path_params {
             path = path.replace(&format!("{{{param}}}"), &encode_segment(id.unwrap_or_default()));
         }
-        let url = format!("{}{path}", self.inner.base_url);
+        let url = self.url(&path);
         let method = if route.method == "GET" { Method::GET } else { Method::POST };
-        let req = Req { method, url: &url, body, accept: "text/event-stream", needs_token: true };
-        let res = self.send(&req).await?;
-        if media_type(res.headers()) != "text/event-stream" {
+        let req = Req { method, url: &url, body, accept: SSE, needs_token: true, headers: &[], retries: true };
+        self.open_stream(route, &req).await
+    }
+
+    /// A stream from a request the caller built: a query, extra headers, or
+    /// no K4 loop (ADR 30.9.26aa D7).
+    pub(crate) async fn open_stream<E, B>(&self, route: &StreamRoute, req: &Req<'_, B>) -> Result<EventStream<E>, Error>
+    where
+        E: DeserializeOwned,
+        B: Serialize + ?Sized,
+    {
+        let res = self.send(req).await?;
+        if media_type(res.headers()) != SSE {
             return Err(TransportKind::MalformedResponse.into());
         }
-        let served_version = self.inner.versions.observe(res.headers(), &url);
+        let served_version = self.inner.versions.observe(res.headers(), req.url);
         let bytes = res.bytes_stream().map(|chunk| chunk.map_err(|e| from_reqwest(e, Phase::Body)));
         Ok(EventStream::new(route, Box::pin(bytes), self.inner.idle, served_version))
     }
 
+    /// `path`, which may carry a query, under the base URL.
+    pub(crate) fn url(&self, path: &str) -> String {
+        format!("{}{path}", self.inner.base_url)
+    }
+
     pub(crate) async fn json<T: DeserializeOwned>(&self, path: &str, needs_token: bool) -> Result<ApiResponse<T>, Error> {
-        let url = format!("{}{path}", self.inner.base_url);
-        let req = Req { method: Method::GET, url: &url, body: None::<&()>, accept: "application/json", needs_token };
-        let res = self.send(&req).await?;
-        let served_version = self.inner.versions.observe(res.headers(), &url);
+        let url = self.url(path);
+        let req = Req { method: Method::GET, url: &url, body: None::<&()>, accept: JSON, needs_token, headers: &[], retries: true };
+        self.json_req(&req).await
+    }
+
+    /// A JSON result from a request the caller built.
+    pub(crate) async fn json_req<T: DeserializeOwned, B: Serialize + ?Sized>(&self, req: &Req<'_, B>) -> Result<ApiResponse<T>, Error> {
+        let res = self.send(req).await?;
+        let served_version = self.inner.versions.observe(res.headers(), req.url);
         let bytes = res.bytes().await.map_err(|e| from_reqwest(e, Phase::Body))?;
         let value = serde_json::from_slice(&bytes).map_err(|_| Error::from(TransportKind::MalformedResponse))?;
         Ok(ApiResponse { value, served_version })
@@ -95,6 +124,9 @@ impl Client {
 
     /// One HTTP request under its own `Retry-After` budget.
     async fn attempts<B: Serialize + ?Sized>(&self, req: &Req<'_, B>, token: Option<AccessToken>) -> Result<reqwest::Response, Error> {
+        if !req.retries {
+            return self.send_once(req, token.as_ref()).await;
+        }
         with_retries(&self.inner.policy, || self.send_once(req, token.as_ref())).await
     }
 
@@ -106,6 +138,9 @@ impl Client {
         }
         if let Some(version) = &inner.version {
             builder = builder.header("lingara-version", version);
+        }
+        for (name, value) in req.headers {
+            builder = builder.header(*name, value);
         }
         if let Some(body) = req.body {
             builder = builder.json(body);

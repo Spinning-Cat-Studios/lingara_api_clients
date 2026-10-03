@@ -52,7 +52,7 @@ val usage = client.getUsage().body
 
 Every method is a `suspend fun`. A client is safe to share between coroutines and needs no `close()`. Build one per set of credentials and keep it: it caches its access token.
 
-Three operations need no token: `getOpenApiDocument`, `listApiVersions` and `getApiVersion`. A client built with no credentials, `LingaraClient {}`, can call them.
+Four operations need no token: `getOpenApiDocument`, `getAsyncApiDocument`, `listApiVersions` and `getApiVersion`. A client built with no credentials, `LingaraClient {}`, can call them.
 
 ## Streams are collected once
 
@@ -87,7 +87,7 @@ A `close()` from another coroutine ends a collection normally, with no further e
 
 ## Options
 
-Every option is a property or function of the `LingaraClient { … }` builder: `clientCredentials`, `clientSecretPost()`, `scopes`, `tokenSource`, `baseUrl`, `tokenUrl`, `version`, `onDeprecation`, `maxAttempts`, `retryAfterCap`, `streamIdleTimeout`, `tokenRequestTimeout`, `userAgentSuffix`, `httpClient`, and the two testing seams, `clock` and `sleeper`.
+Every option is a property or function of the `LingaraClient { … }` builder: `clientCredentials`, `clientSecretPost()`, `scopes`, `tokenSource`, `baseUrl`, `tokenUrl`, `version`, `onDeprecation`, `maxAttempts`, `retryAfterCap`, `streamIdleTimeout`, `tokenRequestTimeout`, `userAgentSuffix`, `httpClient`, `tailMaxFailures`, and the two testing seams, `clock` and `sleeper`.
 
 - **`version`** pins every request to one API version. Without it the server applies the version your OAuth client is pinned to. `servedVersion` on every response and stream says which version answered.
 - **`onDeprecation { … }`** is called once per response under a deprecated version. Without a hook the library logs one warning per version id through `System.Logger` (logger `com.getlingara.kotlin`), which reaches SLF4J or Log4j through their `System.LoggerFinder` bridges.
@@ -95,6 +95,29 @@ Every option is a property or function of the `LingaraClient { … }` builder: `
 - **`clock` and `sleeper`** exist for tests: they let a test move time and skip `Retry-After` waits. Leave them alone in production. The two timeouts the library owns run on real time even under `runTest`, so a test that needs them sets them short.
 
 Timestamps and ids are the server's strings. Parse a `date-time` with `Instant.parse` when you need one. Unsigned 64-bit counters are `ULong`, 32-bit ones `Long`.
+
+## Webhooks and events
+
+Everything here lives in `com.getlingara.kotlin.events`, including the two helpers `events` and `tailEvents`, which are `LingaraClient` extensions: import them from that package.
+
+**Verify the raw body first.** `Webhook(secret)` takes your endpoint's `lgr_whsec_…` secret (two during a rotation) and `verify(body: ByteArray, headers: Map<String, List<String>>)` checks the Standard Webhooks signature and the 300 s timestamp window before it parses anything. Hand it the bytes exactly as received: Ktor's `call.receive<ByteArray>()` or Spring's `@RequestBody body: ByteArray`. A failure is a `WebhookVerificationException` with a `reason`; it is deliberately outside the sealed `LingaraException`, so a catch-all around API calls never swallows a forged webhook. `verifySignature` checks the signature alone, for a signed body that is not an event.
+
+```kotlin
+val webhook = Webhook(System.getenv("LINGARA_WEBHOOK_SECRET"))
+val event = webhook.verify(body, headers)
+```
+
+**Answer `2xx` fast and deduplicate by `event.id`.** Delivery is at least once and unordered, and the library stores nothing.
+
+**`UnknownEvent` is a type newer than this library.** Acknowledge it and log it: a receiver that answers an error gets the same event retried for about a day. `Event` is a sealed interface, so a `when` over it covers every type this release knows.
+
+**The feed.** `client.events(cursor = saved)` is a `Flow<Event>` of every event since `saved`, page by page, which completes when it has caught up; it never sleeps or polls. Save its `cursor` and collect again later. Without a cursor it begins at `start = "latest"` (from now) or `"oldest"` (everything still kept). A cursor older than the 30-day window is `ApiException` with `code` `cursor_expired`: start again without one, or with `start = "oldest"`. `listEvents` is the single-page operation underneath.
+
+**The tail.** `client.tailEvents(…)` is a `Flow<Event>` that reconnects from its own `cursor` after every ending, sending `Last-Event-ID`, and completes only when you cancel it. A connection that fails is retried after 1, 2, 4, 8, 16, 30 and 30 s; the eighth failure in a row is thrown, about 91 s in. Raise `tailMaxFailures` to ride out longer outages, or catch the error and restart from `cursor`. The feed's cursor and the tail's are the same token, so a game can catch up with `events` and hand over to `tailEvents`. `streamEvents` is the one-connection operation underneath.
+
+**Sending events.** `client.sendEvent(InboundEvent.WorldContextChanged(scene))` sends with a generated `Idempotency-Key`, the same on every retry of that call. Pass `idempotencyKey` when your game may resend after a crash: a resend with the same key gets the first answer back and is not billed again. A key reused for a different event also gets the first answer, so that event is lost. Only `reaction.planStatus == PlanStatus.GENERATING` promises a `lesson_plan.ready` or `lesson_plan.failed` event; a `PARTIAL` or `COMPLETE` plan was served from the library and can be read at once.
+
+**Pin your client** to `LingaraClient.GENERATED_FOR_VERSION`. Event data is rendered at your OAuth client's pinned version, and the classes are this release's models.
 
 ## Security
 

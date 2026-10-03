@@ -264,8 +264,9 @@ func TestEachOperationEndsOnItsOwnTerminal(t *testing.T) {
 			}
 		}
 	}
-	if streams != 4 {
-		t.Errorf("%d stream routes, want 4", streams)
+	// The fifth is streamEvents, ADR 30.9.26aa's tail.
+	if streams != 5 {
+		t.Errorf("%d stream routes, want 5", streams)
 	}
 }
 

@@ -50,6 +50,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/events": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List events
+         * @description Returns the events your client can see, a page at a time, oldest first. Send `next_cursor` back as `cursor` to continue.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        /**
+         * Send an event
+         * @description Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat.
+         */
+        post: operations["sendEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/openapi.json": {
         parameters: {
             query?: never;
@@ -65,6 +92,29 @@ export interface paths {
          * @description Returns this API description as JSON, for the API version the request is answered under: the one named in `Lingara-Version`, or else the current version. No token is needed.
          */
         get: operations["getOpenApiDocument"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/asyncapi.json": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the events document
+         * @description Returns the AsyncAPI document that describes Lingara's events, for the API version the request is answered under: the one named in `Lingara-Version`, or else the current version. No token is needed.
+         */
+        get: operations["getAsyncApiDocument"];
         put?: never;
         post?: never;
         delete?: never;
@@ -293,6 +343,7 @@ export interface components {
             summary: string | null;
             history: components["schemas"]["VersionHistoryEntry"][];
             spec: components["schemas"]["VersionSpec"];
+            asyncapi: components["schemas"]["VersionSpec"];
         };
         /** @enum {string} */
         VersionState: "development" | "supported" | "lts" | "deprecated" | "discontinued";
@@ -321,6 +372,106 @@ export interface components {
             plan_id?: string | null;
         };
         Done: Record<string, never>;
+        EventEnvelope: {
+            id: string;
+            type: string;
+            /** Format: date-time */
+            created_at: string;
+            api_version: string;
+            subject: string;
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        LessonPlanReadyData: {
+            /** Format: uuid */
+            plan_id: string;
+            status: components["schemas"]["PlanReadyStatus"];
+            title: string | null;
+            source_lang: string;
+            target_lang: string;
+            /** Format: int16 */
+            level: number;
+        };
+        /** @enum {string} */
+        PlanReadyStatus: "complete" | "partial";
+        LessonPlanFailedData: {
+            /** Format: uuid */
+            plan_id: string;
+            reason: components["schemas"]["PlanFailReason"];
+        };
+        /** @enum {string} */
+        PlanFailReason: "generation_failed" | "timed_out";
+        UsageThresholdReachedData: {
+            scope: components["schemas"]["ThresholdScope"];
+            /** @enum {integer} */
+            threshold_pct: 50 | 70 | 90 | 100;
+            month: string;
+            client_id?: string | null;
+        };
+        /** @enum {string} */
+        ThresholdScope: "account" | "client";
+        WebhookTestData: Record<string, never>;
+        AppInstalledData: {
+            client_id: string;
+            /** Format: uuid */
+            install_id: string;
+            context: components["schemas"]["AppContextSlice"][];
+            tutor_note: boolean;
+        };
+        AppUninstalledData: {
+            client_id: string;
+            /** Format: uuid */
+            install_id: string;
+        };
+        /** @enum {string} */
+        AppContextSlice: "languages" | "plan_summary" | "review_due" | "tutor_topic";
+        EventPage: {
+            items: components["schemas"]["EventEnvelope"][];
+            next_cursor: string;
+            has_more: boolean;
+        };
+        WorldContextChanged: {
+            scene: string;
+            npc?: components["schemas"]["Npc"] | null;
+            source_lang: string;
+            target_lang: string;
+            /** Format: uint8 */
+            level: number;
+            tags?: string[];
+            generate?: boolean | null;
+        };
+        WorldPracticeRequested: {
+            topic: string;
+            source_lang: string;
+            target_lang: string;
+            /** Format: uint8 */
+            level: number;
+            tags?: string[];
+            generate?: boolean | null;
+        };
+        Npc: {
+            name: string;
+            persona?: string | null;
+        };
+        InboundEventAccepted: {
+            id: string;
+            type: string;
+            /** Format: date-time */
+            created_at: string;
+            reaction?: components["schemas"]["ReactionReport"] | null;
+        };
+        ReactionReport: {
+            status: components["schemas"]["ReactionStatus"];
+            /** Format: uuid */
+            plan_id?: string | null;
+            /** @description The plan's status when the event was accepted. Only `generating` promises that `lesson_plan.ready` or `lesson_plan.failed` will follow. Any other value is a plan served from the library, which you can read now with `GET /v1/lesson-plans/{id}`. */
+            plan_status?: components["schemas"]["PlanStatus"] | null;
+            code?: string | null;
+            error?: string | null;
+        };
+        /** @enum {string} */
+        ReactionStatus: "started" | "refused" | "failed";
         GenerateVocabularyEventStarted: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -461,6 +612,31 @@ export interface components {
             data: components["schemas"]["StreamError"];
         };
         SendTutorMessageEvent: components["schemas"]["SendTutorMessageEventDelta"] | components["schemas"]["SendTutorMessageEventNotice"] | components["schemas"]["SendTutorMessageEventDone"] | components["schemas"]["SendTutorMessageEventError"];
+        StreamEventsEventEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "event";
+            data: components["schemas"]["EventEnvelope"];
+        };
+        StreamEventsEventDone: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "done";
+            data: components["schemas"]["Done"];
+        };
+        StreamEventsEventError: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "error";
+            data: components["schemas"]["StreamError"];
+        };
+        StreamEventsEvent: components["schemas"]["StreamEventsEventEvent"] | components["schemas"]["StreamEventsEventDone"] | components["schemas"]["StreamEventsEventError"];
     };
     responses: {
         /** @description The request was refused. `code` says why, and `error` says it in words. */
@@ -490,6 +666,15 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description `api_version_discontinued`: this request's API version has been discontinued. `cursor_expired`: the cursor is older than 30 days; start again without one. */
+        Gone: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description The service is temporarily unavailable; retry after the number of seconds in `Retry-After`. During maintenance the body is plain text rather than the error envelope. */
         Unavailable: {
             headers: {
@@ -506,6 +691,18 @@ export interface components {
         VersionId: string;
         /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
         LingaraVersion: string;
+        /** @description Where to continue from: an earlier page's `next_cursor`, or a stream event's `id:`. A cursor older than 30 days answers `410` with code `cursor_expired`. */
+        EventCursor: string;
+        /** @description Where to begin without a cursor: `latest` for events from now on, or `oldest` for every event still kept. */
+        EventStart: "latest" | "oldest";
+        /** @description Only these event types, comma-separated. Without it, every type your token's scopes can read. */
+        EventTypes: string[];
+        /** @description The most events one page returns, from 1 to 100. */
+        EventLimit: number;
+        /** @description The `id:` of the last event you received. It takes precedence over `cursor` and `start`. */
+        LastEventId: string;
+        /** @description A value you choose for each event and reuse when you retry it: 1 to 255 visible ASCII characters, such as a UUID. A retry with the same key gets the first answer back and is not billed again, even if its body differs. Without a valid key the request answers `400` with code `idempotency_key_required`. */
+        IdempotencyKey: string;
     };
     requestBodies: never;
     headers: {
@@ -650,6 +847,119 @@ export interface operations {
             "5XX": components["responses"]["Error"];
         };
     };
+    listEvents: {
+        parameters: {
+            query?: {
+                /** @description Where to continue from: an earlier page's `next_cursor`, or a stream event's `id:`. A cursor older than 30 days answers `410` with code `cursor_expired`. */
+                cursor?: components["parameters"]["EventCursor"];
+                /** @description Where to begin without a cursor: `latest` for events from now on, or `oldest` for every event still kept. */
+                start?: components["parameters"]["EventStart"];
+                /** @description Only these event types, comma-separated. Without it, every type your token's scopes can read. */
+                types?: components["parameters"]["EventTypes"];
+                /** @description The most events one page returns, from 1 to 100. */
+                limit?: components["parameters"]["EventLimit"];
+            };
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of events and the cursor to continue from */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "id": "lgr_evt_4f2a9c1e7b3d4e5f8a9b0c1d2e3f4a5b",
+                     *           "type": "lesson_plan.ready",
+                     *           "created_at": "2026-10-01T09:12:44Z",
+                     *           "api_version": "2026-09-equipped-boxfish",
+                     *           "subject": "lgr_sub_0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+                     *           "data": {
+                     *             "plan_id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
+                     *             "status": "complete",
+                     *             "title": "At the night market",
+                     *             "source_lang": "en",
+                     *             "target_lang": "zh",
+                     *             "level": 2
+                     *           }
+                     *         }
+                     *       ],
+                     *       "next_cursor": "djEuNzQ0MTIuOTkxLjE3OTAyNDk1NjQ",
+                     *       "has_more": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["EventPage"];
+                };
+            };
+            410: components["responses"]["Gone"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    sendEvent: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+                /** @description A value you choose for each event and reuse when you retry it: 1 to 255 visible ASCII characters, such as a UUID. A retry with the same key gets the first answer back and is not billed again, even if its body differs. Without a valid key the request answers `400` with code `idempotency_key_required`. */
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description The event is recorded */
+            202: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "lgr_evt_4f2a9c1e7b3d4e5f8a9b0c1d2e3f4a5b",
+                     *       "type": "world.context_changed",
+                     *       "created_at": "2026-10-01T09:12:44Z",
+                     *       "reaction": {
+                     *         "status": "started",
+                     *         "plan_id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
+                     *         "plan_status": "generating"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["InboundEventAccepted"];
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
     getOpenApiDocument: {
         parameters: {
             query?: never;
@@ -663,6 +973,36 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The OpenAPI document */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>;
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+        };
+    };
+    getAsyncApiDocument: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The AsyncAPI document */
             200: {
                 headers: {
                     "Lingara-Version": components["headers"]["LingaraVersion"];
@@ -785,6 +1125,10 @@ export interface operations {
                      *       "spec": {
                      *         "url": "/v1/openapi.json",
                      *         "sha256": "3b7e0c1f9a2d4e5b6c7d8e9f0a1b2c3d4e5f60718293a4b5c6d7e8f9a0b1c2d3"
+                     *       },
+                     *       "asyncapi": {
+                     *         "url": "/v1/asyncapi.json",
+                     *         "sha256": null
                      *       }
                      *     }
                      */

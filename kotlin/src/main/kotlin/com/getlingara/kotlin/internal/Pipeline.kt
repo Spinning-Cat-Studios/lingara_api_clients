@@ -17,7 +17,13 @@ internal class Call(
     val body: ByteArray?,
     val accept: String,
     val needsToken: Boolean,
-)
+) {
+    /** The request's own headers: `Idempotency-Key`, `Last-Event-ID` (ADR 30.9.26aa). */
+    var headers: Map<String, String> = emptyMap()
+
+    /** Sent with no K4 loop, as a tail open is (CONTRACT.md K5a); K1's refresh still applies. */
+    var once: Boolean = false
+}
 
 /** What a pipeline shares with its client: the base URL, the pin and the two headers' inputs. */
 internal class Target(
@@ -71,7 +77,12 @@ internal class Pipeline(
         call: Call,
         token: AccessToken?,
         handler: HttpResponse.BodyHandler<T>,
-    ): HttpResponse<T> = Retry.withRetries(policy) { sendOnce(call, token, handler) }
+    ): HttpResponse<T> =
+        if (call.once) {
+            sendOnce(call, token, handler)
+        } else {
+            Retry.withRetries(policy) { sendOnce(call, token, handler) }
+        }
 
     private suspend fun <T> sendOnce(
         call: Call,
@@ -100,6 +111,7 @@ internal class Pipeline(
         if (call.body != null) builder.header("Content-Type", "application/json")
         if (token != null) builder.header("Authorization", "Bearer " + token.exposeSecret())
         target.version?.let { builder.header("Lingara-Version", it) }
+        call.headers.forEach(builder::header)
         return builder.build()
     }
 

@@ -76,6 +76,30 @@ module Lingara
     end
   end
 
+  # One event of streamEvents's stream: `case event in StreamEventsEvent` matches
+  # any of its branches. The error branch, and a Done-bodied one, are never
+  # yielded.
+  module StreamEventsEvent
+    BRANCHES = {
+      "event" => StreamEventsEventEvent,
+      "done" => StreamEventsEventDone,
+      "error" => StreamEventsEventError
+    }.freeze
+
+    def self.===(other)
+      BRANCHES.value?(other.class)
+    end
+
+    # The branch for a known event name, decoded from its `data` JSON text,
+    # or nil for an unknown name. A known event whose data is not a JSON
+    # object, or that its branch refuses, raises TransportError
+    # :malformed_event.
+    def self.decode(name, data)
+      branch = BRANCHES[name]
+      branch && Lingara::Decoding.event(branch, name, data)
+    end
+  end
+
   # One event of streamLessonPlan's stream: `case event in StreamLessonPlanEvent` matches
   # any of its branches. The error branch, and a Done-bodied one, are never
   # yielded.

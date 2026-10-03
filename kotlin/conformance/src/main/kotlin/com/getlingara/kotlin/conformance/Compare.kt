@@ -41,11 +41,24 @@ internal object Compare {
                 "served_version" to seen.servedVersion?.let { JsonPrimitive(it) },
                 "sleeps_s" to JsonArray(seen.sleeps.map { JsonPrimitive(it) }),
                 "hook_calls" to JsonArray(seen.hooks),
+                "event_ids" to JsonArray(seen.eventIds.map { JsonPrimitive(it) }),
+                "unknown_types" to JsonArray(seen.unknownTypes.map { JsonPrimitive(it) }),
             )
         observed.forEach { (label, got) -> expect[label]?.let { same(label, it, got, out) } }
         (expect["error"] as? JsonObject)?.let { compareError(it, seen, out) }
         (expect["redacted"] as? JsonArray)?.let { compareRedacted(it, seen, out) }
+        (expect["cursor"] as? JsonObject)?.let { compareCursor(it, seen, out) }
         return out
+    }
+
+    /** `expect.cursor`: a matcher on an event helper's final cursor. */
+    private fun compareCursor(
+        want: JsonObject,
+        seen: Seen,
+        out: MutableList<String>,
+    ) {
+        want["equals"]?.let { same("cursor", it, seen.cursor?.let(::JsonPrimitive), out) }
+        if (want["absent"] == JsonPrimitive(true) && seen.cursor != null) out += "cursor: expected absent, got ${seen.cursor}"
     }
 
     private fun compareError(

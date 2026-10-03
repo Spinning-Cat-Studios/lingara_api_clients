@@ -1,0 +1,15 @@
+id: op.asyncapi-get-no-token
+title: The AsyncAPI document needs no token, so a client with credentials makes no exchange and sends no Authorization
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call: { operation: getAsyncApiDocument }
+    expect:
+      outcome: completed
+      status: 200
+      body: { asyncapi: 3.0.0, info: { title: Lingara events, version: 2026-09-equipped-boxfish }, channels: {} }
+exchanges:
+  items:
+    - request: { method: GET, path: /v1/asyncapi.json, headers: { authorization: { absent: true } } }
+      response: { status: 200, json: { asyncapi: 3.0.0, info: { title: Lingara events, version: 2026-09-equipped-boxfish }, channels: {} } }

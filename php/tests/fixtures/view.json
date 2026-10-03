@@ -31,9 +31,15 @@
       "error": "error"
     }
   ],
+  "x-lingara-events": [
+    { "type": "words.ready", "direction": "out", "arm": "WordsReady", "data": "#/components/schemas/WordsReadyData", "transports": ["feed", "webhook"] },
+    { "type": "words.pinged", "direction": "out", "arm": "WordsPinged", "data": "#/components/schemas/Done", "transports": ["webhook"] },
+    { "type": "world.asked", "direction": "in", "data": "#/components/schemas/WordsRequest", "transports": ["inbound"] }
+  ],
   "components": {
     "schemas": {
       "Thing": { "type": "object" },
+      "WordsReadyData": { "type": "object", "properties": { "word": { "type": "string" } }, "required": ["word"] },
       "WordsRequest": { "type": "object" },
       "Done": { "type": "object" },
       "StreamWordsEvent": {

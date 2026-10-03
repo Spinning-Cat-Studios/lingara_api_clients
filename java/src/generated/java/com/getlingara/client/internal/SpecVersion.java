@@ -5,7 +5,7 @@ package com.getlingara.client.internal;
 /** The API version this library's models were generated from (ADR 30.9.26a). */
 public final class SpecVersion {
   /** The view's {@code info.version}. */
-  public static final String GENERATED_FOR_VERSION = "2026-09-glowing-hoatzin";
+  public static final String GENERATED_FOR_VERSION = "2026-09-equipped-boxfish";
 
   private SpecVersion() {}
 }

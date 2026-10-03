@@ -26,5 +26,6 @@ dependencies {
 
 tasks.test {
     systemProperty("lingara.view", rootProject.file("spec/generator/openapi.3.0.json").path)
+    systemProperty("lingara.vectors", rootProject.file("conformance/vectors/webhook-signatures.json").path)
     systemProperty("lingara.generated", file("src/generated/java").path)
 }

@@ -41,7 +41,8 @@ module Lingara
       ?user_agent_suffix: String?,
       ?clock: ^() -> Time,
       ?sleeper: ^(seconds) -> void,
-      ?net_http_options: Hash[Symbol, untyped]
+      ?net_http_options: Hash[Symbol, untyped],
+      ?tail_max_failures: Integer
     ) -> void
 
     def generate_vocabulary: (**untyped body) { (event) -> void } -> StreamResult
@@ -57,6 +58,116 @@ module Lingara
     def get_open_api_document: () -> Response
     def list_api_versions: () -> Response
     def get_api_version: (String version_id) -> Response
+    def get_async_api_document: () -> Response
+    def list_events: (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?, ?limit: Integer?) -> Response
+    def events: (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?) { (Events::Event) -> void } -> Events::Feed
+              | (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?) -> Events::Feed
+    def stream_events: (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?, ?last_event_id: String?) { (event) -> void } -> StreamResult
+                     | (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?, ?last_event_id: String?) -> EventStream
+    def tail_events: (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?) { (Events::Event) -> void } -> bot
+                   | (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?) -> Events::Tail
+    def send_event: (Events::InboundEvent event, ?idempotency_key: String?) -> Response
+  end
+
+  # ADR 30.9.26aa: the event union, the verifier, the feed and the tail.
+  module Events
+    ENVELOPE: Array[Symbol]
+
+    # Every arm, UnknownEvent included. Each is a Data with these members.
+    module Event
+      ARMS: Hash[String, [Class, String?]]
+
+      def id: () -> String
+      def type: () -> String
+      def created_at: () -> Time
+      def api_version: () -> String
+      def subject: () -> String
+      def data: () -> untyped
+    end
+
+    class LessonPlanReady < ::Data
+      include Event
+    end
+
+    class LessonPlanFailed < ::Data
+      include Event
+    end
+
+    class UsageThresholdReached < ::Data
+      include Event
+    end
+
+    class WebhookTest < ::Data
+      include Event
+    end
+
+    class AppInstalled < ::Data
+      include Event
+    end
+
+    class AppUninstalled < ::Data
+      include Event
+    end
+
+    class UnknownEvent < ::Data
+      include Event
+    end
+
+    class InboundEvent
+      CONSTRUCTORS: Hash[String, Symbol]
+
+      attr_reader type: String
+      attr_reader data: untyped
+
+      def self.world_context_changed: (untyped data) -> InboundEvent
+      def self.world_practice_requested: (untyped data) -> InboundEvent
+      def to_hash: () -> Hash[String, untyped]
+    end
+
+    def self.parse: (String json) -> Event
+    def self.decode: (Hash[String, untyped] fields) -> Event
+
+    class VerificationError < StandardError
+      REASONS: Array[Symbol]
+
+      attr_reader reason: :missing_header | :malformed_header | :timestamp_too_old | :timestamp_too_new | :no_matching_signature | :malformed_payload
+
+      def initialize: (Symbol reason, String detail) -> void
+    end
+
+    class Webhook
+      PREFIX: String
+      MIN_KEY_BYTES: Integer
+      TOLERANCE: Integer
+      HEADERS: Array[String]
+
+      def initialize: (String | Array[String] secret_or_secrets, ?clock: ^() -> Time) -> void
+      def verify: (String body, _Each[[untyped, untyped]] headers) -> Event
+      def verify_signature: (String body, _Each[[untyped, untyped]] headers) -> nil
+      def self.key: (String secret) -> String
+      def self.header: (_Each[[untyped, untyped]] headers, String name) -> String
+      def self.strict_base64: (String text) -> String?
+    end
+
+    class Feed
+      include Enumerable[Event]
+
+      attr_reader cursor: String?
+
+      def each: () { (Event) -> void } -> self
+              | () -> Enumerator[Event, self]
+    end
+
+    class Tail
+      include Enumerable[Event]
+
+      MAX_DELAY: Integer
+
+      attr_reader cursor: String?
+
+      def each: () { (Event) -> void } -> bot
+              | () -> Enumerator[Event, bot]
+    end
   end
 
   class Response
@@ -143,6 +254,7 @@ module Lingara
     class Frame
       attr_reader event: String
       attr_reader data: String
+      attr_reader id: String?
     end
 
     def feed: (String bytes) -> Array[Frame]

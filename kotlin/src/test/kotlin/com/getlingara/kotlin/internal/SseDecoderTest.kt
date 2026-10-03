@@ -44,10 +44,27 @@ internal class SseDecoderTest {
         assertEquals(listOf(Frame("message", "x")), decode("data: x\n\n"))
         assertEquals(listOf(), decode("event: a\n\n"), "a frame with no data is dropped")
         assertEquals(
-            listOf(Frame("a", " two spaces")),
+            listOf(Frame("a", " two spaces", "7")),
             decode("event:a\nid: 7\nretry: 10\nunknown: y\ndata:  two spaces\n\n"),
         )
         assertEquals(listOf(), decode("event: a\ndata: 1\n"), "no blank line, no dispatch")
+    }
+
+    /**
+     * 30.9.26aa D7: `id` sets the last-event-id buffer, which persists across frames until the next
+     * `id`, and an `id` containing U+0000 is ignored.
+     */
+    @Test
+    fun idSetsALastEventIdBufferThatPersists() {
+        assertEquals(
+            listOf(Frame("event", "1", "c1"), Frame("error", "2", "c1"), Frame("done", "3", "h1"), Frame("done", "4", "h1")),
+            decode(
+                "id: c1\nevent: event\ndata: 1\n\n",
+                "event: error\ndata: 2\n\n",
+                "id: h1\nevent: done\ndata: 3\n\n",
+                "id: h\u00002\nevent: done\ndata: 4\n\n",
+            ),
+        )
     }
 
     companion object {

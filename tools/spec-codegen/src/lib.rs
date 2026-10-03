@@ -1,15 +1,18 @@
 //! The generator view of the Lingara OpenAPI document (ADR 29.9.26m D4).
 //!
 //! The spec is OpenAPI 3.2 and no mainstream generator reads 3.2, so this
-//! crate writes a view of it that one can: the four event streams lifted
-//! into named, discriminated unions (`lift`), the rest downconverted to 3.1
-//! (`downconvert`), and the same view again in 3.0.3 (`dialect30`). Each pass
+//! crate writes a view of it that one can: the event streams lifted into
+//! named, discriminated unions (`lift`), the AsyncAPI event catalogue merged
+//! in as `x-lingara-events` (`events`, ADR 30.9.26aa D2), the rest
+//! downconverted to 3.1 (`downconvert`), and the same view again in 3.0.3
+//! (`dialect30`). Each pass
 //! refuses what it cannot say rather than approximating it. The view is a
 //! generator input only: it is never served and never replaces the spec.
 
 pub mod cli;
 pub mod dialect30;
 pub mod downconvert;
+pub mod events;
 pub mod lift;
 pub mod record;
 pub mod walk;
@@ -48,11 +51,17 @@ pub struct View {
     pub v30: Value,
 }
 
-/// The view of `spec`, naming `source` (the `spec/SOURCE` line) as its origin.
-pub fn build_view(spec: &Value, source: &str) -> Result<View, Refusal> {
+/// The view of `spec` and its event catalogue `asyncapi` (absent for a
+/// version frozen before the catalogue existed: an empty catalogue), naming
+/// `source` (the `spec/SOURCE` line) as its origin.
+pub fn build_view(spec: &Value, asyncapi: Option<&Value>, source: &str) -> Result<View, Refusal> {
     let from = downconvert::check_version(spec)?;
     let mut doc = spec.clone();
     lift::lift(&mut doc)?;
+    match asyncapi {
+        Some(catalogue) => events::events(&mut doc, spec, catalogue)?,
+        None => events::refuse_events_without_catalogue(spec)?,
+    }
     downconvert::downconvert(&mut doc)?;
     let info = doc
         .get_mut("info")

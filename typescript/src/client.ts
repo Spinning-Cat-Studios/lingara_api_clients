@@ -1,67 +1,38 @@
-// The client: its options, the nine operations and the request pipeline
-// (CONTRACT.md K1–K6). Every option here is public, and the conformance
-// harness builds its clients from these and nothing else.
+// The client: the thirteen operations, the event helpers and the request
+// pipeline (CONTRACT.md K1–K6, K5a). Its options live in options.ts.
 
 import { INSPECT, LingaraError, REDACTED, TransportError, errorFromResponse, mediaType } from "./errors.js";
+import { EventFeed, eventsQuery, type EventsParams, type ListEventsParams } from "./events/feed.js";
+import { sendEventRequest, type SendEventOptions } from "./events/send.js";
+import { EventTail } from "./events/tail.js";
+import type { InboundEvent } from "./generated/events.js";
 import type { operations } from "./generated/schema.js";
 import { STREAMS, type StreamOperation } from "./generated/streams.js";
 import type {
   CreateLessonPlanEvent,
   GenerateVocabularyEvent,
+  InboundEventAccepted,
   LessonPlanCreateRequest,
   SendTutorMessageEvent,
+  StreamEventsEvent,
   StreamLessonPlanEvent,
   TutorTurnRequest,
   VocabRequest,
 } from "./models.js";
+import { checkOptions, credentialsFrom, retryPolicy, type CallOptions, type LingaraOptions } from "./options.js";
 import { parseRetryAfter, withRetries, withTokenRetry, type RetryPolicy } from "./retry.js";
-import { realSleeper, systemClock, type Clock, type Sleeper } from "./seams.js";
 import { EventStream, type OpenedStream } from "./stream.js";
 import { ClientCredentials, type TokenSource } from "./token.js";
 import { fetchOnce, transportFailure, type FetchLike } from "./transport.js";
 import { userAgent } from "./userAgent.js";
-import { VersionObserver, type DeprecationHook } from "./version.js";
+import { VersionObserver } from "./version.js";
 
-export interface LingaraOptions {
-  clientId?: string;
-  clientSecret?: string;
-  /** `"basic"` (the default) or `"post"` (`client_secret_post`). */
-  auth?: "basic" | "post";
-  scopes?: readonly string[];
-  /** Replaces the built-in client-credentials source. Not with `clientSecret`. */
-  tokenSource?: TokenSource;
-  baseUrl?: string;
-  tokenUrl?: string;
-  /** Pins every `/v1` request to this API version. */
-  version?: string;
-  /** Called once per response under a deprecated version. */
-  onDeprecation?: DeprecationHook;
-  /** Tries per HTTP request; `1` turns retries off. Default 3. */
-  maxAttempts?: number;
-  /** Default 60. */
-  retryAfterCapSeconds?: number;
-  /** Default 120 000. */
-  streamIdleTimeoutMs?: number;
-  /** Default 30 000. */
-  tokenRequestTimeoutMs?: number;
-  /** Appended to the `User-Agent` after one space. */
-  userAgentSuffix?: string;
-  /** A testing seam: epoch milliseconds. */
-  clock?: Clock;
-  /** A testing seam. */
-  sleeper?: Sleeper;
-  /** Defaults to `globalThis.fetch`. */
-  fetch?: FetchLike;
-}
-
-export interface CallOptions {
-  signal?: AbortSignal;
-}
+export type { CallOptions, LingaraOptions } from "./options.js";
 
 /** A JSON result, with the `Lingara-Version` echo beside it (non-enumerable). */
 export type WithServedVersion<T> = T & { readonly servedVersion?: string };
 
-type JsonOk<Op extends keyof operations> = operations[Op]["responses"][200]["content"]["application/json"];
+type JsonOk<Op extends keyof operations> = operations[Op]["responses"] extends { 200: { content: { "application/json": infer T } } } ? T : never;
 
 export const DEFAULT_BASE_URL = "https://api.getlingara.com";
 
@@ -71,7 +42,19 @@ interface Send {
   body?: unknown;
   accept: string;
   needsToken: boolean;
+  headers?: Record<string, string> | undefined;
+  /** `false` bypasses K4's attempt loop: the tail counts its own (K5a). */
+  retries?: boolean;
   signal?: AbortSignal | undefined;
+}
+
+/** A stream request's parts beyond its route. */
+interface StreamInput {
+  body?: unknown;
+  id?: string;
+  query?: string;
+  headers?: Record<string, string>;
+  retries?: boolean;
 }
 
 /** The Lingara API. Server-side only: Node, Deno and Bun. */
@@ -83,6 +66,7 @@ export class Lingara {
   readonly #versions: VersionObserver;
   readonly #policy: RetryPolicy;
   readonly #idleMs: number;
+  readonly #tailMaxFailures: number;
   readonly #userAgent: string;
   readonly #fetch: FetchLike;
 
@@ -93,13 +77,9 @@ export class Lingara {
     this.#baseUrl = (options.baseUrl ?? DEFAULT_BASE_URL).replace(/\/+$/, "");
     this.#version = options.version;
     this.#versions = new VersionObserver(options.onDeprecation);
-    this.#policy = {
-      maxAttempts: options.maxAttempts ?? 3,
-      retryAfterCapSeconds: options.retryAfterCapSeconds ?? 60,
-      clock: options.clock ?? systemClock,
-      sleeper: options.sleeper ?? realSleeper,
-    };
+    this.#policy = retryPolicy(options);
     this.#idleMs = options.streamIdleTimeoutMs ?? 120_000;
+    this.#tailMaxFailures = options.tailMaxFailures ?? 8;
     this.#userAgent = userAgent(options.userAgentSuffix);
     this.#fetch = options.fetch ?? ((input, init) => globalThis.fetch(input, init));
   }
@@ -127,6 +107,42 @@ export class Lingara {
     return this.#stream("sendTutorMessage", { body }, options);
   }
 
+  /** One connection under K5; `tailEvents` is the one that reconnects. */
+  streamEvents(params: EventsParams & { lastEventId?: string } = {}, options: CallOptions = {}): EventStream<StreamEventsEvent> {
+    const headers: Record<string, string> = params.lastEventId === undefined ? {} : { "last-event-id": params.lastEventId };
+    return this.#stream("streamEvents", { query: eventsQuery(params), headers }, options);
+  }
+
+  // --- events (ADR 30.9.26aa) ----------------------------------------------
+
+  /** Every event from `cursor` (or `start`) to where the feed is caught up; never polls. */
+  events(params: EventsParams = {}, options: CallOptions = {}): EventFeed {
+    return new EventFeed(params, (query) => this.listEvents(query, options));
+  }
+
+  /** Live events, reconnecting from `cursor` after every ending (CONTRACT.md K5a). */
+  tailEvents(params: EventsParams = {}, options: CallOptions = {}): EventTail {
+    // The cursor goes in `Last-Event-ID`, never the query; `start` only without one.
+    const query = eventsQuery(params.cursor === undefined ? { start: params.start, types: params.types } : { types: params.types });
+    return new EventTail({
+      open: (cursor, signal) => {
+        const headers: Record<string, string> = cursor === undefined ? {} : { "last-event-id": cursor };
+        return this.#stream("streamEvents", { query, headers, retries: false }, { signal });
+      },
+      cursor: params.cursor,
+      sleeper: this.#policy.sleeper,
+      retryAfterCapSeconds: this.#policy.retryAfterCapSeconds,
+      maxFailures: this.#tailMaxFailures,
+      signal: options.signal,
+    });
+  }
+
+  /** `{type, data}` with one `Idempotency-Key` across K4's attempts; the `202` body. */
+  sendEvent(event: InboundEvent, options: SendEventOptions = {}): Promise<WithServedVersion<InboundEventAccepted>> {
+    const { body, headers } = sendEventRequest(event, options);
+    return this.#json("/v1/events", true, options, { method: "POST", body, headers });
+  }
+
   // --- JSON ----------------------------------------------------------------
 
   getLessonPlan(params: { id: string }, options: CallOptions = {}): Promise<WithServedVersion<JsonOk<"getLessonPlan">>> {
@@ -137,8 +153,17 @@ export class Lingara {
     return this.#json("/v1/usage", true, options);
   }
 
+  /** One page of events; `events()` walks them. */
+  listEvents(params: ListEventsParams = {}, options: CallOptions = {}): Promise<WithServedVersion<JsonOk<"listEvents">>> {
+    return this.#json(`/v1/events${eventsQuery(params)}`, true, options);
+  }
+
   getOpenApiDocument(options: CallOptions = {}): Promise<WithServedVersion<JsonOk<"getOpenApiDocument">>> {
     return this.#json("/v1/openapi.json", false, options);
+  }
+
+  getAsyncApiDocument(options: CallOptions = {}): Promise<WithServedVersion<JsonOk<"getAsyncApiDocument">>> {
+    return this.#json("/v1/asyncapi.json", false, options);
   }
 
   listApiVersions(options: CallOptions = {}): Promise<WithServedVersion<JsonOk<"listApiVersions">>> {
@@ -166,10 +191,11 @@ export class Lingara {
 
   // --- the pipeline --------------------------------------------------------
 
-  #stream<E extends { event: string }>(op: StreamOperation, input: { body?: unknown; id?: string }, options: CallOptions): EventStream<E> {
+  #stream<E extends { event: string }>(op: StreamOperation, input: StreamInput, options: CallOptions): EventStream<E> {
     const route = STREAMS[op];
-    const path = input.id === undefined ? route.path : route.path.replace("{id}", encodeURIComponent(input.id));
-    const open = (signal: AbortSignal) => this.#openStream({ method: route.method, path, body: input.body, accept: "text/event-stream", needsToken: true, signal });
+    const path = (input.id === undefined ? route.path : route.path.replace("{id}", encodeURIComponent(input.id))) + (input.query ?? "");
+    const req = { method: route.method, path, body: input.body, accept: "text/event-stream", needsToken: true, headers: input.headers };
+    const open = (signal: AbortSignal) => this.#openStream({ ...req, retries: input.retries ?? true, signal });
     return new EventStream<E>({ operation: op, open, signal: options.signal, idleTimeoutMs: this.#idleMs });
   }
 
@@ -183,8 +209,8 @@ export class Lingara {
     return { response: res, servedVersion };
   }
 
-  async #json<T>(path: string, needsToken: boolean, options: CallOptions): Promise<WithServedVersion<T>> {
-    const res = await this.#send({ method: "GET", path, accept: "application/json", needsToken, signal: options.signal });
+  async #json<T>(path: string, needsToken: boolean, options: CallOptions, extra: Partial<Send> = {}): Promise<WithServedVersion<T>> {
+    const res = await this.#send({ method: "GET", path, accept: "application/json", needsToken, signal: options.signal, ...extra });
     const servedVersion = this.#versions.observe(res, this.#baseUrl + path);
     let body: unknown;
     try {
@@ -202,10 +228,8 @@ export class Lingara {
   /** Auth, retries and error mapping; resolves with a 2xx response. */
   async #send(req: Send): Promise<Response> {
     const url = this.#baseUrl + req.path;
-    const attempt = (token?: string) =>
-      withRetries(this.#policy, req.signal, () =>
-        fetchOnce({ fetch: this.#fetch, url, init: this.#init(req, token), secrets: [token] }),
-      );
+    const once = (token?: string) => fetchOnce({ fetch: this.#fetch, url, init: this.#init(req, token), secrets: [token] });
+    const attempt = req.retries === false ? once : (token?: string) => withRetries(this.#policy, req.signal, () => once(token));
     let res: Response;
     if (!req.needsToken) res = await attempt();
     else if (this.#tokens) res = await withTokenRetry(this.#tokens, req.signal, attempt);
@@ -217,7 +241,7 @@ export class Lingara {
   }
 
   #init(req: Send, token: string | undefined): RequestInit {
-    const headers: Record<string, string> = { accept: req.accept, "user-agent": this.#userAgent };
+    const headers: Record<string, string> = { accept: req.accept, "user-agent": this.#userAgent, ...req.headers };
     if (token !== undefined) headers["authorization"] = `Bearer ${token}`;
     if (this.#version !== undefined) headers["lingara-version"] = this.#version;
     const init: RequestInit = { method: req.method, headers };
@@ -228,27 +252,4 @@ export class Lingara {
     if (req.signal) init.signal = req.signal;
     return init;
   }
-}
-
-function checkOptions(options: LingaraOptions): void {
-  if (options.tokenSource && options.clientSecret !== undefined) {
-    throw new LingaraError("pass either tokenSource or clientSecret, not both");
-  }
-  if (options.version === "") throw new LingaraError("version must not be empty");
-  if (options.clientSecret !== undefined && (globalThis as { document?: unknown }).document !== undefined) {
-    throw new LingaraError(
-      "a client secret must not be used in a browser: anyone who loads the page can read it. Call the Lingara API from your server.",
-    );
-  }
-  if ((options.clientSecret === undefined) !== (options.clientId === undefined) && !options.tokenSource) {
-    throw new LingaraError("clientId and clientSecret go together");
-  }
-}
-
-function credentialsFrom(options: LingaraOptions): TokenSource | undefined {
-  const { clientId, clientSecret } = options;
-  if (clientId === undefined || clientSecret === undefined) return undefined;
-  // The source shares the client's credentials, auth, scopes, token URL,
-  // retry knobs, seams and fetch; it applies the same defaults.
-  return new ClientCredentials({ ...options, clientId, clientSecret });
 }

@@ -78,3 +78,35 @@ fn a_malformed_extension_is_refused() {
     doc["components"]["schemas"]["Done"] = json!({ "type": "object", "additionalProperties": true });
     assert!(refusal(&mut doc).contains("payload is Done, which is not exactly {type: object}"));
 }
+
+/// E3's tail: `event`, then `done` (`Done`) and `error`, resumable.
+fn tail(ends_on: Value, done_payload: &str) -> Value {
+    let mut doc = fixture();
+    let branches = format!("{MEDIA}/itemSchema/oneOf");
+    *doc.pointer_mut(&format!("{branches}/1/properties/event/const")).unwrap() = json!("done");
+    *doc.pointer_mut(&format!("{branches}/1/properties/data/contentSchema/$ref")).unwrap() =
+        json!(format!("#/components/schemas/{done_payload}"));
+    doc["components"]["schemas"]["Done"] = json!({ "type": "object" });
+    doc.pointer_mut(MEDIA).unwrap()["x-lingara-stream"] =
+        json!({ "ends_on": ends_on, "error": "error", "keepalive_seconds": 15, "resumable": true });
+    doc
+}
+
+// 30.9.26aa AC11
+#[test]
+fn a_resumable_stream_is_accepted_only_as_a_tail() {
+    let entry = lifted_entry(&mut tail(json!(["done", "error"]), "Done"));
+    assert_eq!(entry["resumable"], true);
+    assert_eq!(entry["endsOn"], json!(["done", "error"]));
+
+    let needs = refusal(&mut tail(json!(["done", "error"]), "Item"));
+    assert!(needs.contains("a resumable stream ends on \"done\", whose payload is not Done"), "{needs}");
+
+    // The fixture's own `item_done` carries `Item`: the caller needs it.
+    let mut doc = fixture();
+    doc.pointer_mut(MEDIA).unwrap()["x-lingara-stream"]["resumable"] = json!(true);
+    assert!(refusal(&mut doc).contains("ends on \"item_done\", whose payload is not Done"));
+
+    let no_error = refusal(&mut tail(json!(["done"]), "Done"));
+    assert!(no_error.contains("error \"error\" is not in ends_on"), "{no_error}");
+}

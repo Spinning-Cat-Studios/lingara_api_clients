@@ -2,4 +2,4 @@
 // Do not edit: run `make codegen-rust`.
 
 /// The /v1 version this crate's models were generated from.
-pub const GENERATED_FOR_VERSION: &str = "2026-09-glowing-hoatzin";
+pub const GENERATED_FOR_VERSION: &str = "2026-09-equipped-boxfish";

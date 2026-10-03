@@ -51,11 +51,13 @@ const usage = await client.getUsage();
 console.log(usage.servedVersion, usage.allowance);
 ```
 
-Nine methods, each named after its `operationId`: `generateVocabulary`,
-`createLessonPlan`, `streamLessonPlan` and `sendTutorMessage` return an
-`EventStream`; `getLessonPlan`, `getUsage`, `getOpenApiDocument`,
-`listApiVersions` and `getApiVersion` return a promise. The last three need
-no credentials. Every method takes `{ signal?: AbortSignal }` last.
+Thirteen methods, each named after its `operationId`: `generateVocabulary`,
+`createLessonPlan`, `streamLessonPlan`, `sendTutorMessage` and
+`streamEvents` return an `EventStream`; `getLessonPlan`, `getUsage`,
+`listEvents`, `sendEvent`, `getOpenApiDocument`, `getAsyncApiDocument`,
+`listApiVersions` and `getApiVersion` return a promise. The last four need
+no credentials. Every method takes `{ signal?: AbortSignal }` last. The
+`events` and `tailEvents` helpers are under *Webhooks and events* below.
 
 - `break` out of a `for await`, or `stream.close()`, closes the connection.
 - A stream's `error` event is thrown as an `ApiError` with `status: 200`;
@@ -77,6 +79,78 @@ and CommonJS builds are both loaded in one process.
 The client secret and access tokens never appear in any rendering of the
 client, its token source or an error; they show as `[REDACTED]`.
 
+## Webhooks and events
+
+Every door (a webhook, the feed, the live tail) carries the same event:
+`{id, type, createdAt, apiVersion, subject, data}`, with `data` typed per
+`type`. Delivery is at least once and unordered, so **deduplicate by `id`**.
+
+**Verify the raw body first.** Hand `Webhook` the body exactly as it
+arrived, as a string or bytes, never a parsed object: parsing first changes
+the bytes the signature covers. In Express that is
+`express.raw({ type: "application/json" })` on the webhook route; with
+`node:http`, collect the request's chunks.
+
+```ts
+import { UnknownEvent, Webhook, WebhookVerificationError } from "@lingara/api";
+
+const webhook = new Webhook(process.env.LINGARA_WEBHOOK_SECRET!); // or [old, new] while rotating
+app.post("/lingara", express.raw({ type: "application/json" }), async (req, res) => {
+  try {
+    const event = await webhook.verify(req.body, req.headers);
+    res.sendStatus(204); // answer fast: within 10 s, or it is retried
+    if (event instanceof UnknownEvent) return console.log("newer event type", event.type, event.id);
+    if (event.type === "lesson_plan.ready") console.log(event.data.plan_id);
+  } catch (e) {
+    if (e instanceof WebhookVerificationError) return res.status(400).send(e.reason);
+    throw e;
+  }
+});
+```
+
+- A secret is `lgr_whsec_…`; anything else is refused when the `Webhook` is
+  built. Timestamps more than 300 s from now are refused. A
+  `WebhookVerificationError` (`reason`: `missing_header`,
+  `malformed_header`, `timestamp_too_old`, `timestamp_too_new`,
+  `no_matching_signature`, `malformed_payload`) is deliberately **not** a
+  `LingaraError`, so a catch around API calls never swallows a forged
+  delivery. `verifySignature` runs the signature checks alone, for a signed
+  body that is not an event.
+- **`UnknownEvent`** is an event type newer than this library. It is never an
+  error: acknowledge it with a `2xx` (or the sender keeps retrying it for a
+  day) and log it, since it means a newer library has more to offer.
+- `parseEvent(json)` turns one event's JSON into the same union.
+
+**The feed.** `client.events({ cursor?, start?, types? })` walks every event
+from `cursor` to where the feed is caught up, then ends; it never sleeps or
+polls. Save `feed.cursor` afterwards and pass it back next time. Without a
+cursor, `start` is `"latest"` (from now on, the default) or `"oldest"`
+(everything still kept). A cursor older than 30 days throws `ApiError` with
+`code: "cursor_expired"`: start again without one, or with `start: "oldest"`.
+`listEvents` is the raw one-page operation.
+
+**The tail.** `client.tailEvents({ cursor?, start?, types? })` yields live
+events and reconnects by itself from its `cursor` after every ending, with a
+1, 2, 4 … 30 s backoff. After `tailMaxFailures` (8, about 90 s) failed
+reopens in a row it throws the last failure; catch it and start again from
+`tail.cursor` if your game should wait longer. A feed's `cursor` and a tail's
+are one token, so `tailEvents({ cursor: feed.cursor })` goes from catch-up to
+live with no gap. `streamEvents` is the raw single connection.
+
+**Sending events.** `client.sendEvent(InboundEvent.worldContextChanged({…}))`
+returns the `202` answer. Each call carries an `Idempotency-Key`; without
+`idempotencyKey` the library generates one per call and sends it on every
+retry of that call. Supply your own when your game may resend after a crash,
+since a generated key is gone once the call returns. A reused key returns the
+**first** answer, whatever the new body, so never reuse one for a different
+event. With `generate: true`, only `reaction.plan_status === "generating"`
+promises a `lesson_plan.ready` or `.failed` event; a `partial` or `complete`
+plan is readable now, and an event for it may still arrive.
+
+**Versions.** `data` is rendered at your OAuth client's pinned version, and
+this library's types describe the version it was generated for (the one its
+version warning names). Pin your client to that version.
+
 ## Options
 
 | Option | Default |
@@ -91,6 +165,7 @@ client, its token source or an error; they show as `[REDACTED]`.
 | `maxAttempts` | `3`; `1` turns retries off |
 | `retryAfterCapSeconds` | `60`: a longer `Retry-After` is thrown, with `retryAfter` set |
 | `streamIdleTimeoutMs` | `120000`, counted only while a read is waiting |
+| `tailMaxFailures` | `8`: consecutive failed reopens before `tailEvents` throws the last |
 | `tokenRequestTimeoutMs` | `30000` |
 | `userAgentSuffix` | none: appended after the library's own token |
 | `fetch` | `globalThis.fetch` |

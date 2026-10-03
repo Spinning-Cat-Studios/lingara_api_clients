@@ -11,10 +11,12 @@ package sse
 
 import "strings"
 
-// Frame is one dispatched frame: its event name and its joined data.
+// Frame is one dispatched frame: its event name, its joined data, and the
+// last-event-id buffer when it was dispatched ("" when no id field has set it).
 type Frame struct {
 	Event string
 	Data  string
+	ID    string
 }
 
 // Parser holds the partial line and the frame being built. The zero value is
@@ -26,6 +28,9 @@ type Parser struct {
 	hasData bool
 	// The last byte was \r: a \n next is the same line ending.
 	skipLF bool
+	// lastID is WHATWG's last-event-id buffer: it persists across frames
+	// until the next id field (CONTRACT.md K5, Parsing; ADR 30.9.26aa D7).
+	lastID string
 }
 
 // Feed consumes bytes and returns every frame they completed.
@@ -52,9 +57,10 @@ func (p *Parser) Feed(b []byte) []Frame {
 }
 
 // End marks the end of input. An undispatched frame is discarded, as WHATWG
-// says, so End never returns a frame; it exists so the end is explicit.
+// says, so End never returns a frame; it exists so the end is explicit. The
+// last-event-id buffer is kept, as WHATWG keeps it across a reconnection.
 func (p *Parser) End() []Frame {
-	*p = Parser{}
+	*p = Parser{lastID: p.lastID}
 	return nil
 }
 
@@ -77,8 +83,13 @@ func (p *Parser) endLine(frames []Frame) []Frame {
 	case "data":
 		p.data = append(p.data, value)
 		p.hasData = true
+	case "id":
+		// An id containing U+0000 is ignored, as WHATWG says.
+		if !strings.ContainsRune(value, 0) {
+			p.lastID = value
+		}
 	}
-	// id, retry and unknown fields are ignored.
+	// retry and unknown fields are ignored.
 	return frames
 }
 
@@ -93,5 +104,5 @@ func (p *Parser) dispatch(frames []Frame) []Frame {
 	if event == "" {
 		event = "message"
 	}
-	return append(frames, Frame{Event: event, Data: strings.Join(data, "\n")})
+	return append(frames, Frame{Event: event, Data: strings.Join(data, "\n"), ID: p.lastID})
 }

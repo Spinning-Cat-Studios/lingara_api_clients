@@ -41,6 +41,8 @@ final class EventStream implements \IteratorAggregate
 {
     private bool $iterated = false;
     private bool $closed = false;
+    /** Whether the body ended with no close(): K5's "ended early" when no ending came first. */
+    private bool $eof = false;
 
     /**
      * Keys the body, the transport and the token in Secrets: the body and the
@@ -90,11 +92,25 @@ final class EventStream implements \IteratorAggregate
     /** @throws \LogicException on a second call */
     public function getIterator(): \Generator
     {
-        if ($this->iterated) {
-            throw new \LogicException('an EventStream can be iterated once: its body has already been read');
-        }
-        $this->iterated = true;
+        $this->claim();
         return $this->events();
+    }
+
+    /**
+     * The raw frames, each with its last-event-id, for K5a's tail (ADR
+     * 30.9.26aa D7), which reads `id` and `done` where K5 hides them. It ends
+     * at EOF, or once close() is called; the body is closed when it ends.
+     *
+     * @return \Generator<int, Frame>
+     *
+     * @throws \LogicException after getIterator() or a first frames()
+     *
+     * @internal read by EventTail
+     */
+    public function frames(): \Generator
+    {
+        $this->claim();
+        return $this->read();
     }
 
     public function __destruct()
@@ -111,6 +127,23 @@ final class EventStream implements \IteratorAggregate
     /** @return \Generator<int, object> */
     private function events(): \Generator
     {
+        foreach ($this->read() as $frame) {
+            $event = $this->decode($frame);
+            if ($event !== null) {
+                yield $event;
+            }
+            if ($this->ends($frame)) {
+                return;
+            }
+        }
+        if ($this->eof) {
+            throw new TransportException(TransportKind::StreamEndedEarly, 'the stream closed before its terminal event');
+        }
+    }
+
+    /** @return \Generator<int, Frame> */
+    private function read(): \Generator
+    {
         try {
             $decoder = new SseDecoder();
             $transport = Secrets::get($this->handle, 'transport');
@@ -121,21 +154,21 @@ final class EventStream implements \IteratorAggregate
             $secrets = Client::secrets($token instanceof AccessToken ? $token : null);
             while (!$this->closed && ($bytes = $transport->read($this->body(), $this->idleTimeout, $secrets)) !== '') {
                 foreach ($decoder->feed($bytes) as $frame) {
-                    $event = $this->decode($frame);
-                    if ($event !== null) {
-                        yield $event;
-                    }
-                    if ($this->ends($frame)) {
-                        return;
-                    }
+                    yield $frame;
                 }
             }
-            if (!$this->closed) {
-                throw new TransportException(TransportKind::StreamEndedEarly, 'the stream closed before its terminal event');
-            }
+            $this->eof = !$this->closed;
         } finally {
             $this->close();
         }
+    }
+
+    private function claim(): void
+    {
+        if ($this->iterated) {
+            throw new \LogicException('an EventStream can be iterated once: its body has already been read');
+        }
+        $this->iterated = true;
     }
 
     /**
@@ -154,7 +187,7 @@ final class EventStream implements \IteratorAggregate
             throw new TransportException(TransportKind::MalformedEvent, "{$frame->event}: data is not JSON");
         }
         if ($event['end'] === 'raise') {
-            throw $this->streamError($data);
+            throw self::streamError($data, $this->servedVersion);
         }
         return $event['end'] === 'quiet' ? null : Operations::decode($this->operationId, $frame->event, $data);
     }
@@ -176,8 +209,12 @@ final class EventStream implements \IteratorAggregate
         return Operations::OPERATIONS[$this->operationId]['stream']['events'][$name] ?? null;
     }
 
-    /** An `error` event: ApiException with status 200, never yielded or retried. */
-    private function streamError(mixed $data): ApiException
+    /**
+     * An `error` event: ApiException with status 200, never yielded or retried.
+     *
+     * @internal EventTail raises the same exception for its last failure
+     */
+    public static function streamError(mixed $data, ?string $servedVersion): ApiException
     {
         $text = static fn(string $key): ?string => $data instanceof \stdClass && is_string($data->{$key} ?? null)
             ? $data->{$key}
@@ -188,7 +225,7 @@ final class EventStream implements \IteratorAggregate
             $text('message') ?? 'the stream reported an error',
             null,
             $text('plan_id'),
-            $this->servedVersion,
+            $servedVersion,
         );
     }
 }

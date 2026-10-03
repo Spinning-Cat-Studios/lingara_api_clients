@@ -21,6 +21,7 @@ import {
 } from "@lingara/api";
 
 import { compare, render, substitute, type Expect, type Observed } from "./compare.js";
+import { inboundEvent, runHelper, type HelperRun, type HelperStep } from "./eventSteps.js";
 
 const env = (name: string): string => {
   const value = process.env[name];
@@ -54,13 +55,28 @@ interface Call {
   body?: unknown;
   parallel?: number;
   cancel_after_events?: number;
+  idempotency_key?: string;
+}
+
+interface Step {
+  call?: Call;
+  events?: HelperStep;
+  tail?: HelperStep;
+  expect?: Expect;
+  advance_clock_s?: number;
 }
 
 interface Case {
   id: string;
   client?: CaseClient;
-  steps: { call?: Call; expect?: Expect; advance_clock_s?: number }[];
+  steps: Step[];
 }
+
+// Operations whose first argument is a params object even when the case
+// gives none; every other operation without params takes only its options.
+const PARAMS_FIRST = new Set(["listEvents", "streamEvents"]);
+// The success status of an operation that does not answer 200.
+const STATUS: Record<string, number> = { sendEvent: 202 };
 
 /** One case's client, its virtual clock, its sleeps and its hook calls. */
 interface Rig {
@@ -146,21 +162,27 @@ function errorFields(e: unknown): { variant: string; fields: Record<string, unkn
   return { variant, fields: {} };
 }
 
-type Run = Omit<Observed, "sleepsS" | "hookCalls" | "renderings"> & { raised?: unknown };
+type Run = HelperRun;
+
+/** The call's first argument: its params, or its body (an `InboundEvent` for `sendEvent`). */
+function firstArgument(call: Call): unknown {
+  if (call.operation === "sendEvent") return inboundEvent(call.body);
+  return call.params ?? call.body ?? (PARAMS_FIRST.has(call.operation) ? {} : undefined);
+}
 
 /** Runs one call to completion, error or cancellation. */
 async function invoke(r: Rig, call: Call): Promise<Run> {
   const ac = new AbortController();
-  const options = { signal: ac.signal };
+  const options = call.idempotency_key === undefined ? { signal: ac.signal } : { signal: ac.signal, idempotencyKey: call.idempotency_key };
   const fn = (r.client as unknown as Record<string, (...args: unknown[]) => unknown>)[call.operation];
   if (!fn) throw new Error(`no operation ${call.operation}`);
-  const first = call.params ?? call.body;
+  const first = firstArgument(call);
   const result = first === undefined ? fn.call(r.client, options) : fn.call(r.client, first, options);
   const events: unknown[] = [];
   try {
     if (result instanceof EventStream) return await drain(result, events, call, ac);
     const body = (await result) as { servedVersion?: string };
-    return { outcome: "completed", status: 200, body, events, servedVersion: body.servedVersion };
+    return { outcome: "completed", status: STATUS[call.operation] ?? 200, body, events, servedVersion: body.servedVersion };
   } catch (e) {
     const servedVersion = result instanceof EventStream ? await result.servedVersion : undefined;
     if (ac.signal.aborted && e === ac.signal.reason) return { outcome: "cancelled", events, servedVersion };
@@ -177,17 +199,33 @@ async function drain(stream: EventStream<{ event: string }>, events: unknown[], 
   return { outcome: "completed", status: 200, events, servedVersion: await stream.servedVersion };
 }
 
-async function runStep(r: Rig, call: Call, expect: Expect): Promise<string[]> {
+/** One step: a `call` (perhaps run in parallel), or an `events` / `tail` helper step. */
+async function runStep(r: Rig, step: Step, expect: Expect): Promise<string[]> {
   r.sleeps.length = 0;
   r.hookCalls.length = 0;
-  const runs = await Promise.all(Array.from({ length: call.parallel ?? 1 }, () => invoke(r, call)));
+  const [name, runs] = await stepRuns(r, step);
   const sleepsS = r.sleeps.map((ms) => Math.round(ms / 1000));
   return runs.flatMap((run, i) => {
     const renderings = [...render(r.client), ...render(r.client.tokenSource), ...render(run.raised)];
     const seen: Observed = { ...run, sleepsS, hookCalls: [...r.hookCalls], renderings };
     const label = runs.length > 1 ? `call ${i + 1}: ` : "";
-    return compare(expect, seen).map((m) => `${call.operation}: ${label}${m}`);
+    return compare(expect, seen).map((m) => `${name}: ${label}${m}`);
   });
+}
+
+async function stepRuns(r: Rig, step: Step): Promise<[string, Run[]]> {
+  if (step.events) return ["events", [await runHelper(r.client, "events", step.events, errorFields)]];
+  if (step.tail) return ["tail", [await runHelper(r.client, "tail", step.tail, errorFields)]];
+  const call = step.call!;
+  return [call.operation, await Promise.all(Array.from({ length: call.parallel ?? 1 }, () => invoke(r, call)))];
+}
+
+/** One case step: a clock advance, then its call or helper against its expectation. */
+async function runSteps(r: Rig, step: Step): Promise<string[]> {
+  if (step.advance_clock_s !== undefined) r.advance(step.advance_clock_s);
+  const runnable = step.call ?? step.events ?? step.tail;
+  if (!runnable || !step.expect) return [];
+  return runStep(r, step, substitute(step.expect, BASE_URL) as Expect);
 }
 
 async function runCase(id: string): Promise<boolean> {
@@ -197,10 +235,7 @@ async function runCase(id: string): Promise<boolean> {
   const clientMismatches: string[] = [];
   try {
     const r = await rig(c.client);
-    for (const step of c.steps) {
-      if (step.advance_clock_s !== undefined) r.advance(step.advance_clock_s);
-      if (step.call && step.expect) clientMismatches.push(...(await runStep(r, step.call, substitute(step.expect, BASE_URL) as Expect)));
-    }
+    for (const step of c.steps) clientMismatches.push(...(await runSteps(r, step)));
   } catch (e) {
     clientMismatches.push(`harness: ${e instanceof Error ? e.message : String(e)}`);
   }

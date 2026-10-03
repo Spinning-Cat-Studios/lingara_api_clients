@@ -21,6 +21,7 @@ AllCops:
     - "lib/lingara/models/**/*"
     - "lib/lingara/operations.rb"
     - "lib/lingara/streams.rb"
+    - "lib/lingara/events/catalogue.rb"
     - "lib/lingara/version.rb"
 
 # Keyword options are Ruby's spelling of functional options, so Client.new's

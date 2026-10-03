@@ -7,7 +7,7 @@ declare(strict_types=1);
 
 $finder = PhpCsFixer\Finder::create()
     ->in([__DIR__ . '/src', __DIR__ . '/tests'])
-    ->exclude(['Model', 'Stream', 'fixtures'])
+    ->exclude(['Model', 'Stream', 'Events/Generated', 'fixtures'])
     ->notPath(['ObjectSerializer.php', 'Internal/Operations.php', 'Version.php']);
 
 return (new PhpCsFixer\Config())

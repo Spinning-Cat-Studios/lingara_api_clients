@@ -15,9 +15,11 @@ declare(strict_types=1);
 // sequence (C2 D10), and `cancel_after_events: n` breaks out of the foreach
 // after the n-th event: PHP's native cancellation of a stream. The control
 // surface is reached with file_get_contents, so the harness needs no HTTP
-// library of its own. Not in the dist.
+// library of its own. The events operations and the `events` and `tail`
+// steps are events.php's (ADR 30.9.26aa D9). Not in the dist.
 
 require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/events.php';
 
 use Lingara\ApiResponse;
 use Lingara\AuthMethod;
@@ -143,17 +145,22 @@ function invoke(Client $client, int $step): array
             'getUsage' => completed($client->getUsage()),
             'getOpenApiDocument' => completed($client->getOpenApiDocument()),
             'listApiVersions' => completed($client->listApiVersions()),
-            default => ['outcome' => "harness: no operation {$operation}"],
+            default => invokeEvents($client, $call) ?? ['outcome' => "harness: no operation {$operation}"],
         };
     } catch (LingaraException $e) {
         return failed($e, []);
     }
 }
 
-/** @param ApiResponse<object> $response */
-function completed(ApiResponse $response): array
+/**
+ * $status is the operation's success status: ApiResponse holds the body,
+ * and every 2xx but sendEvent's 202 is a 200.
+ *
+ * @param ApiResponse<object> $response
+ */
+function completed(ApiResponse $response, int $status = 200): array
 {
-    return ['outcome' => 'completed', 'status' => 200, 'body' => plain($response->value), 'served_version' => $response->servedVersion];
+    return ['outcome' => 'completed', 'status' => $status, 'body' => plain($response->value), 'served_version' => $response->servedVersion];
 }
 
 /** Drains a stream; after `cancel_after_events` events it breaks out, which closes the connection. */
@@ -351,6 +358,19 @@ function runStep(Rig $rig, Client $client, int $step, string $base): array
     return $out;
 }
 
+/** @return list<string> an `events` or `tail` step's mismatches */
+function runHelperStep(Rig $rig, Client $client, int $step, string $base): array
+{
+    $rig->sleeps = [];
+    $rig->hooks = [];
+    $seen = runHelper($client, Current::$case['steps'][$step]);
+    $seen['sleeps'] = array_map(static fn (float $s): int => (int) round($s), $rig->sleeps);
+    $seen['hooks'] = $rig->hooks;
+    $expect = substitute(Current::$case['steps'][$step]['expect'], $base);
+    $label = isset(Current::$case['steps'][$step]['tail']) ? 'tail' : 'events';
+    return array_map(static fn (string $m): string => "{$label}: {$m}", [...compare($expect, $seen), ...compareHelper($expect, $seen)]);
+}
+
 /** @return list<string> */
 function steps(array $env, HttpStack $http): array
 {
@@ -367,6 +387,9 @@ function steps(array $env, HttpStack $http): array
             }
             if (isset($step['call'], $step['expect'])) {
                 array_push($out, ...runStep($rig, $client, $i, $env['base']));
+            }
+            if ((isset($step['events']) || isset($step['tail'])) && isset($step['expect'])) {
+                array_push($out, ...runHelperStep($rig, $client, $i, $env['base']));
             }
         }
         return $out;

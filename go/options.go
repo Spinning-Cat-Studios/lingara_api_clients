@@ -24,6 +24,7 @@ type options struct {
 	maxAttempts    int
 	retryAfterCap  time.Duration
 	idleTimeout    time.Duration
+	tailMax        int
 	tokenTimeout   time.Duration
 	userAgent      string
 	clock          func() time.Time
@@ -38,6 +39,7 @@ func defaultOptions() options {
 		maxAttempts:   3,
 		retryAfterCap: 60 * time.Second,
 		idleTimeout:   120 * time.Second,
+		tailMax:       8,
 		tokenTimeout:  30 * time.Second,
 		clock:         time.Now,
 		sleep:         realSleep,
@@ -55,6 +57,8 @@ func (o *options) validate() error {
 		return errors.New("lingara: WithTokenSource and WithClientCredentials are exclusive")
 	case o.maxAttempts < 1:
 		return errors.New("lingara: WithMaxAttempts needs at least 1")
+	case o.tailMax < 1:
+		return errors.New("lingara: WithTailMaxFailures needs at least 1")
 	}
 	return nil
 }
@@ -110,6 +114,11 @@ func WithRetryAfterCap(d time.Duration) Option { return func(o *options) { o.ret
 // WithStreamIdleTimeout fails a stream after this long with no byte while a
 // read is pending: 120 s by default (K5).
 func WithStreamIdleTimeout(d time.Duration) Option { return func(o *options) { o.idleTimeout = d } }
+
+// WithTailMaxFailures sets how many consecutive failed opens TailEvents rides
+// out before it returns the last: 8 by default, which sleeps 1, 2, 4, 8, 16,
+// 30 and 30 s between them (CONTRACT.md K5a; ADR 30.9.26aa D7).
+func WithTailMaxFailures(n int) Option { return func(o *options) { o.tailMax = n } }
 
 // WithTokenRequestTimeout bounds each HTTP attempt of the token exchange: 30 s
 // by default. Retry-After sleeps between attempts are not counted.

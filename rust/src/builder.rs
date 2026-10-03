@@ -30,6 +30,10 @@ pub enum BuildError {
     InvalidUrl { option: &'static str, reason: String },
     #[error("could not build the default HTTP client")]
     Http(#[source] reqwest::Error),
+    /// A `Webhook` secret that is not `lgr_whsec_` and padded base64 of at
+    /// least 24 bytes (ADR 30.9.26aa D4). The message never holds the secret.
+    #[error("a webhook secret must be lgr_whsec_ followed by padded base64 of at least 24 bytes")]
+    InvalidWebhookSecret,
 }
 
 /// Configures a [`Client`]. `Client::builder()` starts one.
@@ -45,6 +49,7 @@ pub struct ClientBuilder {
     on_deprecation: Option<DeprecationHook>,
     pub(crate) policy: RetryPolicy,
     pub(crate) stream_idle_timeout: Duration,
+    pub(crate) tail_max_failures: u32,
     pub(crate) token_request_timeout: Duration,
     pub(crate) user_agent_suffix: Option<String>,
     pub(crate) http_client: Option<reqwest::Client>,
@@ -68,6 +73,7 @@ impl Default for ClientBuilder {
                 sleeper: Arc::new(TokioSleeper),
             },
             stream_idle_timeout: Duration::from_secs(120),
+            tail_max_failures: 8,
             token_request_timeout: Duration::from_secs(30),
             user_agent_suffix: None,
             http_client: None,
@@ -159,6 +165,7 @@ impl ClientBuilder {
             versions: VersionObserver::new(self.on_deprecation),
             policy: self.policy,
             idle: self.stream_idle_timeout,
+            tail_max_failures: self.tail_max_failures,
             user_agent,
             tokens,
             credentials,

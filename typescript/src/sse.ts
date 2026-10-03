@@ -1,12 +1,16 @@
 // The server-sent-events parser: text in, frames out, no I/O (CONTRACT.md
-// K5, Parsing). The stream owns the bytes and the UTF-8 decoding; this owns
+// K5, Parsing; the `id` field since ADR 30.9.26aa D7). The stream owns the bytes and the UTF-8 decoding; this owns
 // line endings, comments, fields and dispatch, so a test can drive it one
 // character at a time.
 
-/** One dispatched frame: its event name and its joined `data`. */
+/**
+ * One dispatched frame: its event name, its joined `data`, and the
+ * last-event-id buffer when it is not empty.
+ */
 export interface Frame {
   event: string;
   data: string;
+  id?: string;
 }
 
 export class SseParser {
@@ -14,6 +18,9 @@ export class SseParser {
   #event = "";
   #data: string[] = [];
   #hasData = false;
+  // WHATWG's last-event-id buffer: it persists across frames until the next
+  // `id` field, and is not reset on dispatch.
+  #lastEventId = "";
   // A chunk ended on `\r`: a `\n` opening the next chunk is the same line end.
   #skipLf = false;
 
@@ -53,7 +60,7 @@ export class SseParser {
 
   #line(line: string, frames: Frame[]): void {
     if (line === "") {
-      if (this.#hasData) frames.push({ event: this.#event || "message", data: this.#data.join("\n") });
+      if (this.#hasData) frames.push(this.#frame());
       this.#reset();
       return;
     }
@@ -62,11 +69,22 @@ export class SseParser {
     const field = colon < 0 ? line : line.slice(0, colon);
     let value = colon < 0 ? "" : line.slice(colon + 1);
     if (value.startsWith(" ")) value = value.slice(1);
+    this.#field(field, value);
+  }
+
+  #field(field: string, value: string): void {
     if (field === "event") this.#event = value;
     if (field === "data") {
       this.#data.push(value);
       this.#hasData = true;
     }
+    if (field === "id" && !value.includes("\0")) this.#lastEventId = value;
+  }
+
+  #frame(): Frame {
+    const frame: Frame = { event: this.#event || "message", data: this.#data.join("\n") };
+    if (this.#lastEventId !== "") frame.id = this.#lastEventId;
+    return frame;
   }
 
   #reset(): void {

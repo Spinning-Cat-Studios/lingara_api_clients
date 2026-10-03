@@ -3,9 +3,11 @@
 //! each client is built from the case's `client` block through the builder
 //! only (`rig.rs`), a `parallel: n` step is `n` futures under `join_all`, and
 //! `cancel_after_events: n` drops the stream after its n-th event
-//! (`observe.rs`).
+//! (`observe.rs`). The `events` and `tail` steps drive the event helpers
+//! (`events.rs`, ADR 30.9.26aa D9).
 
 mod compare;
+mod events;
 mod observe;
 mod rig;
 
@@ -115,8 +117,13 @@ async fn steps(env: &Env, case: &Value) -> Result<Vec<String>, String> {
         if let Some(seconds) = step.get("advance_clock_s").and_then(Value::as_u64) {
             rig.advance(seconds);
         }
-        if let (Some(call), Some(expect)) = (step.get("call"), step.get("expect")) {
-            mismatches.extend(run_step(&rig, call, &substitute(expect, &env.base)).await?);
+        let Some(expect) = step.get("expect").map(|e| substitute(e, &env.base)) else { continue };
+        if let Some(call) = step.get("call") {
+            mismatches.extend(run_step(&rig, call, &expect).await?);
+        } else if let Some(block) = step.get("events") {
+            mismatches.extend(run_helper(&rig, "events", events::events_step(&rig.client, block), &expect).await?);
+        } else if let Some(block) = step.get("tail") {
+            mismatches.extend(run_helper(&rig, "tail", events::tail_step(&rig.client, block), &expect).await?);
         }
     }
     Ok(mismatches)
@@ -149,6 +156,15 @@ async fn run_step(rig: &Rig, call: &Value, expect: &Value) -> Result<Vec<String>
     Ok(mismatches)
 }
 
+/// An `events` or `tail` step: one run of the helper, compared like a call.
+async fn run_helper(rig: &Rig, label: &str, run: impl Future<Output = Result<Observed, String>>, expect: &Value) -> Result<Vec<String>, String> {
+    rig.reset();
+    let mut seen = run.await?;
+    seen.sleeps_s = rig.sleeps_s();
+    seen.renderings.extend([format!("{:?}", rig.client), format!("{:#?}", rig.client)]);
+    Ok(compare(expect, &seen).into_iter().map(|m| format!("{label}: {m}")).collect())
+}
+
 fn input<T: DeserializeOwned>(call: &Value, key: &str) -> Result<T, String> {
     serde_json::from_value(call.get(key).cloned().unwrap_or(Value::Null)).map_err(|e| format!("{key}: {e}"))
 }
@@ -170,6 +186,16 @@ async fn invoke(rig: &Rig, call: &Value) -> Result<Observed, String> {
         "getOpenApiDocument" => json_result(c.get_open_api_document().await),
         "listApiVersions" => json_result(c.list_api_versions().await),
         "getApiVersion" => json_result(c.get_api_version(&id(call)?).await),
+        "getAsyncApiDocument" => json_result(c.get_async_api_document().await),
+        "listEvents" => json_result(c.list_events(&events::list_params(call)?).await),
+        "streamEvents" => stream(c.stream_events(&events::stream_params(call)?).await, cancel).await,
+        "sendEvent" => {
+            let (event, options) = events::send_input(call)?;
+            // The operation's one success status: `ApiResponse` is any 2xx.
+            let mut seen = json_result(c.send_event(&event, options).await);
+            seen.status = seen.status.map(|_| 202);
+            seen
+        }
         other => return Err(format!("no operation {other}")),
     })
 }

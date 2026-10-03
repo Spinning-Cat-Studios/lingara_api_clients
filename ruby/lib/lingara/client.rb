@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "securerandom"
 
 module Lingara
   # Calls the Lingara API. Every C2 knob is a keyword of Client.new (D3); a
@@ -12,7 +13,9 @@ module Lingara
   #
   # clock: and sleeper: are testing seams (C2 D9): the clock is read for
   # token freshness and HTTP-date Retry-After values, and the sleeper is
-  # handed every Retry-After wait in seconds.
+  # handed every Retry-After wait in seconds, and every tail backoff.
+  # tail_max_failures: bounds tail_events' consecutive failed reopens
+  # (K5a; ADR 30.9.26aa D7).
   class Client
     include Redacted
 
@@ -26,14 +29,18 @@ module Lingara
       base_url: DEFAULT_BASE_URL, token_url: DEFAULT_TOKEN_URL, version: nil, on_deprecation: nil,
       logger: DefaultLogger.new, max_attempts: 3, retry_after_cap: 60, stream_idle_timeout: 120,
       token_request_timeout: 30, user_agent_suffix: nil, clock: -> { Time.now },
-      sleeper: ->(seconds) { sleep(seconds) }, net_http_options: {})
+      sleeper: ->(seconds) { sleep(seconds) }, net_http_options: {}, tail_max_failures: 8)
       credentials = {client_id: client_id, client_secret: client_secret, auth: auth, scopes: scopes}
       check_options(credentials, token_source, version, stream_idle_timeout)
+      raise ArgumentError, "tail_max_failures: must be at least 1" unless tail_max_failures.is_a?(Integer) && tail_max_failures >= 1
+      @tail_max_failures = tail_max_failures
       @base_url = base_url.to_s.chomp("/")
       @version = version
       @idle = stream_idle_timeout
       @user_agent = UserAgent.build(user_agent_suffix)
       @policy = RetryPolicy.new(max_attempts: max_attempts, retry_after_cap: retry_after_cap, clock: clock, sleeper: sleeper)
+      # A tail open bypasses K4's attempt loop: its own count is the budget.
+      @tail_policy = RetryPolicy.new(max_attempts: 1, retry_after_cap: retry_after_cap, clock: clock, sleeper: sleeper)
       @transport = Transport.new(net_http_options: net_http_options)
       @versions = VersionObserver.new(hook: on_deprecation, logger: logger)
       @token_source = token_source || (client_id && ClientCredentials.new(
@@ -42,7 +49,7 @@ module Lingara
       ))
     end
 
-    # ── The nine operations, over operations.rb ───────────────────────────
+    # ── The thirteen operations, over operations.rb ───────────────────────
 
     # Streams a vocabulary list (scope vocab:generate).
     def generate_vocabulary(**body, &block)
@@ -91,6 +98,66 @@ module Lingara
       json("getApiVersion", [version_id])
     end
 
+    # The API's AsyncAPI document, the event catalogue, as a Hash. Needs no
+    # token.
+    def get_async_api_document
+      json("getAsyncApiDocument", [])
+    end
+
+    # ── Events (ADR 30.9.26aa D6–D8) ──────────────────────────────────────
+
+    # One page of events, an EventPage (scope events:read). +types+ is a
+    # list, sent comma-separated.
+    def list_events(cursor: nil, start: nil, types: nil, limit: nil)
+      json("listEvents", [], query: {cursor: cursor, start: start, types: types, limit: limit})
+    end
+
+    # The feed: an Events::Feed that walks pages from +cursor+ (or +start+,
+    # :latest or :oldest, without one) to the horizon and yields each
+    # Events::Event. With a block, iterates it and returns the feed, whose
+    # #cursor is where to resume.
+    def events(cursor: nil, start: nil, types: nil, &block)
+      operation = OPERATIONS.fetch("listEvents")
+      fetch = ->(query) { page(operation, url_for(operation, [], query)) }
+      feed = Events::Feed.new(fetch: fetch, cursor: cursor, start: start, types: types)
+      block ? feed.each(&block) : feed
+    end
+
+    # The event stream itself, one connection under K5 (scope events:read):
+    # it yields StreamEventsEventEvent and ends on done. tail_events is the
+    # helper that resumes.
+    def stream_events(cursor: nil, start: nil, types: nil, last_event_id: nil, &block)
+      headers = last_event_id ? {"Last-Event-ID" => last_event_id} : {}
+      stream("streamEvents", [], nil, query: {cursor: cursor, start: start, types: types}, headers: headers, &block)
+    end
+
+    # The tail (K5a): an Events::Tail that yields each Events::Event and
+    # reconnects from its #cursor after any ending, until
+    # tail_max_failures: consecutive failures. It never ends on its own:
+    # leave the block to stop it.
+    def tail_events(cursor: nil, start: nil, types: nil, &block)
+      operation = OPERATIONS.fetch("streamEvents")
+      # The first request's URL, repeated by every reopen: start only
+      # without a cursor, which travels as Last-Event-ID instead.
+      url = url_for(operation, [], {start: (start unless cursor), types: types})
+      open = lambda do |last_event_id, on_start, &consume|
+        headers = last_event_id ? {"Last-Event-ID" => last_event_id} : {}
+        pipeline(operation, url, nil, on_start: on_start, headers: headers, policy: @tail_policy, &consume)
+      end
+      tail = Events::Tail.new(open: open, cursor: cursor, max_failures: @tail_max_failures, policy: @policy)
+      block ? tail.each(&block) : tail
+    end
+
+    # Sends one Events::InboundEvent (scope events:write, and
+    # lesson_plans:write when it asks for generation) and returns the
+    # InboundEventAccepted. Every attempt carries one Idempotency-Key: the
+    # caller's, unchanged, or a UUIDv4 made once for this call (K4).
+    def send_event(event, idempotency_key: nil)
+      raise ArgumentError, "event must be a Lingara::Events::InboundEvent" unless event.is_a?(Events::InboundEvent)
+      key = idempotency_key || SecureRandom.uuid
+      json("sendEvent", [], body: JSON.generate(event.to_hash), headers: {"Idempotency-Key" => key})
+    end
+
     def to_s
       inspect
     end
@@ -112,22 +179,33 @@ module Lingara
       raise ArgumentError, "stream_idle_timeout: must be a positive number" unless idle.is_a?(Numeric) && idle.positive?
     end
 
-    def json(id, args)
+    # +body+ is JSON text already; +headers+ join every attempt's.
+    def json(id, args, query: nil, body: nil, headers: {})
       operation = OPERATIONS.fetch(id)
-      url = url_for(operation, args)
-      pipeline(operation, url, nil) do |response, _phase, observe|
+      url = url_for(operation, args, query)
+      pipeline(operation, url, body, headers: headers) do |response, _phase, observe|
         served = observe.call(response)
         Response.new(value: Decoding.response(operation[:response], response.body.to_s), served_version: served)
       end
     end
 
-    def stream(id, args, body, &block)
+    # One page of the feed as its raw Hash, so each item reaches
+    # Events.decode as the bytes the server sent (D6).
+    def page(operation, url)
+      pipeline(operation, url, nil) do |response, _phase, observe|
+        observe.call(response)
+        Decoding.page(response.body.to_s)
+      end
+    end
+
+    def stream(id, args, body, query: nil, headers: {}, &block)
       operation = OPERATIONS.fetch(id)
-      url = url_for(operation, args)
+      url = url_for(operation, args, query)
       # The request model's constructor refuses a bad keyword before any
       # request is sent: a programming error, like Client.new's.
       payload = body && JSON.generate(Lingara.const_get(operation[:request_body]).new(body).to_hash)
-      events = EventStream.new(pipeline: method(:pipeline), operation: operation, url: url, body: payload)
+      send = ->(*call, **options, &consume) { pipeline(*call, headers: headers, **options, &consume) }
+      events = EventStream.new(pipeline: send, operation: operation, url: url, body: payload)
       block ? events.run(&block) : events
     end
 
@@ -135,10 +213,11 @@ module Lingara
     # and the refusal mapping. Yields a 2xx response, its Transport::Phase and
     # the version observer, and returns what the block returns. A client with
     # no token source sends an operation that needs one without
-    # Authorization; the server's 401 is the answer.
-    def pipeline(operation, url, body, on_start: nil, &on_success)
+    # Authorization; the server's 401 is the answer. +policy+ is the tail's
+    # single-attempt one for a tail open (K5a).
+    def pipeline(operation, url, body, on_start: nil, headers: {}, policy: @policy, &on_success)
       send_all = lambda do |token|
-        @policy.run { attempt(operation, url, body, token, on_start, &on_success) }
+        policy.run { attempt(operation, url, body, [token, headers], on_start, &on_success) }
       end
       result = if @token_source && operation[:needs_token]
         RetryPolicy.with_token_retry(@token_source, &send_all)
@@ -149,9 +228,11 @@ module Lingara
       raise Refusal.error(:v1, result.response, result.body, @policy.now)
     end
 
-    def attempt(operation, url, body, token, on_start)
+    # +auth+ is the token and the call's own headers.
+    def attempt(operation, url, body, auth, on_start)
+      token, extra = auth
       observe = ->(response) { @versions.observe(response, url) }
-      result = @transport.request(operation[:method], url, headers(operation, body, token), body: body,
+      result = @transport.request(operation[:method], url, headers(operation, body, token).merge(extra), body: body,
         read_timeout: operation[:stream] && @idle, secrets: token ? [token.expose_secret] : [], on_start: on_start) do |response, phase|
         next Attempt.new(response: response, body: response.body.to_s) unless (200..299).cover?(response.code.to_i)
         Attempt.new(value: yield(response, phase, observe), done: true)
@@ -169,14 +250,21 @@ module Lingara
     end
 
     # The base URL and the route's path, each path parameter percent-encoded
-    # but for A–Z a–z 0–9 - . _ ~, as the other libraries do.
-    def url_for(operation, args)
+    # but for A–Z a–z 0–9 - . _ ~, as the other libraries do. +query+'s nil
+    # values are left out and a list is one comma-separated value
+    # (`explode: false`), encoded the same way.
+    def url_for(operation, args, query = nil)
       path = operation[:path].dup
       operation[:path_params].zip(args).each do |name, value|
         raise ArgumentError, "#{name} must be a non-empty String" unless value.is_a?(String) && !value.empty?
-        path.sub!("{#{name}}", value.b.gsub(/[^A-Za-z0-9\-._~]/n) { |c| format("%%%02X", c.ord) })
+        path.sub!("{#{name}}", encode(value))
       end
-      @base_url + path
+      pairs = (query || {}).reject { |_, value| value.nil? }.map { |name, value| "#{name}=#{encode(Array(value).join(","))}" }
+      pairs.empty? ? @base_url + path : "#{@base_url}#{path}?#{pairs.join("&")}"
+    end
+
+    def encode(value)
+      value.to_s.b.gsub(/[^A-Za-z0-9\-._~]/n) { |c| format("%%%02X", c.ord) }
     end
   end
 end

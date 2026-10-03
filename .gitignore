@@ -7,3 +7,4 @@ dist/
 vendor/
 .DS_Store
 lingara_php_deploy*
+bin/

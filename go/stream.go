@@ -167,6 +167,9 @@ type streamReader[E any] struct {
 	frames []sse.Frame
 	eof    bool
 	buf    []byte
+	// lastID is the id of the last frame that carried one, which only the
+	// tail reads (CONTRACT.md K5a; ADR 30.9.26aa D7).
+	lastID string
 	// Armed only while a read is pending: time the loop body spends on an
 	// event, and time before the first range, never count.
 	timer *time.Timer
@@ -183,6 +186,9 @@ func (r *streamReader[E]) next() step[E] {
 		if len(r.frames) > 0 {
 			frame := r.frames[0]
 			r.frames = r.frames[1:]
+			if frame.ID != "" {
+				r.lastID = frame.ID
+			}
 			if st := r.s.interpret(frame); st.out != gotSkip {
 				return st
 			}

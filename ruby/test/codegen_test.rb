@@ -54,7 +54,14 @@ class CodegenTest < Minitest::Test
       assert_equal ["0.1.0-alpha.1", "0.1.0.pre.alpha.1", "2026-09-fixture-view"],
         [version::VERSION, version::GEM_VERSION, version::GENERATED_FOR_VERSION]
 
-      first = %w[operations.rb streams.rb version.rb].to_h { |f| [f, File.binread(File.join(out, f))] }
+      catalogue = File.read(File.join(out, "events", "catalogue.rb"))
+      assert_equal %w[WordReady PingTest UnknownEvent], catalogue.scan(/^    (\w+) = Data\.define/).flatten
+      assert_includes catalogue, %("word.ready" => [WordReady, "WordReadyData"].freeze)
+      assert_includes catalogue, %("ping.test" => [PingTest, nil].freeze)
+      assert_includes catalogue, %("world.moved" => :world_moved)
+      assert_includes catalogue, "def self.parse(json)"
+
+      first = %w[operations.rb streams.rb version.rb events/catalogue.rb].to_h { |f| [f, File.binread(File.join(out, f))] }
       generate(out, version_file)
       first.each { |f, bytes| assert_equal bytes, File.binread(File.join(out, f)), "#{f} differs between runs" }
 
@@ -63,6 +70,13 @@ class CodegenTest < Minitest::Test
       _, err, status = generate(out, version_file)
       refute status.success?
       assert_includes err, "stream_words_event.rb"
+
+      # 30.9.26aa D3: a model file named after an event arm is refused too.
+      File.delete(File.join(out, "models", "stream_words_event.rb"))
+      File.write(File.join(out, "models", "word_ready.rb"), "")
+      _, err, status = generate(out, version_file)
+      refute status.success?
+      assert_includes err, "word_ready.rb"
     end
   end
 end
