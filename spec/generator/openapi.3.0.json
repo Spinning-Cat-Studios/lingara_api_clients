@@ -2,10 +2,10 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Lingara API",
-    "version": "2026-09-equipped-boxfish",
+    "version": "2026-10-affable-towhee",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage.",
     "x-lingara-view": {
-      "source": "backend@5b8cc07c1bbc2d2400e2d39b3a222e35912cde70",
+      "source": "backend@5901561d1d52a31e57207323a5b44667d2abac87",
       "from": "3.2.0"
     }
   },
@@ -710,10 +710,24 @@
     "securitySchemes": {
       "oauth2": {
         "type": "oauth2",
-        "description": "An OAuth 2.0 access token, sent as `Authorization: Bearer <token>`. Create a client in your Lingara account, exchange its id and secret at the token URL for a token that lasts one hour, and exchange again when it expires. Each operation needs one scope.",
+        "description": "An OAuth 2.0 access token, sent as `Authorization: Bearer <token>`. A server acting as itself exchanges its client's id and secret at the token URL (`client_credentials`). An app acting for a Lingara user who consents uses the authorization code (`authorization_code`) and then refreshes. A token lasts one hour. Each operation needs one scope.",
         "flows": {
           "clientCredentials": {
             "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "scopes": {
+              "vocab:generate": "Generate vocabulary lists.",
+              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
+              "lesson_plans:write": "Create lesson plans.",
+              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
+              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
+              "events:read": "Read events about your account, and register endpoints that receive them.",
+              "events:write": "Send events from your game or integration to Lingara."
+            }
+          },
+          "authorizationCode": {
+            "authorizationUrl": "https://app.getlingara.com/oauth/authorize",
+            "tokenUrl": "https://api.getlingara.com/oauth/token",
+            "refreshUrl": "https://api.getlingara.com/oauth/token",
             "scopes": {
               "vocab:generate": "Generate vocabulary lists.",
               "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",

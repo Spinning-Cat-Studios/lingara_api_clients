@@ -13,15 +13,16 @@ The libraries are pre-release: every version before 1.0.0 carries an
 |---|---|---|---|
 | TypeScript | `@lingara/api` (npm) | pre-release | `npm install @lingara/api@next` |
 | Rust | `lingara` (crates.io) | pre-release | `cargo add lingara@<version>` |
-| Go | `github.com/Spinning-Cat-Studios/lingara_api_clients/go` | in development | |
-| Java | `com.getlingara:lingara-java` (Maven Central) | in development | |
-| Kotlin | `com.getlingara:lingara-kotlin` (Maven Central) | in development | |
-| Ruby | `lingara` (RubyGems) | in development | |
-| PHP | `spinningcatstudios/lingara` (Packagist) | in development | |
+| Go | `github.com/Spinning-Cat-Studios/lingara_api_clients/go` | pre-release | `go get github.com/Spinning-Cat-Studios/lingara_api_clients/go@v<version>` |
+| Java | `com.getlingara:lingara-java` (Maven Central) | pre-release | `implementation("com.getlingara:lingara-java:<version>")` |
+| Kotlin | `com.getlingara:lingara-kotlin` (Maven Central) | pre-release | `implementation("com.getlingara:lingara-kotlin:<version>")` |
+| Ruby | `lingara` (RubyGems) | pre-release | `gem install lingara -v <version>` |
+| PHP | `spinningcatstudios/lingara` (Packagist) | pre-release | `composer require spinningcatstudios/lingara:<version> symfony/http-client nyholm/psr7` |
 
-Each row gains its install line when its library is released. The released
-libraries are the ones `languages.toml` lists; every release publishes them all
-at one version, and each release's notes name the exact version to pin.
+The released libraries are the ones `languages.toml` lists. Every release
+publishes them all at one version, and each release's notes name the exact
+version to pin. Each library's own README covers the rest of its setup (Maven,
+the PHP HTTP client it needs).
 
 ## What is here
 

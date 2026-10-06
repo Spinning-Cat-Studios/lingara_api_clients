@@ -5,8 +5,8 @@ package com.getlingara.kotlin.internal
 /** This library's version and the API version its models were generated from. */
 internal object BuildInfo {
     /** The repository's VERSION, sent in every `User-Agent` (K6). */
-    const val VERSION: String = "0.1.0-alpha.10"
+    const val VERSION: String = "0.1.0-alpha.12"
 
     /** The view's `info.version` (ADR 30.9.26a). */
-    const val GENERATED_FOR_VERSION: String = "2026-09-equipped-boxfish"
+    const val GENERATED_FOR_VERSION: String = "2026-10-affable-towhee"
 }

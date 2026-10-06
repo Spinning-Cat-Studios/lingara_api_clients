@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use serde_json::{Value, json};
 
 use crate::case::{self, Loaded};
-use crate::coverage::{check, terminal_problems};
+use crate::coverage::{check, operations, terminal_problems};
 use crate::test_support::loaded;
 
 fn repo() -> PathBuf {
@@ -14,12 +14,18 @@ fn read(rel: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(repo().join(rel)).unwrap()).unwrap()
 }
 
-fn spec(ops: &[&str]) -> Value {
+/// `paths` carrying one GET per operation.
+fn paths(ops: &[&str]) -> Value {
     let mut paths = serde_json::Map::new();
     for (i, op) in ops.iter().enumerate() {
         paths.insert(format!("/p{i}"), json!({ "get": { "operationId": op } }));
     }
-    json!({ "paths": paths })
+    Value::Object(paths)
+}
+
+/// A view generating exactly `ops`, all of them plain (non-streaming).
+fn view_with(ops: &[&str]) -> Value {
+    json!({ "paths": paths(ops), "x-lingara-streams": [] })
 }
 
 fn view() -> Value {
@@ -65,25 +71,44 @@ fn every_case_file_parses_and_matches_its_path() {
     assert!(case::parse(wrong, Path::new("k9/other.yaml")).is_err(), "k9 is not a group");
 }
 
-/// 29.9.26n AC3: an operation in the spec with no case fails the guard.
+/// 29.9.26n AC3: an operation in the view with no case fails the guard.
 #[test]
 fn an_operation_without_a_case_fails() {
-    let problems = check(&spec(&["getUsage", "listApiVersions"]), &view(), &[calling("getUsage", ALL)]);
+    let problems = check(&view_with(&["getUsage", "listApiVersions"]), &[calling("getUsage", ALL)]);
     assert_eq!(problems, vec!["operation `listApiVersions` has no case"]);
 }
 
-/// 29.9.26n AC4: a case naming an operation the spec lacks fails the guard.
+/// 29.9.26n AC4: a case naming an operation the view lacks fails the guard.
 #[test]
 fn a_stale_operation_fails() {
     let cases = [calling("getUsage", ALL), calling("getUsageOld", ALL)];
-    let problems = check(&spec(&["getUsage"]), &view(), &cases);
-    assert_eq!(problems, vec!["op.getUsageOld: `getUsageOld` is not an operation in the spec"]);
+    let problems = check(&view_with(&["getUsage"]), &cases);
+    assert_eq!(problems, vec!["op.getUsageOld: `getUsageOld` is not an operation in the view"]);
+}
+
+/// An operation only the development bundle carries (as the `/v1/embed`
+/// routes did before a frozen version brought them into the view) is in no
+/// library, so it needs no case. The guard never reads the bundle.
+#[test]
+fn an_operation_outside_the_view_needs_no_case() {
+    let view = view_with(&["getUsage"]); // the bundle would add createEmbedToken
+    let problems = check(&view, &[calling("getUsage", ALL)]);
+    assert!(problems.is_empty(), "{problems:#?}");
+    assert!(!operations(&view).contains("createEmbedToken"));
+}
+
+/// A streaming operation is in the view's `x-lingara-streams`, not its
+/// `paths`, and still needs a case.
+#[test]
+fn a_streaming_operation_needs_a_case() {
+    let problems = check(&view(), &[calling("generateVocabulary", ALL), calling("createLessonPlan", ALL), calling("streamLessonPlan", ALL)]);
+    assert_eq!(problems, vec!["operation `sendTutorMessage` has no case"]);
 }
 
 /// 29.9.26n AC5: a behaviour no case lists fails the guard.
 #[test]
 fn a_behaviour_without_a_case_fails() {
-    let problems = check(&spec(&["getUsage"]), &view(), &[calling("getUsage", "[K1, K2, K3, K5, K5a, K6]")]);
+    let problems = check(&view_with(&["getUsage"]), &[calling("getUsage", "[K1, K2, K3, K5, K5a, K6]")]);
     assert_eq!(problems, vec!["K4 has no case listing it in `behaviours`"]);
 }
 
@@ -92,7 +117,7 @@ fn a_behaviour_without_a_case_fails() {
 fn the_vendored_spec_is_covered() {
     let (cases, errors) = case::load_dir(&repo().join("conformance/cases"));
     assert!(errors.is_empty(), "{errors:#?}");
-    let problems = check(&read("spec/openapi.json"), &read("spec/generator/openapi.3.1.json"), &cases);
+    let problems = check(&read("spec/generator/openapi.3.1.json"), &cases);
     assert!(problems.is_empty(), "{problems:#?}");
 }
 
@@ -171,7 +196,7 @@ fn a_resumable_stream_passes_only_as_a_tail() {
 /// 30.9.26aa AC14: a case set in which no case lists `K5a` fails the guard.
 #[test]
 fn a_k5a_behaviour_without_a_case_fails() {
-    let problems = check(&spec(&["getUsage"]), &view(), &[calling("getUsage", "[K1, K2, K3, K4, K5, K6]")]);
+    let problems = check(&view_with(&["getUsage"]), &[calling("getUsage", "[K1, K2, K3, K4, K5, K6]")]);
     assert_eq!(problems, vec!["K5a has no case listing it in `behaviours`"]);
     let k5a = "id: k5a.x\ntitle: t\nbehaviours: [K5a]\nsteps:\n  - tail: { take: 1 }\n    expect: { outcome: completed }\n";
     let parsed = case::parse(k5a, Path::new("k5a/x.yaml")).unwrap();

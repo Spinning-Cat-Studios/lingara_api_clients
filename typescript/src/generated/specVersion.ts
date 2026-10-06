@@ -2,4 +2,4 @@
 // info.version. Do not edit: run `make codegen-typescript`.
 
 /** The /v1 version this library's types were generated from. */
-export const GENERATED_FOR_VERSION = "2026-09-equipped-boxfish";
+export const GENERATED_FOR_VERSION = "2026-10-affable-towhee";

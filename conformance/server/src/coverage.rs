@@ -1,6 +1,12 @@
 //! `check-coverage` (ADR 29.9.26n D14): every operation has a case, every
 //! case names a real operation, every behaviour is exercised, every case
 //! parses, and the view still carries each stream's terminal events.
+//!
+//! "Operation" means one in the generator view, never the vendored bundle.
+//! Since ADR 30.9.26a the libraries generate from the current frozen version,
+//! so the bundle (the development version) can carry operations no library
+//! has yet. A case for one could never pass, and none is asked for until a
+//! frozen version brings it into the view.
 
 use std::collections::BTreeSet;
 use std::path::Path;
@@ -15,27 +21,31 @@ pub const MAX_KEEPALIVE_SECONDS: u64 = 15;
 
 const METHODS: &[&str] = &["get", "put", "post", "delete", "options", "head", "patch", "trace", "query"];
 
-/// Every `operationId` in the spec's `paths`.
-pub fn spec_operations(spec: &Value) -> BTreeSet<String> {
-    let paths = spec.get("paths").and_then(Value::as_object).into_iter().flatten();
+/// Every operation the view generates: each `operationId` in its `paths`,
+/// and each `x-lingara-streams` entry's, since the view describes a
+/// streaming operation there instead.
+pub fn operations(view: &Value) -> BTreeSet<String> {
+    let paths = view.get("paths").and_then(Value::as_object).into_iter().flatten();
     let ops = paths.flat_map(|(_, item)| METHODS.iter().filter_map(move |m| item.get(*m)));
-    ops.filter_map(|op| op.get("operationId")?.as_str().map(str::to_string)).collect()
+    let streams = view.get("x-lingara-streams").and_then(Value::as_array).into_iter().flatten();
+    let named = ops.chain(streams).filter_map(|op| op.get("operationId")?.as_str().map(str::to_string));
+    named.collect()
 }
 
 /// Rules 1, 2, 3 and 5 over parsed cases; rule 4 is `case::load_dir`'s.
-pub fn check(spec: &Value, view: &Value, cases: &[Loaded]) -> Vec<String> {
-    let spec_ops = spec_operations(spec);
+pub fn check(view: &Value, cases: &[Loaded]) -> Vec<String> {
+    let view_ops = operations(view);
     let mut problems = Vec::new();
     let mut called = BTreeSet::new();
     for loaded in cases {
         for call in loaded.case.steps.iter().filter_map(|s| s.call.as_ref()) {
-            if !spec_ops.contains(&call.operation) {
-                problems.push(format!("{}: `{}` is not an operation in the spec", loaded.case.id, call.operation));
+            if !view_ops.contains(&call.operation) {
+                problems.push(format!("{}: `{}` is not an operation in the view", loaded.case.id, call.operation));
             }
             called.insert(call.operation.clone());
         }
     }
-    for op in spec_ops.difference(&called) {
+    for op in view_ops.difference(&called) {
         problems.push(format!("operation `{op}` has no case"));
     }
     for behaviour in BEHAVIOURS {
@@ -85,11 +95,11 @@ fn entry_problems(entry: &Value) -> Vec<String> {
 }
 
 /// The `check-coverage` subcommand; returns the process exit code.
-pub fn run(spec: &Path, view: &Path, cases_dir: &Path) -> i32 {
+pub fn run(view: &Path, cases_dir: &Path) -> i32 {
     let (cases, mut problems) = case::load_dir(cases_dir);
-    match (read_json(spec), read_json(view)) {
-        (Ok(spec), Ok(view)) => problems.extend(check(&spec, &view, &cases)),
-        (spec, view) => problems.extend([spec.err(), view.err()].into_iter().flatten()),
+    match read_json(view) {
+        Ok(view) => problems.extend(check(&view, &cases)),
+        Err(e) => problems.push(e),
     }
     if problems.is_empty() {
         println!("conformance coverage: {} cases cover every operation, K1–K6 and K5a", cases.len());

@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    lingara (0.1.0.pre.alpha.10)
+    lingara (0.1.0.pre.alpha.12)
 
 GEM
   remote: https://rubygems.org/

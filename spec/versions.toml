@@ -81,8 +81,23 @@ at = "2026-10-01T06:48:23Z"
 [[version]]
 id = "2026-10-affable-towhee"
 minted_at = "2026-10-01T06:48:23Z"
-state = "development"
+state = "supported"
+spec_sha256 = "3477b22599cfab3070e6044660f7e635dbedb45bfead2c1f7eb1d0323701402b"
+asyncapi_sha256 = "479e8a2e5504551b049bff3887a022d07864bacb900d0a003d913e9a1c2de4d3"
 
 [[version.history]]
 state = "development"
 at = "2026-10-01T06:48:23Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-10-01T21:39:12Z"
+
+[[version]]
+id = "2026-10-golden-remora"
+minted_at = "2026-10-01T21:39:12Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-10-01T21:39:12Z"

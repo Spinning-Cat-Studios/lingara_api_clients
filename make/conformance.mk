@@ -26,7 +26,7 @@ CONFORMANCE_MISSING = $(strip $(foreach l,$(LANGS),$(if $(strip $(CONFORMANCE_CM
 ## Every operation and K1–K6 has a case, every case parses, and every
 ## landed language has a harness.
 check-conformance-coverage:
-	$(CONFORMANCE_SERVER) check-coverage --spec $(SPEC_DIR)/openapi.json --view $(SPEC_VIEW_DIR)/openapi.3.1.json --cases $(CONFORMANCE_CASES)
+	$(CONFORMANCE_SERVER) check-coverage --view $(SPEC_VIEW_DIR)/openapi.3.1.json --cases $(CONFORMANCE_CASES)
 	@if [ -n "$(CONFORMANCE_MISSING)" ]; then \
 	  echo "✗ no CONFORMANCE_CMD_<lang> for: $(CONFORMANCE_MISSING)"; exit 1; \
 	fi

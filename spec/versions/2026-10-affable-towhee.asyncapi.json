@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara events",
     "x-i18n": "asyncapi.info",
-    "version": "2026-10-golden-remora",
+    "version": "2026-10-affable-towhee",
     "description": "The events Lingara sends about your account, to a webhook endpoint you register or through the event feed and stream, and the events your game or integration can send to Lingara. Every outbound event is the same envelope on every transport."
   },
   "servers": {
@@ -57,9 +57,6 @@
         },
         "appUninstalled": {
           "$ref": "#/components/messages/AppUninstalled"
-        },
-        "practiceCompleted": {
-          "$ref": "#/components/messages/PracticeCompleted"
         }
       }
     },
@@ -88,9 +85,6 @@
         },
         "appUninstalled": {
           "$ref": "#/components/messages/AppUninstalled"
-        },
-        "practiceCompleted": {
-          "$ref": "#/components/messages/PracticeCompleted"
         }
       }
     },
@@ -119,9 +113,6 @@
         },
         "appUninstalled": {
           "$ref": "#/components/messages/AppUninstalled"
-        },
-        "practiceCompleted": {
-          "$ref": "#/components/messages/PracticeCompleted"
         }
       }
     },
@@ -141,9 +132,6 @@
         },
         "worldPracticeRequested": {
           "$ref": "#/components/messages/WorldPracticeRequested"
-        },
-        "worldPracticeCompleted": {
-          "$ref": "#/components/messages/WorldPracticeCompleted"
         }
       }
     },
@@ -466,72 +454,6 @@
         },
         {
           "$ref": "#/components/securitySchemes/inboundReaction"
-        }
-      ]
-    },
-    "receiveWorldPracticeCompleted": {
-      "action": "receive",
-      "channel": {
-        "$ref": "#/channels/inbound"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/inbound/messages/worldPracticeCompleted"
-        }
-      ],
-      "x-i18n": "asyncapi.operations.receive_world_practice_completed",
-      "description": "Lingara records a `world.practice_completed` event sent with `POST /v1/events` for a lesson plan the learner owns, and sends you `practice.completed` with the same items.",
-      "security": [
-        {
-          "$ref": "#/components/securitySchemes/inboundPractice"
-        }
-      ]
-    },
-    "sendPracticeCompletedWebhook": {
-      "action": "send",
-      "channel": {
-        "$ref": "#/channels/webhook"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/webhook/messages/practiceCompleted"
-        }
-      ],
-      "security": [
-        {
-          "$ref": "#/components/securitySchemes/practiceEvents"
-        }
-      ]
-    },
-    "sendPracticeCompletedFeed": {
-      "action": "send",
-      "channel": {
-        "$ref": "#/channels/feed"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/feed/messages/practiceCompleted"
-        }
-      ],
-      "security": [
-        {
-          "$ref": "#/components/securitySchemes/practiceEvents"
-        }
-      ]
-    },
-    "sendPracticeCompletedStream": {
-      "action": "send",
-      "channel": {
-        "$ref": "#/channels/stream"
-      },
-      "messages": [
-        {
-          "$ref": "#/channels/stream/messages/practiceCompleted"
-        }
-      ],
-      "security": [
-        {
-          "$ref": "#/components/securitySchemes/practiceEvents"
         }
       ]
     },
@@ -891,90 +813,6 @@
         },
         "required": [
           "name"
-        ]
-      },
-      "WorldPracticeCompleted": {
-        "type": "object",
-        "properties": {
-          "plan_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PracticeItem"
-            },
-            "minItems": 1,
-            "maxItems": 100
-          },
-          "completed": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "plan_id",
-          "items"
-        ]
-      },
-      "PracticeItem": {
-        "type": "object",
-        "properties": {
-          "set_number": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 1,
-            "maximum": 255
-          },
-          "question": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 0,
-            "maximum": 255
-          },
-          "outcome": {
-            "$ref": "#/components/schemas/PracticeOutcome"
-          }
-        },
-        "required": [
-          "set_number",
-          "question",
-          "outcome"
-        ]
-      },
-      "PracticeOutcome": {
-        "type": "string",
-        "enum": [
-          "correct",
-          "incorrect",
-          "revealed",
-          "self_correct",
-          "self_incorrect",
-          "skipped"
-        ]
-      },
-      "PracticeCompletedData": {
-        "type": "object",
-        "properties": {
-          "plan_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PracticeItem"
-            }
-          },
-          "completed": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "plan_id",
-          "items",
-          "completed"
         ]
       },
       "AppRenderRequest": {
@@ -1894,117 +1732,6 @@
           }
         ]
       },
-      "WorldPracticeCompleted": {
-        "name": "world.practice_completed",
-        "x-i18n": "asyncapi.messages.world_practice_completed",
-        "description": "Your game tells Lingara which practice items a learner finished, and how each went.",
-        "contentType": "application/json",
-        "payload": {
-          "type": "object",
-          "required": [
-            "type",
-            "data"
-          ],
-          "properties": {
-            "type": {
-              "type": "string",
-              "const": "world.practice_completed"
-            },
-            "data": {
-              "$ref": "#/components/schemas/WorldPracticeCompleted"
-            }
-          }
-        },
-        "examples": [
-          {
-            "payload": {
-              "type": "world.practice_completed",
-              "data": {
-                "plan_id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
-                "items": [
-                  {
-                    "set_number": 2,
-                    "question": 0,
-                    "outcome": "correct"
-                  },
-                  {
-                    "set_number": 2,
-                    "question": 3,
-                    "outcome": "self_incorrect"
-                  }
-                ],
-                "completed": false
-              }
-            }
-          }
-        ]
-      },
-      "PracticeCompleted": {
-        "name": "practice.completed",
-        "x-i18n": "asyncapi.messages.practice_completed",
-        "description": "A learner finished practice items in your game or site, with the outcome of each.",
-        "contentType": "application/json",
-        "payload": {
-          "type": "object",
-          "required": [
-            "id",
-            "type",
-            "created_at",
-            "api_version",
-            "subject",
-            "data"
-          ],
-          "properties": {
-            "id": {
-              "type": "string"
-            },
-            "type": {
-              "type": "string",
-              "const": "practice.completed"
-            },
-            "created_at": {
-              "type": "string",
-              "format": "date-time"
-            },
-            "api_version": {
-              "type": "string"
-            },
-            "subject": {
-              "type": "string"
-            },
-            "data": {
-              "$ref": "#/components/schemas/PracticeCompletedData"
-            }
-          }
-        },
-        "examples": [
-          {
-            "payload": {
-              "id": "lgr_evt_7d6c5b4a39281706f5e4d3c2b1a09f8e",
-              "type": "practice.completed",
-              "created_at": "2026-10-02T11:05:00Z",
-              "api_version": "2026-09-equipped-boxfish",
-              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
-              "data": {
-                "plan_id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
-                "items": [
-                  {
-                    "set_number": 2,
-                    "question": 0,
-                    "outcome": "correct"
-                  },
-                  {
-                    "set_number": 2,
-                    "question": 3,
-                    "outcome": "self_incorrect"
-                  }
-                ],
-                "completed": false
-              }
-            }
-          }
-        ]
-      },
       "AppRender": {
         "name": "app.render",
         "x-i18n": "asyncapi.messages.app_render",
@@ -2137,9 +1864,7 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           }
         },
@@ -2160,9 +1885,7 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           }
         },
@@ -2183,9 +1906,7 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           }
         },
@@ -2205,9 +1926,7 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           }
         },
@@ -2227,61 +1946,13 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           }
         },
         "scopes": [
           "events:write",
           "lesson_plans:write"
-        ]
-      },
-      "inboundPractice": {
-        "type": "oauth2",
-        "flows": {
-          "clientCredentials": {
-            "tokenUrl": "https://api.getlingara.com/oauth/token",
-            "availableScopes": {
-              "vocab:generate": "Generate vocabulary lists.",
-              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
-              "lesson_plans:write": "Create lesson plans.",
-              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
-              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
-              "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
-            }
-          }
-        },
-        "scopes": [
-          "events:write",
-          "embed:play"
-        ]
-      },
-      "practiceEvents": {
-        "type": "oauth2",
-        "flows": {
-          "clientCredentials": {
-            "tokenUrl": "https://api.getlingara.com/oauth/token",
-            "availableScopes": {
-              "vocab:generate": "Generate vocabulary lists.",
-              "lesson_plans:read": "Read your lesson plans and reconnect to their progress.",
-              "lesson_plans:write": "Create lesson plans.",
-              "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
-              "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
-              "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
-            }
-          }
-        },
-        "scopes": [
-          "events:read",
-          "embed:play"
         ]
       }
     }

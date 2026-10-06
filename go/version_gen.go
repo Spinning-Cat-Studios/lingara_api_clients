@@ -3,9 +3,9 @@
 package lingara
 
 // Version is this library's released version, sent in every User-Agent (K6).
-const Version = "0.1.0-alpha.10"
+const Version = "0.1.0-alpha.12"
 
 // GeneratedForVersion is the /v1 version this library's models were
 // generated from. A response served under another version logs one warning
 // per version id (ADR 30.9.26a).
-const GeneratedForVersion = "2026-09-equipped-boxfish"
+const GeneratedForVersion = "2026-10-affable-towhee"

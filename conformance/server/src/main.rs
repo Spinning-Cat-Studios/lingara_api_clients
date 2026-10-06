@@ -2,7 +2,7 @@
 //!
 //! `serve` replays the cases under `conformance/cases/` and checks what a
 //! library sent; `run` drives one language's harness against it; and
-//! `check-coverage` guards the case inventory against the spec.
+//! `check-coverage` guards the case inventory against the generator view.
 
 mod case;
 mod control;
@@ -62,8 +62,6 @@ enum Command {
     /// Fail when an operation or behaviour has no case, or a case is stale.
     CheckCoverage {
         #[arg(long)]
-        spec: PathBuf,
-        #[arg(long)]
         view: PathBuf,
         #[arg(long)]
         cases: PathBuf,
@@ -74,7 +72,7 @@ fn main() {
     let code = match Cli::parse().command {
         Command::Serve { cases, port } => serve_forever(&cases, port),
         Command::Run { lang, cases, command } => run::run(&lang, &cases, &command),
-        Command::CheckCoverage { spec, view, cases } => coverage::run(&spec, &view, &cases),
+        Command::CheckCoverage { view, cases } => coverage::run(&view, &cases),
     };
     std::process::exit(code);
 }

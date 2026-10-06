@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.1.0-alpha.12 — 2026-10-06
+
+
+Generated from Lingara API 2026-10-golden-remora (development) at spec backend@5901561d1d52a31e57207323a5b44667d2abac87.
+
+### Added
+
+### Changed
+
+### Fixed
+
+- The conformance coverage check now counts the operations the libraries generate, those in the frozen version's view, instead of every operation in the vendored spec. The spec is the development version and can carry operations no library has yet, such as the `/v1/embed` routes in `2026-10-golden-remora`, and the check had demanded conformance cases for them. No library changes.
+
+### Removed
+
+## v0.1.0-alpha.11 — 2026-10-06
+
+
+Generated from Lingara API 2026-10-golden-remora (development) at spec backend@5901561d1d52a31e57207323a5b44667d2abac87.
+
+### Added
+
+### Changed
+
+- Every library is now generated for the frozen version `2026-10-affable-towhee` (was `2026-09-equipped-boxfish`). New OAuth clients have been pinned to it since 2026-10-02, so `v0.1.0-alpha.10` logged a version-mismatch warning on every response to one. No model changes shape.
+
+### Fixed
+
+- The README install table now marks Go, Java, Kotlin, Ruby and PHP as pre-release and gives each an install line. It still called them "in development", although all six libraries are on their registries at `v0.1.0-alpha.10`.
+
+### Removed
+
 ## v0.1.0-alpha.10 — 2026-10-03
 
 

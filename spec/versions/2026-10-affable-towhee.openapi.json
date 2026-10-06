@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara API",
     "x-i18n": "info",
-    "version": "2026-10-golden-remora",
+    "version": "2026-10-affable-towhee",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage."
   },
   "servers": [
@@ -32,11 +32,6 @@
       "name": "events",
       "x-i18n": "tags.events",
       "description": "Read the events that happen in your account, page by page or as a stream."
-    },
-    {
-      "name": "embed",
-      "x-i18n": "tags.embed",
-      "description": "Vouch for your game's or site's players, and remove them."
     },
     {
       "name": "account",
@@ -1010,7 +1005,7 @@
         ],
         "x-i18n": "ops.events_send",
         "summary": "Send an event",
-        "description": "Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat. A `world.practice_completed` event reports how the learner did on items of a lesson plan they own; it never starts a plan, and Lingara sends you `practice.completed` with the same items.",
+        "description": "Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat.",
         "security": [
           {
             "oauth2": [
@@ -1060,27 +1055,6 @@
                       "source_lang": "en",
                       "target_lang": "zh",
                       "level": 2
-                    }
-                  }
-                },
-                "worldPracticeCompleted": {
-                  "value": {
-                    "type": "world.practice_completed",
-                    "data": {
-                      "plan_id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
-                      "items": [
-                        {
-                          "set_number": 2,
-                          "question": 0,
-                          "outcome": "correct"
-                        },
-                        {
-                          "set_number": 2,
-                          "question": 3,
-                          "outcome": "self_incorrect"
-                        }
-                      ],
-                      "completed": false
                     }
                   }
                 }
@@ -1273,337 +1247,6 @@
           },
           "410": {
             "$ref": "#/components/responses/Gone"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          },
-          "5XX": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/v1/embed/tokens": {
-      "parameters": [
-        {
-          "$ref": "#/components/parameters/LingaraVersion"
-        }
-      ],
-      "post": {
-        "operationId": "createEmbedToken",
-        "tags": [
-          "embed"
-        ],
-        "x-i18n": "ops.embed_tokens_create",
-        "summary": "Mint a token for a player",
-        "description": "Vouches for one of your players and returns a token your game or page uses for them for 15 minutes. The first token for a `player_ref` creates a learner for that player; later ones reuse it. Ask again when the token expires; it is never refreshed. Needs a `metered` client.",
-        "security": [
-          {
-            "oauth2": [
-              "embed:mint"
-            ]
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EmbedTokenRequest"
-              },
-              "example": {
-                "player_ref": "player-1001",
-                "scopes": [
-                  "embed:play",
-                  "lesson_plans:read",
-                  "lesson_plans:write"
-                ],
-                "origin": "https://game.example.com"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "x-i18n": "ops.embed_tokens_create.ok",
-            "description": "The player's token",
-            "headers": {
-              "Lingara-Version": {
-                "$ref": "#/components/headers/LingaraVersion"
-              },
-              "Deprecation": {
-                "$ref": "#/components/headers/Deprecation"
-              },
-              "Sunset": {
-                "$ref": "#/components/headers/Sunset"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EmbedToken"
-                },
-                "example": {
-                  "token": "lgr_et_9fK2mQ7xR4tV1wY8zA3bC6dE0gH5jL2nP7sU4vX9yZ1",
-                  "expires_at": "2026-10-01T09:27:44Z",
-                  "expires_in": 900,
-                  "subject": "lgr_sub_0f1e2d3c4b5a69788796a5b4c3d2e1f0",
-                  "scopes": [
-                    "lesson_plans:read",
-                    "lesson_plans:write",
-                    "embed:play"
-                  ],
-                  "account_linked": false
-                }
-              }
-            }
-          },
-          "4XX": {
-            "$ref": "#/components/responses/Error"
-          },
-          "410": {
-            "$ref": "#/components/responses/VersionDiscontinued"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          },
-          "5XX": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/v1/embed/players/{player_ref}": {
-      "parameters": [
-        {
-          "$ref": "#/components/parameters/LingaraVersion"
-        }
-      ],
-      "delete": {
-        "operationId": "deleteEmbedPlayer",
-        "tags": [
-          "embed"
-        ],
-        "x-i18n": "ops.embed_player_delete",
-        "summary": "Delete a player",
-        "description": "Deletes one of your players and everything they made: their plans, their events and their live tokens. Safe to retry: an unknown `player_ref` answers `204` too.",
-        "security": [
-          {
-            "oauth2": [
-              "embed:mint"
-            ]
-          }
-        ],
-        "parameters": [
-          {
-            "$ref": "#/components/parameters/PlayerRef"
-          }
-        ],
-        "responses": {
-          "204": {
-            "x-i18n": "ops.embed_player_delete.no_content",
-            "description": "The player is gone",
-            "headers": {
-              "Lingara-Version": {
-                "$ref": "#/components/headers/LingaraVersion"
-              },
-              "Deprecation": {
-                "$ref": "#/components/headers/Deprecation"
-              },
-              "Sunset": {
-                "$ref": "#/components/headers/Sunset"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              }
-            }
-          },
-          "4XX": {
-            "$ref": "#/components/responses/Error"
-          },
-          "410": {
-            "$ref": "#/components/responses/VersionDiscontinued"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          },
-          "5XX": {
-            "$ref": "#/components/responses/Error"
-          }
-        }
-      }
-    },
-    "/v1/embed/dialogue/turns": {
-      "parameters": [
-        {
-          "$ref": "#/components/parameters/LingaraVersion"
-        }
-      ],
-      "post": {
-        "operationId": "sendDialogueTurn",
-        "tags": [
-          "embed"
-        ],
-        "x-i18n": "ops.dialogue_turn",
-        "summary": "Send a line to an NPC",
-        "description": "Sends the player's `line` to a character and streams the character's reply as `delta` events, ending with `done`. The character speaks only `target_lang`, at the player's `level`. Nothing is stored: send the conversation so far in `history`. Each turn is billed to a `metered` client; any other caller gets `403 embed_needs_metered`.",
-        "security": [
-          {
-            "oauth2": [
-              "embed:play"
-            ]
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DialogueTurnRequest"
-              },
-              "example": {
-                "npc": {
-                  "name": "Auntie Lin",
-                  "persona": "a street-food vendor who likes to haggle"
-                },
-                "scene": "A night market in Taipei, just after rain",
-                "source_lang": "en",
-                "target_lang": "zh",
-                "level": 3,
-                "line": "How much are the dumplings?",
-                "history": [
-                  {
-                    "speaker": "npc",
-                    "text": "来来来，刚出锅的饺子！"
-                  },
-                  {
-                    "speaker": "player",
-                    "text": "你好！"
-                  }
-                ]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "x-i18n": "ops.dialogue_turn.ok",
-            "description": "The character's reply, piece by piece",
-            "headers": {
-              "Lingara-Version": {
-                "$ref": "#/components/headers/LingaraVersion"
-              },
-              "Deprecation": {
-                "$ref": "#/components/headers/Deprecation"
-              },
-              "Sunset": {
-                "$ref": "#/components/headers/Sunset"
-              },
-              "Link": {
-                "$ref": "#/components/headers/Link"
-              }
-            },
-            "content": {
-              "text/event-stream": {
-                "itemSchema": {
-                  "oneOf": [
-                    {
-                      "type": "object",
-                      "required": [
-                        "event",
-                        "data"
-                      ],
-                      "properties": {
-                        "event": {
-                          "const": "delta"
-                        },
-                        "data": {
-                          "contentMediaType": "application/json",
-                          "contentSchema": {
-                            "$ref": "#/components/schemas/TurnDelta"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "event",
-                        "data"
-                      ],
-                      "properties": {
-                        "event": {
-                          "const": "notice"
-                        },
-                        "data": {
-                          "contentMediaType": "application/json",
-                          "contentSchema": {
-                            "$ref": "#/components/schemas/Notice"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "event",
-                        "data"
-                      ],
-                      "properties": {
-                        "event": {
-                          "const": "done"
-                        },
-                        "data": {
-                          "contentMediaType": "application/json",
-                          "contentSchema": {
-                            "$ref": "#/components/schemas/Done"
-                          }
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "required": [
-                        "event",
-                        "data"
-                      ],
-                      "properties": {
-                        "event": {
-                          "const": "error"
-                        },
-                        "data": {
-                          "contentMediaType": "application/json",
-                          "contentSchema": {
-                            "$ref": "#/components/schemas/StreamError"
-                          }
-                        }
-                      }
-                    }
-                  ]
-                },
-                "x-lingara-stream": {
-                  "ends_on": [
-                    "done",
-                    "error"
-                  ],
-                  "error": "error",
-                  "resumable": false
-                },
-                "example": "event: delta\ndata: {\"text\":\"饺子十块钱一盘，\"}\n\nevent: delta\ndata: {\"text\":\"要几盘？\"}\n\nevent: done\ndata: {}\n\n"
-              }
-            }
-          },
-          "4XX": {
-            "$ref": "#/components/responses/Error"
-          },
-          "402": {
-            "$ref": "#/components/responses/PaymentRequired"
-          },
-          "410": {
-            "$ref": "#/components/responses/VersionDiscontinued"
           },
           "503": {
             "$ref": "#/components/responses/Unavailable"
@@ -1908,9 +1551,7 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           },
           "authorizationCode": {
@@ -1924,9 +1565,7 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara.",
-              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "events:write": "Send events from your game or integration to Lingara."
             }
           }
         }
@@ -2036,18 +1675,6 @@
           "minLength": 1,
           "maxLength": 255,
           "pattern": "^[\\x21-\\x7E]+$"
-        }
-      },
-      "PlayerRef": {
-        "name": "player_ref",
-        "in": "path",
-        "required": true,
-        "x-i18n": "parameters.player_ref",
-        "description": "The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`.",
-        "schema": {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 128
         }
       }
     },
@@ -3188,22 +2815,6 @@
               "type",
               "data"
             ]
-          },
-          {
-            "type": "object",
-            "properties": {
-              "type": {
-                "type": "string",
-                "const": "world.practice_completed"
-              },
-              "data": {
-                "$ref": "#/components/schemas/WorldPracticeCompleted"
-              }
-            },
-            "required": [
-              "type",
-              "data"
-            ]
           }
         ]
       },
@@ -3326,90 +2937,6 @@
           "name"
         ]
       },
-      "WorldPracticeCompleted": {
-        "type": "object",
-        "properties": {
-          "plan_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PracticeItem"
-            },
-            "minItems": 1,
-            "maxItems": 100
-          },
-          "completed": {
-            "type": "boolean",
-            "default": false
-          }
-        },
-        "required": [
-          "plan_id",
-          "items"
-        ]
-      },
-      "PracticeItem": {
-        "type": "object",
-        "properties": {
-          "set_number": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 1,
-            "maximum": 255
-          },
-          "question": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 0,
-            "maximum": 255
-          },
-          "outcome": {
-            "$ref": "#/components/schemas/PracticeOutcome"
-          }
-        },
-        "required": [
-          "set_number",
-          "question",
-          "outcome"
-        ]
-      },
-      "PracticeOutcome": {
-        "type": "string",
-        "enum": [
-          "correct",
-          "incorrect",
-          "revealed",
-          "self_correct",
-          "self_incorrect",
-          "skipped"
-        ]
-      },
-      "PracticeCompletedData": {
-        "type": "object",
-        "properties": {
-          "plan_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/PracticeItem"
-            }
-          },
-          "completed": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "plan_id",
-          "items",
-          "completed"
-        ]
-      },
       "InboundEventAccepted": {
         "type": "object",
         "properties": {
@@ -3488,161 +3015,6 @@
           "started",
           "refused",
           "failed"
-        ]
-      },
-      "EmbedTokenRequest": {
-        "type": "object",
-        "properties": {
-          "player_ref": {
-            "x-i18n": "schemas.embed_token_request.player_ref",
-            "description": "Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.",
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 128
-          },
-          "scopes": {
-            "type": [
-              "array",
-              "null"
-            ],
-            "items": {
-              "type": "string",
-              "enum": [
-                "events:read",
-                "events:write",
-                "lesson_plans:read",
-                "lesson_plans:write",
-                "embed:play"
-              ]
-            },
-            "maxItems": 5,
-            "uniqueItems": true
-          },
-          "origin": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "maxLength": 255,
-            "pattern": "^https?://[^/?#@ ]+$"
-          }
-        },
-        "additionalProperties": false,
-        "required": [
-          "player_ref"
-        ]
-      },
-      "EmbedToken": {
-        "type": "object",
-        "properties": {
-          "token": {
-            "type": "string"
-          },
-          "expires_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "expires_in": {
-            "x-i18n": "schemas.embed_token.expires_in",
-            "description": "Seconds until the token expires, counted from this answer. Use it when the device's clock cannot be trusted.",
-            "type": "integer",
-            "format": "uint32",
-            "minimum": 0
-          },
-          "subject": {
-            "type": "string"
-          },
-          "scopes": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "account_linked": {
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "token",
-          "expires_at",
-          "expires_in",
-          "subject",
-          "scopes",
-          "account_linked"
-        ]
-      },
-      "DialogueTurnRequest": {
-        "type": "object",
-        "properties": {
-          "npc": {
-            "$ref": "#/components/schemas/Npc"
-          },
-          "scene": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "minLength": 1,
-            "maxLength": 160
-          },
-          "source_lang": {
-            "type": "string"
-          },
-          "target_lang": {
-            "type": "string"
-          },
-          "level": {
-            "type": "integer",
-            "format": "uint8",
-            "minimum": 1,
-            "maximum": 9
-          },
-          "line": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          },
-          "history": {
-            "x-i18n": "schemas.dialogue.history",
-            "description": "The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.",
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DialogueEntry"
-            },
-            "maxItems": 12,
-            "default": []
-          }
-        },
-        "required": [
-          "npc",
-          "source_lang",
-          "target_lang",
-          "level",
-          "line"
-        ]
-      },
-      "DialogueEntry": {
-        "type": "object",
-        "properties": {
-          "speaker": {
-            "$ref": "#/components/schemas/Speaker"
-          },
-          "text": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 500
-          }
-        },
-        "required": [
-          "speaker",
-          "text"
-        ]
-      },
-      "Speaker": {
-        "type": "string",
-        "enum": [
-          "player",
-          "npc"
         ]
       }
     }
