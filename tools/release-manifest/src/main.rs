@@ -5,11 +5,12 @@
 use std::path::Path;
 
 use release_manifest::manifest::{self, Release};
-use release_manifest::{Fail, changelog, install, matrix, publish, registry, verdict, version};
+use release_manifest::{Fail, changelog, current, install, matrix, publish, registry, verdict, version};
 
 const USAGE: &str = "usage: release-manifest <subcommand>
   tree checks:    check | check-tag <tag> | bump <version> | matrix <tag> | langs
                   artefact <id> <tag> | install-line <id> <tag> | spec-line
+                  check-current [--registry <path>] <versions.json>
                   gem-version <semver> | probe <id> <tag>
   publish checks: check-publish | check-changelog";
 
@@ -40,6 +41,7 @@ fn dispatch(args: &[String], root: &Path) -> Result<String, Fail> {
     match words.as_slice() {
         ["gem-version", semver] => Ok(line(version::gem_version(semver))),
         ["spec-line"] => changelog::spec_line(root).map(line),
+        ["check-current", rest @ ..] => current::run(root, rest),
         ["bump", to] => verdict(version::bump(root, to)?, &format!("bumped to {to}; languages.toml agrees")),
         _ => with_release(&Release::load(root)?, &words),
     }

@@ -14,3 +14,7 @@ toml = "0.8"
 
 [dev-dependencies]
 tempfile = "3"
+# One test only (ADR 6.10.26i D2): its `current_id` and `current_entry` here
+# pick the same id. A dev-dependency, so the tool the app kit installs by tag
+# never compiles this crate's view builder.
+release-manifest = { path = "../release-manifest" }

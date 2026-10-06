@@ -128,7 +128,7 @@ pub fn current_pair(registry: &Path) -> Result<Pair, String> {
 
 /// The newest `supported`/`lts` entry by `minted_at`. The registry's
 /// timestamps are canonical `YYYY-MM-DDTHH:MM:SSZ`, so they order as text.
-fn current_entry(table: &toml::Table) -> Option<&toml::Value> {
+pub(crate) fn current_entry(table: &toml::Table) -> Option<&toml::Value> {
     let field = |v: &toml::Value, key: &str| v.get(key).and_then(toml::Value::as_str).map(str::to_owned);
     table
         .get("version")?

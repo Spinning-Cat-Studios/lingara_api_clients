@@ -132,3 +132,13 @@ fn an_events_route_without_a_catalogue_is_refused() {
     let lone = [&["--asyncapi", &nope][..], &base[..]].concat();
     assert_eq!(run(&args(&lone)), 2, "--asyncapi goes with --input only");
 }
+
+// 6.10.26i AC8
+#[test]
+fn current_entry_agrees_with_release_manifest() {
+    let table: toml::Table = include_str!("../../release-manifest/fixtures/current_registry.toml").parse().unwrap();
+    let ours = crate::cli::current_entry(&table).and_then(|v| v.get("id")).and_then(toml::Value::as_str);
+    let theirs = release_manifest::current::current_id(&table);
+    assert!(ours.is_some(), "the fixture has a current entry");
+    assert_eq!(ours, theirs.as_deref());
+}

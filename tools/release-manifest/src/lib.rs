@@ -10,6 +10,7 @@
 //! with no per-version URL.
 
 pub mod changelog;
+pub mod current;
 pub mod install;
 pub mod manifest;
 pub mod matrix;

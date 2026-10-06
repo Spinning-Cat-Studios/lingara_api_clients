@@ -1,0 +1,32 @@
+# The shared fixture for the current-entry rule (ADR 6.10.26i D2): read by
+# release-manifest's current_tests.rs and by spec-codegen's cli_tests.rs, which
+# asserts the two copies of the rule pick the same id.
+#
+# The current entry is 2026-09-steady-heron: the newest supported/lts entry by
+# minted_at. The deprecated entry is newer still and must be passed over, and
+# so must the development entry minted after it.
+
+[[version]]
+id = "2026-08-early-wren"
+minted_at = "2026-08-01T09:00:00Z"
+state = "supported"
+
+[[version]]
+id = "2026-09-steady-heron"
+minted_at = "2026-09-01T09:00:00Z"
+state = "lts"
+
+[[version]]
+id = "2026-08-quiet-moth"
+minted_at = "2026-08-15T09:00:00Z"
+state = "supported"
+
+[[version]]
+id = "2026-09-faded-newt"
+minted_at = "2026-09-10T09:00:00Z"
+state = "deprecated"
+
+[[version]]
+id = "2026-10-fresh-otter"
+minted_at = "2026-10-01T09:00:00Z"
+state = "development"

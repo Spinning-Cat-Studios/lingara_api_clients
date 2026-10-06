@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.1.0-alpha.13 — 2026-10-06
+
+
+Generated from Lingara API 2026-10-golden-remora (development) at spec backend@5901561d1d52a31e57207323a5b44667d2abac87.
+
+### Added
+
+- A publish precheck, `make check-release-current-version`, refuses a release whose vendored registry's current version is not the live API's `current`, so a library is never published generated for a version new clients are not pinned to. Tooling only; no library changes.
+
+### Changed
+
+### Fixed
+
+### Removed
+
 ## v0.1.0-alpha.12 — 2026-10-06
 
 
