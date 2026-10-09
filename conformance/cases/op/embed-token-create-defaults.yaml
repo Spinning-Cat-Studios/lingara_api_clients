@@ -1,0 +1,25 @@
+id: op.embed-token-create-defaults
+title: A mint naming only player_ref sends no scopes or origin key
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createEmbedToken
+      body: { player_ref: player-1002 }
+    expect:
+      outcome: completed
+      status: 200
+      body: { token: lgr_et_conformance11111111111111111111111111111111, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance1e2d3c4b5a697887, scopes: ["events:read", "embed:play"], account_linked: false }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opmintdefault, token_type: Bearer, expires_in: 3600, scope: "embed:mint" } }
+    - request:
+        method: POST
+        path: /v1/embed/tokens
+        headers: { authorization: { equals: Bearer lgr_at_opmintdefault } }
+        json: { player_ref: player-1002 }
+      response:
+        status: 200
+        json: { token: lgr_et_conformance11111111111111111111111111111111, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance1e2d3c4b5a697887, scopes: ["events:read", "embed:play"], account_linked: false }

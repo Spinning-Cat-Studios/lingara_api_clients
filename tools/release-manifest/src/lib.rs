@@ -7,7 +7,7 @@
 //!
 //! Exit codes: 0 holds, 1 findings, 2 input that could not be read (or a
 //! publish check run where `publish/` does not exist), 3 `probe` on a registry
-//! with no per-version URL.
+//! with no per-version URL, or `install-line` on a store (ADR 1.10.26ag W4).
 
 pub mod changelog;
 pub mod current;

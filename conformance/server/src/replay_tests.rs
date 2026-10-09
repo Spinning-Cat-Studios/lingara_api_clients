@@ -149,3 +149,18 @@ async fn reset_is_not_a_clean_close() {
     let mut rest = Vec::new();
     stream.read_to_end(&mut rest).await.expect("close is a clean EOF");
 }
+
+/// 1.10.26w AC4: a `204` with no `json`, `text` or `sse` is a head with no
+/// `content-type` and no `content-length` (RFC 9110 §8.6), and no body.
+#[test]
+fn a_bodiless_204_is_replayed_without_content_headers() {
+    let response: crate::case::Response = serde_yaml::from_str("status: 204").unwrap();
+    let head = String::from_utf8(crate::replay::head_for(&response)).unwrap().to_ascii_lowercase();
+    assert!(head.starts_with("http/1.1 204"), "{head}");
+    assert!(!head.contains("content-type"), "{head}");
+    assert!(!head.contains("content-length"), "{head}");
+    assert!(crate::replay::body_for(&response).is_empty());
+    let ok: crate::case::Response = serde_yaml::from_str("status: 200").unwrap();
+    let head = String::from_utf8(crate::replay::head_for(&ok)).unwrap();
+    assert!(head.contains("content-length: 0"), "{head}");
+}

@@ -52,6 +52,21 @@ final class EventParser
             'data' => \Lingara\Model\AppUninstalledData::class,
             'required' => ['client_id', 'install_id'],
         ],
+        'app.disabled' => [
+            'class' => AppDisabled::class,
+            'data' => \Lingara\Model\AppDisabledData::class,
+            'required' => ['client_id', 'install_id'],
+        ],
+        'app.enabled' => [
+            'class' => AppEnabled::class,
+            'data' => \Lingara\Model\AppEnabledData::class,
+            'required' => ['client_id', 'install_id'],
+        ],
+        'practice.completed' => [
+            'class' => PracticeCompleted::class,
+            'data' => \Lingara\Model\PracticeCompletedData::class,
+            'required' => ['plan_id', 'items', 'completed'],
+        ],
     ];
 
     private const ENVELOPE = ['id', 'type', 'created_at', 'api_version', 'subject'];

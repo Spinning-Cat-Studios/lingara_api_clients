@@ -29,6 +29,9 @@ internal object EventParser {
             WebhookTest.TYPE -> WebhookTest(id, createdAt, apiVersion, subject, data)
             AppInstalled.TYPE -> AppInstalled(id, createdAt, apiVersion, subject, LingaraJson.decodeFromJsonElement(com.getlingara.kotlin.model.AppInstalledData.serializer(), data))
             AppUninstalled.TYPE -> AppUninstalled(id, createdAt, apiVersion, subject, LingaraJson.decodeFromJsonElement(com.getlingara.kotlin.model.AppUninstalledData.serializer(), data))
+            AppDisabled.TYPE -> AppDisabled(id, createdAt, apiVersion, subject, LingaraJson.decodeFromJsonElement(com.getlingara.kotlin.model.AppDisabledData.serializer(), data))
+            AppEnabled.TYPE -> AppEnabled(id, createdAt, apiVersion, subject, LingaraJson.decodeFromJsonElement(com.getlingara.kotlin.model.AppEnabledData.serializer(), data))
+            PracticeCompleted.TYPE -> PracticeCompleted(id, createdAt, apiVersion, subject, LingaraJson.decodeFromJsonElement(com.getlingara.kotlin.model.PracticeCompletedData.serializer(), data))
             else -> UnknownEvent(id, type, createdAt, apiVersion, subject, data)
         }
     }

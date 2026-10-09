@@ -67,6 +67,26 @@ module Lingara
     def tail_events: (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?) { (Events::Event) -> void } -> bot
                    | (?cursor: String?, ?start: (String | Symbol)?, ?types: Array[String]?) -> Events::Tail
     def send_event: (Events::InboundEvent event, ?idempotency_key: String?) -> Response
+
+    # ADR 1.10.26w: embedding. create_embed_token's Response holds a MintedToken.
+    def create_embed_token: (**untyped body) -> Response
+    def delete_embed_player: (String player_ref) -> Response
+    def send_dialogue_turn: (**untyped body) { (event) -> void } -> StreamResult
+  end
+
+  class MintedToken
+    PREFIX: String
+    FIELDS: Hash[String, untyped]
+
+    attr_reader token: AccessToken
+    attr_reader expires_at: Time
+    attr_reader expires_in: Integer
+    attr_reader subject: String
+    attr_reader scopes: Array[String]
+    attr_reader account_linked: bool
+
+    def self.decode: (String body) -> MintedToken
+    def initialize: (token: AccessToken, expires_at: Time, expires_in: Integer, subject: String, scopes: Array[String], account_linked: bool) -> void
   end
 
   # ADR 30.9.26aa: the event union, the verifier, the feed and the tail.
@@ -109,6 +129,18 @@ module Lingara
       include Event
     end
 
+    class AppDisabled < ::Data
+      include Event
+    end
+
+    class AppEnabled < ::Data
+      include Event
+    end
+
+    class PracticeCompleted < ::Data
+      include Event
+    end
+
     class UnknownEvent < ::Data
       include Event
     end
@@ -121,6 +153,7 @@ module Lingara
 
       def self.world_context_changed: (untyped data) -> InboundEvent
       def self.world_practice_requested: (untyped data) -> InboundEvent
+      def self.world_practice_completed: (untyped data) -> InboundEvent
       def to_hash: () -> Hash[String, untyped]
     end
 

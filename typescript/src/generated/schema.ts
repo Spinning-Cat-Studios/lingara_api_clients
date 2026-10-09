@@ -68,10 +68,56 @@ export interface paths {
         put?: never;
         /**
          * Send an event
-         * @description Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat.
+         * @description Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat. A `world.practice_completed` event reports how the learner did on items of a lesson plan they own; it never starts a plan, and Lingara sends you `practice.completed` with the same items.
          */
         post: operations["sendEvent"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/embed/tokens": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mint a token for a player
+         * @description Vouches for one of your players and returns a token your game or page uses for them for 15 minutes. The first token for a `player_ref` creates a learner for that player; later ones reuse it. Ask again when the token expires; it is never refreshed. Needs a `metered` client.
+         */
+        post: operations["createEmbedToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/embed/players/{player_ref}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete a player
+         * @description Deletes one of your players and everything they made: their plans, their events and their live tokens. Safe to retry: an unknown `player_ref` answers `204` too.
+         */
+        delete: operations["deleteEmbedPlayer"];
         options?: never;
         head?: never;
         patch?: never;
@@ -424,6 +470,16 @@ export interface components {
             /** Format: uuid */
             install_id: string;
         };
+        AppDisabledData: {
+            client_id: string;
+            /** Format: uuid */
+            install_id: string;
+        };
+        AppEnabledData: {
+            client_id: string;
+            /** Format: uuid */
+            install_id: string;
+        };
         /** @enum {string} */
         AppContextSlice: "languages" | "plan_summary" | "review_due" | "tutor_topic";
         EventPage: {
@@ -454,6 +510,28 @@ export interface components {
             name: string;
             persona?: string | null;
         };
+        WorldPracticeCompleted: {
+            /** Format: uuid */
+            plan_id: string;
+            items: components["schemas"]["PracticeItem"][];
+            /** @default false */
+            completed: boolean;
+        };
+        PracticeItem: {
+            /** Format: uint8 */
+            set_number: number;
+            /** Format: uint8 */
+            question: number;
+            outcome: components["schemas"]["PracticeOutcome"];
+        };
+        /** @enum {string} */
+        PracticeOutcome: "correct" | "incorrect" | "revealed" | "self_correct" | "self_incorrect" | "skipped";
+        PracticeCompletedData: {
+            /** Format: uuid */
+            plan_id: string;
+            items: components["schemas"]["PracticeItem"][];
+            completed: boolean;
+        };
         InboundEventAccepted: {
             id: string;
             type: string;
@@ -472,6 +550,45 @@ export interface components {
         };
         /** @enum {string} */
         ReactionStatus: "started" | "refused" | "failed";
+        EmbedTokenRequest: {
+            /** @description Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it. */
+            player_ref: string;
+            scopes?: ("events:read" | "events:write" | "lesson_plans:read" | "lesson_plans:write" | "embed:play")[] | null;
+            origin?: string | null;
+        };
+        EmbedToken: {
+            token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * Format: uint32
+             * @description Seconds until the token expires, counted from this answer. Use it when the device's clock cannot be trusted.
+             */
+            expires_in: number;
+            subject: string;
+            scopes: string[];
+            account_linked: boolean;
+        };
+        DialogueTurnRequest: {
+            npc: components["schemas"]["Npc"];
+            scene?: string | null;
+            source_lang: string;
+            target_lang: string;
+            /** Format: uint8 */
+            level: number;
+            line: string;
+            /**
+             * @description The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.
+             * @default []
+             */
+            history: components["schemas"]["DialogueEntry"][];
+        };
+        DialogueEntry: {
+            speaker: components["schemas"]["Speaker"];
+            text: string;
+        };
+        /** @enum {string} */
+        Speaker: "player" | "npc";
         GenerateVocabularyEventStarted: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -637,6 +754,39 @@ export interface components {
             data: components["schemas"]["StreamError"];
         };
         StreamEventsEvent: components["schemas"]["StreamEventsEventEvent"] | components["schemas"]["StreamEventsEventDone"] | components["schemas"]["StreamEventsEventError"];
+        SendDialogueTurnEventDelta: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "delta";
+            data: components["schemas"]["TurnDelta"];
+        };
+        SendDialogueTurnEventNotice: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "notice";
+            data: components["schemas"]["Notice"];
+        };
+        SendDialogueTurnEventDone: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "done";
+            data: components["schemas"]["Done"];
+        };
+        SendDialogueTurnEventError: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "error";
+            data: components["schemas"]["StreamError"];
+        };
+        SendDialogueTurnEvent: components["schemas"]["SendDialogueTurnEventDelta"] | components["schemas"]["SendDialogueTurnEventNotice"] | components["schemas"]["SendDialogueTurnEventDone"] | components["schemas"]["SendDialogueTurnEventError"];
     };
     responses: {
         /** @description The request was refused. `code` says why, and `error` says it in words. */
@@ -703,6 +853,8 @@ export interface components {
         LastEventId: string;
         /** @description A value you choose for each event and reuse when you retry it: 1 to 255 visible ASCII characters, such as a UUID. A retry with the same key gets the first answer back and is not billed again, even if its body differs. Without a valid key the request answers `400` with code `idempotency_key_required`. */
         IdempotencyKey: string;
+        /** @description The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`. */
+        PlayerRef: string;
     };
     requestBodies: never;
     headers: {
@@ -954,6 +1106,98 @@ export interface operations {
                 };
             };
             402: components["responses"]["PaymentRequired"];
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    createEmbedToken: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "player_ref": "player-1001",
+                 *       "scopes": [
+                 *         "embed:play",
+                 *         "lesson_plans:read",
+                 *         "lesson_plans:write"
+                 *       ],
+                 *       "origin": "https://game.example.com"
+                 *     }
+                 */
+                "application/json": components["schemas"]["EmbedTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description The player's token */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "token": "lgr_et_9fK2mQ7xR4tV1wY8zA3bC6dE0gH5jL2nP7sU4vX9yZ1",
+                     *       "expires_at": "2026-10-01T09:27:44Z",
+                     *       "expires_in": 900,
+                     *       "subject": "lgr_sub_0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+                     *       "scopes": [
+                     *         "lesson_plans:read",
+                     *         "lesson_plans:write",
+                     *         "embed:play"
+                     *       ],
+                     *       "account_linked": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["EmbedToken"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    deleteEmbedPlayer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                /** @description The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`. */
+                player_ref: components["parameters"]["PlayerRef"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player is gone */
+            204: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             410: components["responses"]["VersionDiscontinued"];
             503: components["responses"]["Unavailable"];
             "4XX": components["responses"]["Error"];

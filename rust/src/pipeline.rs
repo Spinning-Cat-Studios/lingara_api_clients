@@ -1,7 +1,7 @@
 //! The request pipeline behind every operation (CONTRACT.md K1–K6; ADR
 //! 29.9.26p D4): the headers every call carries, the one 401 retry, the
-//! `Retry-After` loop, the error mapping, and turning a `200` into a stream
-//! or a JSON result.
+//! `Retry-After` loop, the error mapping, and turning a `200` into a stream,
+//! a JSON result or an empty one.
 
 use futures_util::StreamExt as _;
 use reqwest::Method;
@@ -98,6 +98,15 @@ impl Client {
         let bytes = res.bytes().await.map_err(|e| from_reqwest(e, Phase::Body))?;
         let value = serde_json::from_slice(&bytes).map_err(|_| Error::from(TransportKind::MalformedResponse))?;
         Ok(ApiResponse { value, served_version })
+    }
+
+    /// A result with no value, for an answer with no body (a `204`; ADR
+    /// 1.10.26w D4). Any 2xx is success and its body is never read, so a
+    /// later `200 {}` is not a break; `Lingara-Version` is still observed.
+    pub(crate) async fn empty_req<B: Serialize + ?Sized>(&self, req: &Req<'_, B>) -> Result<ApiResponse<()>, Error> {
+        let res = self.send(req).await?;
+        let served_version = self.inner.versions.observe(res.headers(), req.url);
+        Ok(ApiResponse { value: (), served_version })
     }
 
     /// Auth, retries and error mapping; resolves with a 2xx response. A

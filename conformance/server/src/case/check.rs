@@ -57,8 +57,8 @@ fn exchange_shape(item: &Exchange) -> Result<(), String> {
         return Err("times: at least 1".into());
     }
     let method = item.request.method.as_str();
-    if method != "GET" && method != "POST" {
-        return Err(format!("request.method: `{method}` is not GET or POST"));
+    if !matches!(method, "GET" | "POST" | "DELETE") {
+        return Err(format!("request.method: `{method}` is not GET, POST or DELETE"));
     }
     if !item.request.path.starts_with('/') || item.request.path.contains('?') {
         return Err("request.path: absolute, with the query in `query`".into());

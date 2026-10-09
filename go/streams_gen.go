@@ -66,6 +66,37 @@ func decodeGenerateVocabularyEvent(name string, frame []byte) (GenerateVocabular
 	return nil, false, nil
 }
 
+// SendDialogueTurnEvent is one event of sendDialogueTurn's stream: type-switch on its
+// concrete branch. The error branch, and a Done-bodied one, are never yielded.
+type SendDialogueTurnEvent interface{ isSendDialogueTurnEvent() }
+
+func (SendDialogueTurnEventDelta) isSendDialogueTurnEvent()  {}
+func (SendDialogueTurnEventNotice) isSendDialogueTurnEvent() {}
+func (SendDialogueTurnEventDone) isSendDialogueTurnEvent()   {}
+func (SendDialogueTurnEventError) isSendDialogueTurnEvent()  {}
+
+func decodeSendDialogueTurnEvent(name string, frame []byte) (SendDialogueTurnEvent, bool, error) {
+	switch name {
+	case "delta":
+		var e SendDialogueTurnEventDelta
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	case "notice":
+		var e SendDialogueTurnEventNotice
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	case "done":
+		var e SendDialogueTurnEventDone
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	case "error":
+		var e SendDialogueTurnEventError
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	}
+	return nil, false, nil
+}
+
 // SendTutorMessageEvent is one event of sendTutorMessage's stream: type-switch on its
 // concrete branch. The error branch, and a Done-bodied one, are never yielded.
 type SendTutorMessageEvent interface{ isSendTutorMessageEvent() }

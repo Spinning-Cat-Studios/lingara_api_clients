@@ -3,6 +3,7 @@ package com.getlingara.kotlin
 import com.getlingara.kotlin.internal.Streams
 import com.getlingara.kotlin.model.CreateLessonPlanEvent
 import com.getlingara.kotlin.model.GenerateVocabularyEvent
+import com.getlingara.kotlin.model.SendDialogueTurnEvent
 import com.getlingara.kotlin.model.StreamLessonPlanEvent
 import com.getlingara.kotlin.model.VocabRequest
 import kotlinx.coroutines.CompletableDeferred
@@ -173,6 +174,11 @@ class EventStreamTest {
             assertIs<StreamLessonPlanEvent.Pending>(pending[1])
             val tutor = run(Streams.SEND_TUTOR_MESSAGE, "event: delta\ndata: {\"text\":\"你好\"}\n\n", DONE, ScriptedBody.FAIL)
             assertEquals(1, tutor.size)
+            // 1.10.26w D8: the NPC turn is the tutor's shape; bytes after done are never read.
+            val delta = "event: delta\ndata: {\"text\":\"十块钱\"}\n\n"
+            val dialogue = run(Streams.SEND_DIALOGUE_TURN, delta, DONE, delta)
+            assertEquals(1, dialogue.size)
+            assertIs<SendDialogueTurnEvent.Delta>(dialogue[0])
             TerminalTable.assertIsTheView()
         }
 

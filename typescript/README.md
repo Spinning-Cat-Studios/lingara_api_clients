@@ -51,13 +51,15 @@ const usage = await client.getUsage();
 console.log(usage.servedVersion, usage.allowance);
 ```
 
-Thirteen methods, each named after its `operationId`: `generateVocabulary`,
-`createLessonPlan`, `streamLessonPlan`, `sendTutorMessage` and
-`streamEvents` return an `EventStream`; `getLessonPlan`, `getUsage`,
-`listEvents`, `sendEvent`, `getOpenApiDocument`, `getAsyncApiDocument`,
+Sixteen methods, each named after its `operationId`: `generateVocabulary`,
+`createLessonPlan`, `streamLessonPlan`, `sendTutorMessage`,
+`sendDialogueTurn` and `streamEvents` return an `EventStream`;
+`getLessonPlan`, `getUsage`, `listEvents`, `sendEvent`, `createEmbedToken`,
+`deleteEmbedPlayer`, `getOpenApiDocument`, `getAsyncApiDocument`,
 `listApiVersions` and `getApiVersion` return a promise. The last four need
 no credentials. Every method takes `{ signal?: AbortSignal }` last. The
-`events` and `tailEvents` helpers are under *Webhooks and events* below.
+`events` and `tailEvents` helpers are under *Webhooks and events* below, and
+the three embedding calls under *Embedding Lingara*.
 
 - `break` out of a `for await`, or `stream.close()`, closes the connection.
 - A stream's `error` event is thrown as an `ApiError` with `status: 200`;
@@ -150,6 +152,55 @@ plan is readable now, and an event for it may still arrive.
 **Versions.** `data` is rendered at your OAuth client's pinned version, and
 this library's types describe the version it was generated for (the one its
 version warning names). Pin your client to that version.
+
+## Embedding Lingara
+
+A game or website can vouch for its own players: your server mints each
+player a short-lived embed token, and the player's device uses it.
+
+```ts
+const minted = await client.createEmbedToken({ player_ref: "player-1001" });
+// store minted.subject; hand minted.exposeToken() (lgr_et_…) to the device
+```
+
+- **Mint on your server, never on the player's device**, from a **metered**
+  client holding `embed:mint` (a client built with explicit `scopes` must
+  list it). Otherwise the answer is a `403` `insufficient_scope` or
+  `embed_needs_metered`, thrown as an `ApiError`. **Store `subject`** beside
+  your player: it is the player's stable `lgr_sub_`, and how every event
+  names them.
+- A `MintedToken` renders its token as `[REDACTED]` in `JSON.stringify`,
+  `String()` and `util.inspect`, like every token here; `exposeToken()` reads
+  it. The token lives 900 s and Lingara never refreshes it, so mint again
+  when the player kit asks. `expiresIn` (seconds) is there for a device whose
+  clock cannot be trusted; `expiresAt` (the server's RFC 3339 string) for one
+  whose clock can.
+- `deleteEmbedPlayer({ playerRef })` deletes a player and revokes their
+  tokens. `playerRef` is sent as one path segment, every byte outside
+  `A–Z a–z 0–9 - . _ ~` percent-encoded. An unknown player is still a
+  success, so it is idempotent, and it keeps working while embedding is
+  switched off for your client. The answer has no body: the result carries
+  only `servedVersion`.
+- `sendDialogueTurn` streams an NPC's reply, `delta` by `delta`. The window
+  is yours: at most 12 `history` entries, `line` and each entry at most 500
+  characters, and no total cap. Send each NPC reply back cut to its first
+  500 characters. A turn is **never retried**: each attempt spends the
+  player's NPC cells and your metered cells, so a `429` or `503` is thrown at
+  once as an `ApiError` with its `retryAfter`, and you decide whether to send
+  it again. No retry helps `403 embed_needs_metered`, or
+  `422 safety_input_flagged`, which means say something else.
+- `practice.completed` arrives through the webhook, the feed and the tail
+  when your client holds `events:read` and `embed:play`; its `subject` names
+  the player. `InboundEvent.worldPracticeCompleted(data)` sends one, with
+  `events:write` and `embed:play`.
+- **A player-side caller** supplies its embed token through a custom
+  `tokenSource` (`{ token, invalidate }`); no client secret is involved
+  there. The library never sends `X-Lingara-Embed-Origin`, so a token minted
+  with an `origin` belongs to the browser widget: a game mints without one.
+
+The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
+build on these calls: server kits for higher-level minting and webhook
+helpers, and player kits for the engines.
 
 ## Options
 

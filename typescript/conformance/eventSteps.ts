@@ -14,7 +14,8 @@ export interface HelperStep {
   take?: number;
 }
 
-export type HelperRun = Omit<Observed, "sleepsS" | "hookCalls" | "renderings"> & { raised?: unknown };
+/** `raised` is a raised error and `result` a completed call's value, both rendered for `redacted`. */
+export type HelperRun = Omit<Observed, "sleepsS" | "hookCalls" | "renderings"> & { raised?: unknown; result?: unknown };
 
 type ErrorFields = (e: unknown) => { variant: string; fields: Record<string, unknown> };
 

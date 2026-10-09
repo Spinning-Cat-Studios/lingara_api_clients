@@ -63,3 +63,41 @@ fn gem_version_is_the_rubygems_spelling() {
     assert_eq!(gem_version("0.1.0-alpha.1"), "0.1.0.pre.alpha.1");
     assert_eq!(gem_version("1.0.0"), "1.0.0");
 }
+
+// 1.10.26ag AC8
+#[test]
+fn a_prefixed_version_file_carries_its_prefix() {
+    let dir = fixture();
+    let root = dir.path();
+    let bevy = r#"
+[[language]]
+id = "bevy"
+registry = "crates.io"
+package = "bevy_lingara"
+version_files = [
+  { path = "bevy/Cargo.toml", kind = "toml", keys = ["package.version"] },
+  { path = "bevy/Cargo.toml", kind = "toml", keys = ["dependencies.lingara-embed.version"], prefix = "=" },
+]
+since = "next"
+"#;
+    write(root, "languages.toml", &format!("{LANGUAGES}{bevy}"));
+    let cargo = "[package]\nname = \"bevy_lingara\"\nversion = \"0.0.0\"\n\n[dependencies]\nlingara-embed = { version = \"=0.0.0\", path = \"../core\" }\n";
+    write(root, "bevy/Cargo.toml", cargo);
+    write(root, "bevy/LICENSE", crate::manifest_tests::LICENCE);
+    write(root, "snippets/bevy/install.sh", "cargo add bevy_lingara@{{version}}\n");
+
+    assert_eq!(bump(root, "0.1.0-alpha.2").unwrap(), Vec::<String>::new());
+    let written = fs::read_to_string(root.join("bevy/Cargo.toml")).unwrap();
+    assert!(written.contains("version = \"0.1.0-alpha.2\"\n"), "{written}");
+    assert!(written.contains("lingara-embed = { version = \"=0.1.0-alpha.2\", path = \"../core\" }"), "{written}");
+
+    // `check` refuses the pin without its prefix.
+    write(root, "bevy/Cargo.toml", &written.replace("\"=0.1.0-alpha.2\"", "\"0.1.0-alpha.2\""));
+    assert_eq!(
+        check(&load(&dir)),
+        vec![
+            "bevy/Cargo.toml: dependencies.lingara-embed.version reads \"0.1.0-alpha.2\", expected \"=0.1.0-alpha.2\" (prefix \"=\" + VERSION)"
+                .to_string()
+        ]
+    );
+}

@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace Lingara\Internal;
 
+use Lingara\Exception\TransportException;
+use Lingara\Exception\TransportKind;
+use Lingara\ObjectSerializer;
+
 /**
  * JSON decoding, as objects, with one refusal json_decode does not make: a
  * number of magnitude 2^63 or more. json_decode turns such an integer into a
@@ -33,6 +37,36 @@ final class Json
             throw new \JsonException('a JSON number of magnitude 2^63 or more cannot be represented');
         }
         return $value;
+    }
+
+    /**
+     * A JSON object body as $model, or as objects for \stdClass. Any throw
+     * from decoding, the generated setters included, is MalformedResponse: a
+     * generated model's \InvalidArgumentException never reaches the caller.
+     * The body is a sensitive parameter, so a trace never carries it.
+     *
+     * @template T of object
+     *
+     * @param class-string<T> $model
+     *
+     * @return T
+     *
+     * @throws TransportException
+     */
+    public static function model(string $model, #[\SensitiveParameter] string $body): object
+    {
+        try {
+            $value = self::decode($body);
+            $decoded = $value instanceof \stdClass && $model !== \stdClass::class
+                ? ObjectSerializer::deserialize($value, $model)
+                : $value;
+        } catch (\Throwable) {
+            $decoded = null;
+        }
+        if (!$decoded instanceof $model) {
+            throw new TransportException(TransportKind::MalformedResponse, 'the response body does not decode');
+        }
+        return $decoded;
     }
 
     private static function hasWideNumber(string $text): bool

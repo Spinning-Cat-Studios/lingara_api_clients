@@ -216,8 +216,8 @@ func holdEachEvent(t *testing.T, idle Option) {
 
 // TestEachOperationEndsOnItsOwnTerminal: 29.9.26q AC18. Each stream
 // operation ends on its own C2 D6 terminal (result and pending yielded, done
-// not); the terminal table and routes_gen.go name the same four operations,
-// and every terminal is among its operation's event names.
+// not); every stream route has a terminal, and every terminal is among its
+// operation's event names.
 func TestEachOperationEndsOnItsOwnTerminal(t *testing.T) {
 	const after = "event: item\ndata: {\"word\":\"late\",\"translation\":\"late\"}\n\n"
 	plan := `{"plan":{"id":"p1","status":"complete","source_lang":"en","target_lang":"zh","level":2,"ai_generated":true,"created_at":"2026-09-23T10:00:00Z"}}`
@@ -248,7 +248,19 @@ func TestEachOperationEndsOnItsOwnTerminal(t *testing.T) {
 		events, err := drain(s)
 		return names(events), err
 	}, []string{"delta", "notice"})
+	// 1.10.26w D8: the dialogue turn ends as the tutor's does.
+	check("sendDialogueTurn", &sseScript{chunks: []string{"event: delta\ndata: {\"text\":\"十块钱\"}\n\n", evDone, "event: delta\ndata: {\"text\":\"late\"}\n\n"}}, func(c *Client) ([]string, error) {
+		s, _ := c.SendDialogueTurn(ctx, DialogueTurnRequest{})
+		events, err := drain(s)
+		return names(events), err
+	}, []string{"delta"})
+	checkEveryStreamRouteEnds(t)
+}
 
+// checkEveryStreamRouteEnds is AC18's table half: every stream route has a
+// terminal, and every terminal is among its operation's event names.
+func checkEveryStreamRouteEnds(t *testing.T) {
+	t.Helper()
 	streams := 0
 	for id, r := range routes {
 		if r.stream == nil {
@@ -264,9 +276,10 @@ func TestEachOperationEndsOnItsOwnTerminal(t *testing.T) {
 			}
 		}
 	}
-	// The fifth is streamEvents, ADR 30.9.26aa's tail.
-	if streams != 5 {
-		t.Errorf("%d stream routes, want 5", streams)
+	// The fifth is streamEvents, ADR 30.9.26aa's tail; the sixth
+	// sendDialogueTurn, ADR 1.10.26w's.
+	if streams != 6 {
+		t.Errorf("%d stream routes, want 6", streams)
 	}
 }
 

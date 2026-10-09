@@ -7,6 +7,8 @@ import com.getlingara.kotlin.LingaraClient
 import com.getlingara.kotlin.MaintenanceException
 import com.getlingara.kotlin.OAuthException
 import com.getlingara.kotlin.TransportException
+import com.getlingara.kotlin.embed.sendDialogueTurn
+import com.getlingara.kotlin.model.DialogueTurnRequest
 import com.getlingara.kotlin.model.EventPage
 import com.getlingara.kotlin.model.InboundEventAccepted
 import com.getlingara.kotlin.model.LessonPlan
@@ -52,7 +54,7 @@ internal class Seen {
     val unknownTypes: MutableList<String> = mutableListOf()
     var cursor: String? = null
 
-    // Every rendering of the client and of a raised error.
+    // Every rendering of the client, of a completed call's result, and of a raised error.
     val renderings: MutableList<String> = mutableListOf()
 }
 
@@ -105,6 +107,7 @@ internal object Observe {
             "createLessonPlan" -> consume(cancelAfter) { c.createLessonPlan(body(call, LessonPlanCreateRequest.serializer())) }
             "streamLessonPlan" -> consume(cancelAfter) { c.streamLessonPlan(id) }
             "sendTutorMessage" -> consume(cancelAfter) { c.sendTutorMessage(body(call, TutorTurnRequest.serializer())) }
+            "sendDialogueTurn" -> consume(cancelAfter) { c.sendDialogueTurn(body(call, DialogueTurnRequest.serializer())) }
             "streamEvents" -> Query(call["params"] as? JsonObject).let { q -> consume(cancelAfter) { c.streamEvents(q.cursor, q.start, q.types) } }
             else -> invokeJson(c, call, id)
         }
@@ -127,11 +130,11 @@ internal object Observe {
                 Query(call["params"] as? JsonObject).let { q -> result(EventPage.serializer()) { c.listEvents(q.cursor, q.start, q.types, q.limit) } }
             // sendEvent's success is a 202, and ApiResponse carries no status.
             "sendEvent" -> result(InboundEventAccepted.serializer()) { EventSteps.send(c, call) }.apply { status = status?.let { 202 } }
-            else -> Seen().apply { outcome = "harness: no operation $operation" }
+            else -> EmbedSteps.call(c, call, operation)
         }
     }
 
-    private fun <T> body(
+    fun <T> body(
         call: JsonObject,
         type: DeserializationStrategy<T>,
     ): T = HarnessJson.decodeFromJsonElement(type, call["body"] ?: JsonObject(emptyMap()))
@@ -153,6 +156,7 @@ internal object Observe {
             status = 200
             body = HarnessJson.encodeToJsonElement(type, response.body)
             servedVersion = response.servedVersion
+            renderings += listOf(response.toString(), response.body.toString())
         }
     }
 
@@ -216,7 +220,7 @@ internal object Observe {
         }
     }
 
-    private fun failed(
+    fun failed(
         e: Exception,
         events: List<JsonElement>,
         served: String?,

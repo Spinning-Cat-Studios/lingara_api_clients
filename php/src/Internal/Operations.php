@@ -23,6 +23,15 @@ use Lingara\ObjectSerializer;
 final class Operations
 {
     public const OPERATIONS = [
+        'createEmbedToken' => [
+            'method' => 'POST',
+            'path' => '/v1/embed/tokens',
+            'pathParams' => [],
+            'needsToken' => true,
+            'request' => \Lingara\Model\EmbedTokenRequest::class,
+            'response' => \Lingara\Model\EmbedToken::class,
+            'stream' => null,
+        ],
         'createLessonPlan' => [
             'method' => 'POST',
             'path' => '/v1/lesson-plans',
@@ -39,6 +48,15 @@ final class Operations
                     'error' => ['class' => null, 'data' => \Lingara\Model\StreamError::class, 'end' => 'raise'],
                 ],
             ],
+        ],
+        'deleteEmbedPlayer' => [
+            'method' => 'DELETE',
+            'path' => '/v1/embed/players/{player_ref}',
+            'pathParams' => ['player_ref'],
+            'needsToken' => true,
+            'request' => null,
+            'response' => null,
+            'stream' => null,
         ],
         'generateVocabulary' => [
             'method' => 'POST',
@@ -119,6 +137,23 @@ final class Operations
             'request' => null,
             'response' => \Lingara\Model\EventPage::class,
             'stream' => null,
+        ],
+        'sendDialogueTurn' => [
+            'method' => 'POST',
+            'path' => '/v1/embed/dialogue/turns',
+            'pathParams' => [],
+            'needsToken' => true,
+            'request' => \Lingara\Model\DialogueTurnRequest::class,
+            'response' => null,
+            'stream' => [
+                'union' => \Lingara\Stream\SendDialogueTurnEvent::class,
+                'events' => [
+                    'delta' => ['class' => \Lingara\Stream\SendDialogueTurnEvent\Delta::class, 'data' => \Lingara\Model\TurnDelta::class, 'end' => null],
+                    'notice' => ['class' => \Lingara\Stream\SendDialogueTurnEvent\Notice::class, 'data' => \Lingara\Model\Notice::class, 'end' => null],
+                    'done' => ['class' => null, 'data' => null, 'end' => 'quiet'],
+                    'error' => ['class' => null, 'data' => \Lingara\Model\StreamError::class, 'end' => 'raise'],
+                ],
+            ],
         ],
         'sendEvent' => [
             'method' => 'POST',

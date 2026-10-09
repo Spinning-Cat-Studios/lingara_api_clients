@@ -30,6 +30,14 @@ public sealed interface InboundEvent {
     ) : InboundEvent {
         override val type: String get() = "world.practice_requested"
     }
+
+    /** A `world.practice_completed` event. */
+    public data class WorldPracticeCompleted(
+        /** The event's data. */
+        public val data: com.getlingara.kotlin.model.WorldPracticeCompleted,
+    ) : InboundEvent {
+        override val type: String get() = "world.practice_completed"
+    }
 }
 
 /** The `{type, data}` body `sendEvent` posts. */
@@ -39,6 +47,8 @@ internal fun InboundEvent.toJson(): JsonObject =
             body(type, LingaraJson.encodeToJsonElement(com.getlingara.kotlin.model.WorldContextChanged.serializer(), data))
         is InboundEvent.WorldPracticeRequested ->
             body(type, LingaraJson.encodeToJsonElement(com.getlingara.kotlin.model.WorldPracticeRequested.serializer(), data))
+        is InboundEvent.WorldPracticeCompleted ->
+            body(type, LingaraJson.encodeToJsonElement(com.getlingara.kotlin.model.WorldPracticeCompleted.serializer(), data))
     }
 
 private fun body(

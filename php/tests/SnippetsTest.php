@@ -6,6 +6,7 @@ namespace Lingara\Tests;
 
 use Lingara\Client;
 use Lingara\Tests\Support\FakeHttpClient;
+use Nyholm\Psr7\Response;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -37,6 +38,7 @@ final class SnippetsTest extends TestCase
             'streamLessonPlan' => [self::PLAN], 'sendTutorMessage' => [], 'getUsage' => [],
             'getOpenApiDocument' => [], 'listApiVersions' => [], 'getApiVersion' => [self::VERSION], 'errors' => [],
             'listEvents' => [null], 'streamEvents' => [self::PLAN], 'sendEvent' => [],
+            'createEmbedToken' => ['player-1001'], 'deleteEmbedPlayer' => ['guild/42'], 'sendDialogueTurn' => [],
         ];
         // auth and verifyWebhook take no client: they run on their own.
         self::assertCount(count($calls) + 2, $files, 'one file per snippet');
@@ -99,7 +101,22 @@ final class SnippetsTest extends TestCase
             str_starts_with($path, '/v1/versions/') => FakeHttpClient::json(200, ['id' => self::VERSION, 'state' => 'supported', 'lts' => false,
                 'minted_at' => '2026-09-20T09:00:00Z', 'summary' => 'x', 'history' => [], 'spec' => ['url' => '/v1/openapi.json', 'sha256' => str_repeat('0', 64)]]),
             str_starts_with($path, '/v1/events') => self::events($request),
+            str_starts_with($path, '/v1/embed/') => self::embed($path),
             default => self::lessonsAndStreams($path),
+        };
+    }
+
+    /** The embed routes (ADR 1.10.26w D9): a mint, an empty 204 for a delete, and an NPC turn. */
+    private static function embed(string $path): ResponseInterface
+    {
+        return match (true) {
+            $path === '/v1/embed/tokens' => FakeHttpClient::json(200, ['token' => 'lgr_et_snippet', 'expires_at' => '2026-10-01T09:27:44Z',
+                'expires_in' => 900, 'subject' => 'lgr_sub_snippet', 'scopes' => ['events:read', 'embed:play'], 'account_linked' => false]),
+            str_starts_with($path, '/v1/embed/players/') => new Response(204),
+            default => FakeHttpClient::sse(self::frames([
+                'delta' => ['text' => '十块钱，一盘。'], 'notice' => ['code' => 'history_trimmed', 'message' => 'Older lines were left out.'],
+                'done' => new \stdClass(),
+            ])),
         };
     }
 

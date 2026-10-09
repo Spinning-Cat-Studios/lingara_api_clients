@@ -7,6 +7,7 @@ class EventStreamTest < Minitest::Test
   META = {meta: {level: 2, source_lang: "en", target_lang: "zh", framework: "HSK", count: 1, ai_generated: true}}.freeze
   ITEM = {word: "你好", translation: "hello"}.freeze
   VOCAB = {level: 2, source_lang: "en", target_lang: "zh"}.freeze
+  TURN = {npc: {name: "Auntie Lin"}, source_lang: "en", target_lang: "zh", level: 2, line: "你好"}.freeze
   VIEW = File.expand_path("../../spec/generator/openapi.3.0.json", __dir__)
 
   def setup
@@ -173,9 +174,11 @@ class EventStreamTest < Minitest::Test
       generate_vocabulary: -> { client.generate_vocabulary(**VOCAB).map(&:event) },
       create_lesson_plan: -> { client.create_lesson_plan(context: "market", source_lang: "en", target_lang: "zh", level: 2).map(&:event) },
       send_tutor_message: -> { client.send_tutor_message(message: "hi", source_lang: "en", target_lang: "zh").map(&:event) },
-      stream_lesson_plan: -> { client.stream_lesson_plan(PLAN_ID).map(&:event) }
+      stream_lesson_plan: -> { client.stream_lesson_plan(PLAN_ID).map(&:event) },
+      send_dialogue_turn: -> { client.send_dialogue_turn(**TURN).map(&:event) }
     }
-    expected = {generate_vocabulary: [], create_lesson_plan: ["result"], send_tutor_message: ["delta"], stream_lesson_plan: ["pending"]}
+    expected = {generate_vocabulary: [], create_lesson_plan: ["result"], send_tutor_message: ["delta"], stream_lesson_plan: ["pending"],
+                send_dialogue_turn: ["delta"]}
     calls.each do |name, call|
       started = now
       assert_equal expected[name], call.call, name
@@ -223,6 +226,8 @@ class EventStreamTest < Minitest::Test
     when "/v1/vocab/stream" then conn.event("done", {})
     when "/v1/lesson-plans" then conn.event("result", {plan: plan})
     when "/v1/tutor/message" then conn.event("delta", {text: "hi"}) && conn.event("done", {})
+    # The tutor's row (ADR 1.10.26w D8): a delta after done is never yielded.
+    when "/v1/embed/dialogue/turns" then conn.event("delta", {text: "十块"}) && conn.event("done", {}) && conn.event("delta", {text: "x"})
     else conn.event("pending", {plan_id: PLAN_ID, status: "generating"})
     end
     sleep 3

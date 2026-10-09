@@ -9,8 +9,9 @@ import java.net.http.HttpResponse
 import kotlin.time.Duration
 
 /**
- * A client's two response shapes over its pipeline: a JSON body, and an open event stream. Kept
- * apart from `LingaraClient` so the client's file holds its operations (ADR 30.9.26aa).
+ * A client's three response shapes over its pipeline: a JSON body, no body (ADR 1.10.26w), and an
+ * open event stream. Kept apart from `LingaraClient` so the client's file holds its operations (ADR
+ * 30.9.26aa).
  */
 internal class Requests(
     private val pipeline: Pipeline,
@@ -31,6 +32,20 @@ internal class Requests(
                 throw TransportException(TransportKind.MALFORMED_RESPONSE, e)
             }
         return ApiResponse(body, served)
+    }
+
+    /**
+     * Sends [call] and reads nothing of its answer (ADR 1.10.26w D4): a `204` has no body, and a
+     * `200` or any other 2xx that has one is still success, its body closed unread, so a later API
+     * answering `200 {}` is not a break. `Lingara-Version` and the deprecation headers are still
+     * observed (K2). The body is streamed rather than discarded by the handler, so a refusal's
+     * `{code, error}` still reaches the error mapping.
+     */
+    suspend fun empty(call: Call): ApiResponse<Unit> {
+        val response = pipeline.send(call, HttpResponse.BodyHandlers.ofInputStream())
+        val served = deprecations.observe(response.headers(), response.request().uri())
+        Retry.discard(response)
+        return ApiResponse(Unit, served)
     }
 
     /** A `GET` of [path] decoded through [serializer]. */

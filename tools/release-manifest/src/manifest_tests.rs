@@ -168,3 +168,135 @@ fn an_entry_is_answered_by_exactly_one_manifest() {
     assert!(has(&findings, "0 [[manifest]] entries under rust/"), "{findings:?}");
     assert!(has(&findings, "java names manifest settings.gradle.kts, which no [[manifest]] has"), "{findings:?}");
 }
+
+/// 1.10.26ag: the fixture's workflow with W1's three publish jobs beside the six.
+fn trio_workflow(root: &Path) {
+    write(root, ".github/workflows/release.yml", &format!("{WORKFLOW}  publish-nuget:\n  publish-godot-assetlib:\n  publish-fab:\n"));
+}
+
+/// One `[[language]]` table: `extra` is written between `package` and `since`.
+fn entry(id: &str, registry: &str, extra: &str) -> String {
+    format!("\n[[language]]\nid = \"{id}\"\nregistry = \"{registry}\"\npackage = \"Lingara.Embed\"\n{extra}since = \"next\"\n")
+}
+
+// 1.10.26ag AC1
+#[test]
+fn a_file_admits_only_the_registries_it_declares() {
+    let dir = fixture();
+    let root = dir.path();
+    trio_workflow(root);
+    write(root, "dotnet/README.md", "");
+    write(root, "snippets/unity/install.sh", "dotnet add package Lingara.Embed\n");
+    let unity = entry("unity", "nuget", "dir = \"dotnet\"\n");
+
+    // Without `registries`: the original six, so the clients' own file still refuses nuget.
+    write(root, "languages.toml", &format!("{LANGUAGES}{unity}"));
+    let findings = check(&load(&dir));
+    assert!(
+        findings.contains(&"languages.toml: unity: registry \"nuget\" is not one of npm, crates.io, rubygems, maven-central, go, packagist".to_string()),
+        "{findings:?}"
+    );
+
+    // Declared: exactly those, and nuget passes.
+    write(root, "languages.toml", &format!("registries = [\"npm\", \"crates.io\", \"nuget\"]\n{LANGUAGES}{unity}"));
+    assert_eq!(check(&load(&dir)), Vec::<String>::new());
+
+    // An entry outside the declared set, and an unknown id in the set itself.
+    write(root, "languages.toml", &format!("registries = [\"npm\", \"nuget\", \"pypi\"]\n{LANGUAGES}{unity}"));
+    let findings = check(&load(&dir));
+    assert!(has(&findings, "rust: registry \"crates.io\" is not one of npm, nuget"), "{findings:?}");
+    assert!(has(&findings, "registries names \"pypi\", which is not one of npm, crates.io"), "{findings:?}");
+    assert!(!has(&findings, "unity: registry"), "{findings:?}");
+}
+
+// 1.10.26ag AC2
+#[test]
+fn dir_and_snippets_relocate_an_entry() {
+    let dir = fixture();
+    let root = dir.path();
+    trio_workflow(root);
+    let unity = entry("unity", "nuget", "dir = \"dotnet\"\nsnippets = \"snippets/player/unity\"\n");
+    let server = entry("csharp", "nuget", "dir = \"dotnet\"\nsnippets = \"snippets/server/csharp\"\n");
+    write(root, "languages.toml", &format!("registries = [\"npm\", \"crates.io\", \"nuget\"]\n{LANGUAGES}{unity}{server}"));
+    write(root, "dotnet/Lingara.Embed.csproj", "");
+    write(root, "snippets/player/unity/install.sh", "dotnet add package Lingara.Embed\n");
+    write(root, "snippets/server/csharp/install.sh", "dotnet add package Lingara.Embed.Server\n");
+    write(root, "publish/public.allowlist", "typescript/\nrust/\ndotnet/\nsnippets/\n");
+    assert_eq!(check(&load(&dir)), Vec::<String>::new(), "both entries resolve to dotnet/; no unity/ or csharp/");
+    assert_eq!(check_publish(&load(&dir)).unwrap(), Vec::<String>::new());
+
+    // The snippets key replaces snippets/<id>/ in `check`…
+    fs::remove_file(root.join("snippets/server/csharp/install.sh")).unwrap();
+    let findings = check(&load(&dir));
+    assert_eq!(findings, vec!["snippets/server/csharp/: 0 install.* files, exactly one expected".to_string()]);
+    write(root, "snippets/server/csharp/install.sh", "dotnet add package Lingara.Embed.Server\n");
+
+    // …and in check-publish's allowlist rule.
+    write(root, "publish/public.allowlist", "typescript/\nrust/\ndotnet/\nsnippets/typescript/\nsnippets/rust/\nsnippets/player/\n");
+    let findings = check_publish(&load(&dir)).unwrap();
+    assert_eq!(findings, vec!["publish/public.allowlist: snippets/server/csharp/ is not covered, so it would not ship".to_string()]);
+
+    fs::remove_dir_all(root.join("dotnet")).unwrap();
+    assert_eq!(check(&load(&dir)).iter().filter(|f| *f == "dotnet/: the directory does not exist").count(), 2);
+}
+
+// 1.10.26ag AC3
+#[test]
+fn store_and_nuget_entries_skip_directory_rules() {
+    let dir = fixture();
+    let root = dir.path();
+    trio_workflow(root);
+    let entries = [
+        entry("godot", "godot-assetlib", ""),
+        entry("unreal", "fab", ""),
+        entry("unity", "nuget", "dir = \"dotnet\"\n"),
+    ];
+    let declared = "registries = [\"npm\", \"crates.io\", \"rubygems\", \"nuget\", \"godot-assetlib\", \"fab\"]\n";
+    write(root, "languages.toml", &format!("{declared}{LANGUAGES}{}", entries.concat()));
+    // No LICENSE in any of the three directories, no [[manifest]], and no install.* for the two stores.
+    for d in ["godot", "unreal", "dotnet"] {
+        write(root, &format!("{d}/README.md"), "");
+    }
+    write(root, "snippets/unity/install.sh", "dotnet add package Lingara.Embed\n");
+    write(root, "publish/public.allowlist", "typescript/\nrust/\ngodot/\nunreal/\ndotnet/\nsnippets/\n");
+    assert_eq!(check(&load(&dir)), Vec::<String>::new());
+    assert_eq!(check_publish(&load(&dir)).unwrap(), Vec::<String>::new());
+
+    // NuGet is not a store: it still proves its one install line.
+    fs::remove_file(root.join("snippets/unity/install.sh")).unwrap();
+    assert_eq!(check(&load(&dir)), vec!["snippets/unity/: 0 install.* files, exactly one expected".to_string()]);
+    write(root, "snippets/unity/install.sh", "dotnet add package Lingara.Embed\n");
+
+    // The six keep every rule: a ruby entry beside them needs its LICENSE, its install line and its manifest.
+    let ruby = "\n[[language]]\nid = \"ruby\"\nregistry = \"rubygems\"\npackage = \"lingara-embed\"\nsince = \"next\"\n";
+    write(root, "languages.toml", &format!("{declared}{LANGUAGES}{}{ruby}", entries.concat()));
+    write(root, "ruby/README.md", "");
+    write(root, "publish/public.allowlist", "typescript/\nrust/\ngodot/\nunreal/\ndotnet/\nruby/\nsnippets/\n");
+    let findings = check_publish(&load(&dir)).unwrap();
+    assert!(has(&findings, "ruby/LICENSE: missing"), "{findings:?}");
+    assert!(has(&findings, "snippets/ruby/: 0 install.* files"), "{findings:?}");
+    assert!(has(&findings, "0 [[manifest]] entries under ruby/"), "{findings:?}");
+    assert_eq!(findings.len(), 3, "{findings:?}");
+}
+
+// 1.10.26ag AC4
+#[test]
+fn extra_assets_join_the_verify_set() {
+    let dir = fixture();
+    let root = dir.path();
+    let zip = "lingara-embed-ffi-{version}-win-x64.zip";
+    write(root, "languages.toml", &format!("extra_assets = [\"{zip}\"]\n{LANGUAGES}"));
+    let findings = check_publish(&load(&dir)).unwrap();
+    assert_eq!(findings, vec![format!("publish/snapshot.toml: verify.assets lacks {zip}")]);
+
+    let with_zip = SNAPSHOT.replace("\"checksums.txt\"", &format!("\"{zip}\", \"checksums.txt\""));
+    write(root, "publish/snapshot.toml", &with_zip);
+    assert_eq!(check_publish(&load(&dir)).unwrap(), Vec::<String>::new());
+
+    write(root, "publish/snapshot.toml", &with_zip.replace("\"checksums.txt\"", "\"other.zip\", \"checksums.txt\""));
+    let findings = check_publish(&load(&dir)).unwrap();
+    assert_eq!(
+        findings,
+        vec!["publish/snapshot.toml: verify.assets has other.zip, which no entry uploads".to_string()]
+    );
+}

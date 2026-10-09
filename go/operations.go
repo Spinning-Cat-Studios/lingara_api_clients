@@ -7,7 +7,9 @@ import "context"
 // is the operationId with its first letter upper-cased and Go's initialisms
 // applied (ADR 29.9.26q D3). The three events operations, ListEvents,
 // StreamEvents and SendEvent, live beside their helpers in events_*.go (ADR
-// 30.9.26aa D10).
+// 30.9.26aa D10), and the three embed operations, CreateEmbedToken,
+// DeleteEmbedPlayer and SendDialogueTurn, beside MintedToken in embed.go
+// (ADR 1.10.26w).
 
 // GenerateVocabulary streams a vocabulary list (scope vocab:generate).
 func (c *Client) GenerateVocabulary(ctx context.Context, body VocabRequest) (*Stream[GenerateVocabularyEvent], error) {

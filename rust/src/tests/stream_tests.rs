@@ -12,7 +12,9 @@ use crate::error::{Error, TransportKind};
 use crate::fake_server::{FakeServer, Reply};
 use crate::generated::streams::{GENERATE_VOCABULARY, ROUTES};
 use crate::events::StreamEventsParams;
-use crate::models::{CreateLessonPlanEvent, GenerateVocabularyEvent, SendTutorMessageEvent, StreamEventsEvent, StreamLessonPlanEvent, VocabRequest};
+use crate::models::{
+    CreateLessonPlanEvent, GenerateVocabularyEvent, SendDialogueTurnEvent, SendTutorMessageEvent, StreamEventsEvent, StreamLessonPlanEvent, VocabRequest,
+};
 use crate::{AccessToken, BoxFuture, Client, TokenSource};
 
 const STARTED: &str = "event: started\ndata: {\"meta\":{\"level\":2,\"source_lang\":\"en\",\"target_lang\":\"zh\",\"framework\":\"HSK\",\"count\":1,\"ai_generated\":true}}\n\n";
@@ -126,7 +128,7 @@ async fn each_operation_ends_on_its_own_terminal() {
             "generateVocabulary" => &[STARTED, ITEM, DONE, ITEM],
             "createLessonPlan" => &[PLAN_STARTED, PHASE, RESULT, PHASE],
             "streamLessonPlan" => &[PLAN_STARTED, PHASE, PENDING, RESULT],
-            "sendTutorMessage" => &[DELTA, DONE, DELTA],
+            "sendTutorMessage" | "sendDialogueTurn" => &[DELTA, DONE, DELTA],
             "streamEvents" => &[ENVELOPE, DONE, ENVELOPE],
             other => panic!("the client has no method for stream {other}"),
         };
@@ -140,6 +142,10 @@ async fn each_operation_ends_on_its_own_terminal() {
             }
             "streamLessonPlan" => tags::<StreamLessonPlanEvent>(c.stream_lesson_plan("p1").await.unwrap()).await,
             "streamEvents" => tags::<StreamEventsEvent>(c.stream_events(&StreamEventsParams::default()).await.unwrap()).await,
+            "sendDialogueTurn" => {
+                let body = serde_json::from_str(r#"{"npc":{"name":"Auntie Lin"},"source_lang":"en","target_lang":"zh","level":2,"line":"你好"}"#).unwrap();
+                tags::<SendDialogueTurnEvent>(c.send_dialogue_turn(&body).await.unwrap()).await
+            }
             _ => {
                 let body = serde_json::from_str(r#"{"message":"你好","source_lang":"en","target_lang":"zh"}"#).unwrap();
                 tags::<SendTutorMessageEvent>(c.send_tutor_message(&body).await.unwrap()).await
@@ -168,6 +174,7 @@ fn the_stream_and_the_client_cross_threads() {
     send_unpin::<EventStream<StreamLessonPlanEvent>>();
     send_unpin::<EventStream<SendTutorMessageEvent>>();
     send_unpin::<EventStream<StreamEventsEvent>>();
+    send_unpin::<EventStream<SendDialogueTurnEvent>>();
     send_unpin::<crate::events::EventFeed>();
     send_unpin::<crate::events::EventTail>();
     send_sync::<Client>();

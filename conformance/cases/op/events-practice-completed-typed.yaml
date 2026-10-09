@@ -1,0 +1,14 @@
+id: op.events-practice-completed-typed
+title: A feed page holding practice.completed yields it typed, never as UnknownEvent
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - events: { types: [practice.completed] }
+    expect: { outcome: completed, event_ids: ["lgr_evt_conformance7"], unknown_types: [], cursor: { equals: c7 } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_feedpractice, token_type: Bearer, expires_in: 3600, scope: "events:read embed:play" } }
+    - request: { method: GET, path: /v1/events, query: {"types":"practice.completed"}, headers: { authorization: { equals: Bearer lgr_at_feedpractice } } }
+      response: { status: 200, json: {"items":[{"id":"lgr_evt_conformance7","type":"practice.completed","created_at":"2026-10-01T09:20:00Z","api_version":"2026-10-golden-remora","subject":"lgr_sub_conformance","data":{"plan_id":"3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37","items":[{"set_number":1,"question":0,"outcome":"correct"},{"set_number":1,"question":1,"outcome":"revealed"}],"completed":true}}],"next_cursor":"c7","has_more":false} }

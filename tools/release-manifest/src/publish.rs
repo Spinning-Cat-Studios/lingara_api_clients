@@ -4,7 +4,7 @@
 use std::path::Path;
 
 use crate::Fail;
-use crate::manifest::{self, Language, Release, read};
+use crate::manifest::{self, Language, Release, UNMANIFESTED, read};
 
 pub const SNAPSHOT: &str = "publish/snapshot.toml";
 pub const ALLOWLIST: &str = "publish/public.allowlist";
@@ -28,19 +28,24 @@ pub fn check_publish(release: &Release) -> Result<Vec<String>, Fail> {
     let manifests = manifests(&snapshot);
     let mut findings = manifest::check(release);
     for lang in &release.languages {
-        findings.extend(allowlist_findings(&allowlist, &lang.id));
+        findings.extend(allowlist_findings(&allowlist, lang));
         findings.extend(manifest_finding(lang, &manifests));
     }
     findings.extend(asset_findings(release, &snapshot));
     Ok(findings)
 }
 
-/// `<id>/` and `snippets/<id>/` each lie under a slash-terminated entry.
-fn allowlist_findings(allowlist: &str, id: &str) -> Vec<String> {
+/// The entry's directory and its snippets directory each lie under a
+/// slash-terminated entry (1.10.26ag W2, W3: `dir` and `snippets` move them).
+/// A store has no snippets to ship (W4), so only its directory is held.
+fn allowlist_findings(allowlist: &str, lang: &Language) -> Vec<String> {
     let entries: Vec<&str> =
         allowlist.lines().map(str::trim).filter(|l| l.ends_with('/') && !l.starts_with('#')).collect();
-    [format!("{id}/"), format!("snippets/{id}/")]
-        .into_iter()
+    let mut dirs = vec![format!("{}/", lang.directory())];
+    if !lang.is_store() {
+        dirs.push(format!("{}/", lang.snippets_dir()));
+    }
+    dirs.into_iter()
         .filter(|dir| !entries.iter().any(|e| dir.starts_with(e)))
         .map(|dir| format!("{ALLOWLIST}: {dir} is not covered, so it would not ship"))
         .collect()
@@ -53,10 +58,16 @@ fn manifests(snapshot: &toml::Value) -> Vec<(String, String)> {
     entries.iter().map(|e| (field(e, "kind"), field(e, "path"))).collect()
 }
 
-/// D1's matching rule: exactly one `[[manifest]]` answers for each entry.
+/// D1's matching rule: exactly one `[[manifest]]` answers for each entry, under
+/// its directory. 1.10.26ag W5: a NuGet or store entry that names none needs
+/// none, since scs-snapshot has no kind that reads it.
 fn manifest_finding(lang: &Language, manifests: &[(String, String)]) -> Option<String> {
+    if lang.manifest.is_none() && UNMANIFESTED.contains(&lang.registry.as_str()) {
+        return None;
+    }
     let id = &lang.id;
-    let under = |path: &str| path.starts_with(&format!("{id}/"));
+    let dir = lang.directory();
+    let under = |path: &str| path.starts_with(&format!("{dir}/"));
     match &lang.manifest {
         Some(path) => {
             let Some((kind, _)) = manifests.iter().find(|(_, p)| p == path) else {
@@ -64,21 +75,23 @@ fn manifest_finding(lang: &Language, manifests: &[(String, String)]) -> Option<S
             };
             let root_gradle = kind == "gradle" && !path.contains('/');
             (!under(path) && !root_gradle)
-                .then(|| format!("{SNAPSHOT}: {id}'s manifest {path} is neither under {id}/ nor a root gradle manifest"))
+                .then(|| format!("{SNAPSHOT}: {id}'s manifest {path} is neither under {dir}/ nor a root gradle manifest"))
         }
         None => {
             let hits: Vec<&str> = manifests.iter().map(|(_, p)| p.as_str()).filter(|p| under(p)).collect();
             (hits.len() != 1).then(|| {
-                format!("{SNAPSHOT}: {} [[manifest]] entries under {id}/ ({}), exactly one expected", hits.len(), hits.join(", "))
+                format!("{SNAPSHOT}: {} [[manifest]] entries under {dir}/ ({}), exactly one expected", hits.len(), hits.join(", "))
             })
         }
     }
 }
 
-/// `verify.assets` is the entries' `uploaded` names plus `checksums.txt`.
+/// `verify.assets` is the entries' `uploaded` names, the file's
+/// `extra_assets` (1.10.26ag W7) and `checksums.txt`.
 fn asset_findings(release: &Release, snapshot: &toml::Value) -> Vec<String> {
     let mut expected: Vec<String> =
         release.languages.iter().filter_map(|l| l.artefact.as_ref().map(|a| a.uploaded.clone())).collect();
+    expected.extend(release.extra_assets.iter().cloned());
     expected.push("checksums.txt".to_string());
     let actual: Vec<String> = snapshot
         .get("verify")

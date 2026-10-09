@@ -23,7 +23,8 @@ pub enum Replayed {
 }
 
 /// The status line and headers, with D10's `content-type` defaults, a
-/// `content-length` on every body that is not a stream, and
+/// `content-length` on every body that is not a stream (never on a `204`,
+/// which RFC 9110 §8.6 forbids one: ADR 1.10.26w D7), and
 /// `transfer-encoding: chunked` on every stream.
 ///
 /// A stream is chunked because the Backend's are (hyper frames a streaming
@@ -47,10 +48,10 @@ pub fn head_for(response: &Response) -> Vec<u8> {
     if let Some(ct) = default_type.filter(|_| !has(&headers, "content-type")) {
         headers.push(("content-type".into(), ct.into()));
     }
-    if response.sse.is_none() {
-        headers.push(("content-length".into(), body_for(response).len().to_string()));
-    } else {
+    if response.sse.is_some() {
         headers.push(("transfer-encoding".into(), "chunked".into()));
+    } else if response.status != 204 {
+        headers.push(("content-length".into(), body_for(response).len().to_string()));
     }
     http::head(response.status, &headers)
 }

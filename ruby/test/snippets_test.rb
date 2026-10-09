@@ -43,8 +43,25 @@ class SnippetsTest < Minitest::Test
      "HTTP_WEBHOOK_SIGNATURE" => "v1,#{[mac].pack("m0")}"}
   end
 
+  MINTED = {token: "lgr_et_unit0000000000000000000000000000000000000", expires_at: "2026-10-01T09:27:44Z", expires_in: 900,
+            subject: "lgr_sub_unit", scopes: ["embed:play", "events:write"], account_linked: false}.freeze
+
+  # The answer to each embed route a snippet calls (ADR 1.10.26w).
+  def answer_embed(request, conn)
+    case request.path
+    when "/v1/embed/tokens" then conn.json(200, MINTED)
+    when "/v1/embed/dialogue/turns"
+      conn.sse
+      conn.event("delta", {text: "十块钱，"})
+      conn.event("delta", {text: "一盘。"})
+      conn.event("done", {})
+    else conn.text(204, "")
+    end
+  end
+
   # The answer to each route a snippet calls.
   def answer(request, conn)
+    return answer_embed(request, conn) if request.path.start_with?("/v1/embed/")
     case request.path
     when "/v1/vocab/stream"
       conn.sse
@@ -92,10 +109,16 @@ class SnippetsTest < Minitest::Test
       LingaraSnippets.stream_events(client, "c0")
       LingaraSnippets.send_event(client)
       assert_equal 204, LingaraSnippets.verify_webhook(WEBHOOK_SECRET, signed_env).first
+      assert_equal MINTED[:token], LingaraSnippets.create_embed_token(client)[:token]
+      LingaraSnippets.delete_embed_player(client)
+      assert_equal "十块钱，一盘。", LingaraSnippets.send_dialogue_turn(client).last[:text]
     end
-    %w[你好 ready still 好的 vocab 3.2.0 current supported c1 lgr_evt_unit2 on\ its\ way].each { |text| assert_includes out, text }
+    %w[你好 ready still 好的 vocab 3.2.0 current supported c1 lgr_evt_unit2 on\ its\ way lgr_sub_unit deleted 十块钱].each do |text|
+      assert_includes out, text
+    end
+    assert_includes server.requests.map(&:path), "/v1/embed/players/guild-42%2Fplayer-1001"
     snippet_methods = LingaraSnippets.singleton_methods.sort
-    assert_equal 15, snippet_methods.size
+    assert_equal 18, snippet_methods.size
   ensure
     server&.close
   end

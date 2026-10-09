@@ -67,7 +67,9 @@ and `get_api_version` resolve to an `ApiResponse<T>`, which derefs to `T` and
 carries `served_version()`. The last three need no credentials, so
 `Client::builder().build()?` is enough for them. The events methods
 (`list_events`, `events`, `stream_events`, `tail_events`, `send_event` and
-`get_async_api_document`) are under [Webhooks and events](#webhooks-and-events).
+`get_async_api_document`) are under [Webhooks and events](#webhooks-and-events),
+and the embed methods (`create_embed_token`, `delete_embed_player` and
+`send_dialogue_turn`) under [Embedding Lingara](#embedding-lingara).
 
 - `EventStream` implements `futures_core::Stream`, and also has its own
   `next()`, so the quick start needs no `futures` import.
@@ -149,8 +151,8 @@ Every event, through every door, is one envelope: `id`, `created_at`,
 `api_version`, `subject` and a typed `data`. `lingara::events::Event` is a
 `#[non_exhaustive]` enum with one variant per type (`LessonPlanReady`,
 `LessonPlanFailed`, `UsageThresholdReached`, `WebhookTest`, `AppInstalled`,
-`AppUninstalled`) plus `Unknown`; `event.id()` and `event.event_type()` read
-any of them.
+`AppUninstalled`, `AppDisabled`, `AppEnabled`, `PracticeCompleted`) plus
+`Unknown`; `event.id()` and `event.event_type()` read any of them.
 
 **Pin your client to the version this crate was generated for**,
 `lingara::GENERATED_FOR_VERSION`. An event's `data` is rendered at your
@@ -232,6 +234,56 @@ let accepted = client.send_event(&event, SendEventOptions { idempotency_key: Som
   promises a `lesson_plan.ready` or `lesson_plan.failed` event. A `Partial`
   or `Complete` plan was served from the library and can be read now; an
   event may still arrive for it, so tolerate one.
+
+## Embedding Lingara
+
+A game or website can vouch for its own players: your server mints each
+player a short-lived embed token, and the player's device uses it.
+
+```rust
+let minted = client.create_embed_token(&EmbedTokenRequest { player_ref: "player-1001".parse()?, scopes: None, origin: None }).await?;
+// store minted.subject; hand minted.token.expose_secret() (lgr_et_…) to the device
+```
+
+- **Mint on your server, never on the player's device**, from a **metered**
+  client holding `embed:mint` (a client built with explicit `scopes` must
+  list it). Otherwise the answer is a `403` `insufficient_scope` or
+  `embed_needs_metered`, returned as `Error::Api`. **Store `subject`**
+  beside your player: it is the player's stable `lgr_sub_`, and how every
+  event names them.
+- `lingara::embed::MintedToken`'s `token` is an `AccessToken`, so it renders
+  as `[REDACTED]` like every token here, and so does the `MintedToken`'s
+  `Debug`; `expose_secret()` reads it. The token lives 900 s and Lingara
+  never refreshes it, so mint again when the player kit asks. `expires_in`
+  (a `Duration`) is there for a device whose clock cannot be trusted;
+  `expires_at` (the server's RFC 3339 string) for one whose clock can.
+- `delete_embed_player(player_ref)` deletes a player and revokes their
+  tokens. `player_ref` is sent as one percent-encoded path segment, so
+  `guild/42` is one player. An unknown player is still a success, so it is
+  idempotent, and it keeps working while embedding is switched off for your
+  client. The answer has no body: the `ApiResponse<()>` carries only
+  `served_version()`.
+- `send_dialogue_turn` streams an NPC's reply, `Delta` by `Delta`. The
+  window is yours: at most 12 `history` entries, `line` and each entry at
+  most 500 characters, and no total cap. Send each NPC reply back cut to its
+  first 500 characters. A turn is **never retried**: each attempt spends the
+  player's NPC cells and your metered cells, so a `429` or `503` is returned
+  at once as `Error::Api` with its `retry_after`, and you decide whether to
+  send it again. No retry helps `403 embed_needs_metered`, or
+  `422 safety_input_flagged`, which means say something else.
+- `Event::PracticeCompleted` arrives through the webhook, the feed and the
+  tail when your client holds `events:read` and `embed:play`; its `subject`
+  names the player. `InboundEvent::WorldPracticeCompleted` sends one, with
+  `events:write` and `embed:play`.
+- **A player-side caller** supplies its embed token through a custom
+  `TokenSource` (`ClientBuilder::token_source`, wrapping it in
+  `AccessToken::new`); no client secret is involved there. The library never
+  sends `X-Lingara-Embed-Origin`, so a token minted with an `origin` belongs
+  to the browser widget: a game mints without one.
+
+The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
+build on these calls: server kits for higher-level minting and webhook
+helpers, and player kits for the engines.
 
 ## The contract
 

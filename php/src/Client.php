@@ -20,6 +20,9 @@ use Lingara\Internal\Secrets;
 use Lingara\Internal\SystemClock;
 use Lingara\Internal\Transport;
 use Lingara\Internal\UserAgent;
+use Lingara\Model\DialogueTurnRequest;
+use Lingara\Model\EmbedToken;
+use Lingara\Model\EmbedTokenRequest;
 use Lingara\Model\EventPage;
 use Lingara\Model\InboundEventAccepted;
 use Lingara\Model\LessonPlan;
@@ -131,7 +134,7 @@ final class Client
         ));
     }
 
-    // ── The thirteen operations, over Operations ──────────────────────────
+    // ── The sixteen operations, over Operations ───────────────────────────
 
     /** Streams a vocabulary list (scope vocab:generate). */
     public function generateVocabulary(VocabRequest $request): EventStream
@@ -299,6 +302,48 @@ final class Client
     }
 
     /**
+     * Mints a player's embed token (scope embed:mint; a metered client only,
+     * else 403 embed_needs_metered). Call it on your server, never on a
+     * player's device. Every call mints: nothing is cached, and K4 retries a
+     * 429 or 503 with no Idempotency-Key, since two tokens are harmless.
+     *
+     * @return ApiResponse<MintedToken>
+     */
+    public function createEmbedToken(EmbedTokenRequest $request): ApiResponse
+    {
+        $payload = json_encode(ObjectSerializer::sanitizeForSerialization($request), JSON_THROW_ON_ERROR);
+        $answer = $this->json('createEmbedToken', [], EmbedToken::class, [], [], $payload);
+        return new ApiResponse(MintedToken::fromAnswer($answer->value), $answer->servedVersion);
+    }
+
+    /**
+     * Deletes a player and revokes its tokens (scope embed:mint). An unknown
+     * player is a success too, so a retry is safe, and it works while embed
+     * is dark. The value is an empty \stdClass.
+     *
+     * @return ApiResponse<\stdClass>
+     */
+    public function deleteEmbedPlayer(string $playerRef): ApiResponse
+    {
+        return $this->noContent('deleteEmbedPlayer', [$playerRef]);
+    }
+
+    /**
+     * Streams an NPC's reply to one line (scope embed:play: an embed token,
+     * or a metered client's own token). Opened without K4's retries, since
+     * each attempt spends NPC cells: a 429 or 503 is thrown at once with its
+     * retryAfter(), and sending the turn again is the caller's choice. No
+     * retry helps 403 embed_needs_metered or 422 safety_input_flagged ("say
+     * something else"). The window is neither checked nor trimmed here: at
+     * most 12 `history` entries, `line` and each entry at most 500
+     * characters. Append the NPC's reply to `history` cut to its first 500.
+     */
+    public function sendDialogueTurn(DialogueTurnRequest $request): EventStream
+    {
+        return $this->stream('sendDialogueTurn', [], $request, [], [], false);
+    }
+
+    /**
      * The default sleeper: usleep in a loop to an hrtime() deadline, so a
      * signal that cuts one usleep short does not shorten the wait.
      *
@@ -370,7 +415,25 @@ final class Client
         [$response, $token] = $this->send($operationId, $url, $payload, $headers);
         $served = $this->deprecations->observe($response, $url);
         $body = $this->transport()->readAll($response->getBody(), $this->streamIdleTimeout, self::secrets($token));
-        return new ApiResponse($this->decodeResponse($model, $body), $served);
+        return new ApiResponse(Json::model($model, $body), $served);
+    }
+
+    /**
+     * A 204 call, by name: a route's `response` null means an untyped JSON
+     * object. Any 2xx body is discarded unread; the echo is still observed.
+     *
+     * @param list<string> $args
+     *
+     * @return ApiResponse<\stdClass>
+     */
+    private function noContent(string $operationId, array $args): ApiResponse
+    {
+        $operation = Operations::OPERATIONS[$operationId];
+        $url = $this->url($operation['path'], $operation['pathParams'], $args);
+        [$response] = $this->send($operationId, $url, null);
+        $served = $this->deprecations->observe($response, $url);
+        $response->getBody()->close();
+        return new ApiResponse(new \stdClass(), $served);
     }
 
     /**
@@ -533,32 +596,5 @@ final class Client
         $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x40);
         $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
-    }
-
-    /**
-     * A JSON object body as $model. Any throw from decoding, the generated
-     * setters included, is MalformedResponse: a generated model's
-     * \InvalidArgumentException never reaches the caller.
-     *
-     * @template T of object
-     *
-     * @param class-string<T> $model
-     *
-     * @return T
-     */
-    private function decodeResponse(string $model, string $body): object
-    {
-        try {
-            $value = Json::decode($body);
-            $decoded = $value instanceof \stdClass && $model !== \stdClass::class
-                ? ObjectSerializer::deserialize($value, $model)
-                : $value;
-        } catch (\Throwable) {
-            $decoded = null;
-        }
-        if (!$decoded instanceof $model) {
-            throw new TransportException(TransportKind::MalformedResponse, 'the response body does not decode');
-        }
-        return $decoded;
     }
 }

@@ -60,17 +60,29 @@ pub fn gem_version(semver: &str) -> String {
     semver.replacen('-', ".pre.", 1)
 }
 
-/// Every `version_files` key that does not read `VERSION`.
+/// What each of a file's keys must read: `VERSION`, behind its `prefix` if
+/// it sets one (1.10.26ag W6, `"="` for an exact Cargo pin).
+fn expected(file: &VersionFile, version: &str) -> String {
+    format!("{}{version}", file.prefix.as_deref().unwrap_or_default())
+}
+
+/// Every `version_files` key that does not read `VERSION` (behind its
+/// `prefix`, if the file sets one: 1.10.26ag W6).
 pub fn version_findings(release: &Release) -> Vec<String> {
     let mut findings = Vec::new();
     for file in release.languages.iter().flat_map(|l| &l.version_files) {
         match read_keys(&release.root, file) {
             Err(e) => findings.push(e),
             Ok(values) => {
+                let expected = expected(file, &release.version);
                 for (key, value) in file.keys.iter().zip(values) {
-                    if value.as_deref() != Some(release.version.as_str()) {
+                    if value.as_deref() != Some(expected.as_str()) {
                         let found = value.map_or("nothing".to_string(), |v| format!("\"{v}\""));
-                        findings.push(format!("{}: {key} reads {found}, VERSION is \"{}\"", file.path, release.version));
+                        let wanted = match &file.prefix {
+                            Some(prefix) => format!("expected \"{expected}\" (prefix \"{prefix}\" + VERSION)"),
+                            None => format!("VERSION is \"{}\"", release.version),
+                        };
+                        findings.push(format!("{}: {key} reads {found}, {wanted}", file.path));
                     }
                 }
             }
@@ -139,8 +151,12 @@ fn toml_item<'a>(item: &'a Item, dotted: &str) -> Option<&'a Item> {
 }
 
 /// JSON is rewritten whole at npm's own format (two-space indent, trailing
-/// newline, key order kept); TOML is edited in place.
+/// newline, key order kept); TOML is edited in place. Each key gets the file's
+/// `prefix` before the version. A file listed twice is read afresh each time,
+/// so both entries' keys survive.
 fn write_keys(root: &Path, file: &VersionFile, to: &str) -> Result<(), Fail> {
+    let to = expected(file, to);
+    let to = to.as_str();
     let text = manifest::read(root, &file.path)?;
     let missing = |key: &str| Fail::input(format!("{}: no string at {key}", file.path));
     let out = match file.kind {

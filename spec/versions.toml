@@ -96,8 +96,23 @@ at = "2026-10-01T21:39:12Z"
 [[version]]
 id = "2026-10-golden-remora"
 minted_at = "2026-10-01T21:39:12Z"
-state = "development"
+state = "supported"
+spec_sha256 = "3d64189ec0b565b8ffa1e6579c4599ae976cdee981164eb052d2432b549863e4"
+asyncapi_sha256 = "13fbba359e9683c44e105f96a4f3310dd9e096b448ecf5b2fba139d44289d1d0"
 
 [[version.history]]
 state = "development"
 at = "2026-10-01T21:39:12Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-10-08T20:12:18Z"
+
+[[version]]
+id = "2026-10-virile-dragon"
+minted_at = "2026-10-08T20:12:18Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-10-08T20:12:18Z"

@@ -119,6 +119,24 @@ val event = webhook.verify(body, headers)
 
 **Pin your client** to `LingaraClient.GENERATED_FOR_VERSION`. Event data is rendered at your OAuth client's pinned version, and the classes are this release's models.
 
+## Embedding Lingara
+
+A game or website can vouch for its own players: your server mints each player a short-lived embed token, and the player's device uses it. The three calls are `LingaraClient` extensions in `com.getlingara.kotlin.embed`: import them from that package.
+
+```kotlin
+val minted = client.createEmbedToken(EmbedTokenRequest(playerRef = "player-1001")).body
+// store minted.subject; hand minted.token.exposeSecret() (lgr_et_…) to the device
+```
+
+- **Mint on your server, never on the player's device**, from a **metered** client holding `embed:mint` (a client built with explicit `scopes` must list it). Otherwise the answer is a `403` `insufficient_scope` or `embed_needs_metered`, thrown as an `ApiException`. **Store `subject`** beside your player: it is the player's stable `lgr_sub_`, and how every event names them.
+- `MintedToken.token` renders as `[REDACTED]` like every token here, and so does the `MintedToken` itself; `exposeSecret()` reads it. The token lives 900 s and Lingara never refreshes it, so mint again when the player kit asks. `expiresIn` (a `java.time.Duration`) is there for a device whose clock cannot be trusted; `expiresAt` for one whose clock can.
+- `deleteEmbedPlayer(playerRef)` deletes a player and revokes their tokens. An unknown player is still a success, so it is idempotent, and it keeps working while embedding is switched off for your client. The answer has no body: the `ApiResponse<Unit>` carries only `servedVersion`.
+- `sendDialogueTurn` streams an NPC's reply, `Delta` by `Delta`. The window is yours: at most 12 `history` entries, `line` and each entry at most 500 characters, and no total cap. Send each NPC reply back cut to its first 500 characters. A turn is **never retried**: each attempt spends the player's NPC cells and your metered cells, so a `429` or `503` is thrown at once as an `ApiException` with its `retryAfter`, and you decide whether to send it again. No retry helps `403 embed_needs_metered`, or `422 safety_input_flagged`, which means say something else.
+- `PracticeCompleted` arrives through the webhook, the feed and the tail when your client holds `events:read` and `embed:play`; its `subject` names the player. `InboundEvent.WorldPracticeCompleted(data)` sends one, with `events:write` and `embed:play`.
+- **A player-side caller** supplies its embed token through a custom `TokenSource` (`tokenSource = …`, wrapping it in `AccessToken(…)`); no client secret is involved there. The library never sends `X-Lingara-Embed-Origin`, so a token minted with an `origin` belongs to the browser widget: a game mints without one.
+
+The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk) build on these calls: server kits for higher-level minting and webhook helpers, and player kits for the engines.
+
 ## Security
 
 The client secret and access tokens never appear in any `toString()`, exception message or log line. They render as `[REDACTED]`. `ClientSecret.exposeSecret()` and `AccessToken.exposeSecret()` are the only ways to read them. See [SECURITY.md](../SECURITY.md).

@@ -23,7 +23,8 @@ type observed struct {
 	servedVersion any
 	sleeps        []int
 	hooks         []any
-	// renderings is every rendering of the client and of a returned error.
+	// renderings is every rendering of the client, of a returned error and
+	// of a completed call's result.
 	renderings []string
 	// What an events or tail step yielded (events.go).
 	eventIDs     []any
@@ -93,19 +94,20 @@ func invoke(r *rig, call map[string]any) observed {
 	case "sendTutorMessage":
 		s, err := c.SendTutorMessage(ctx, body[lingara.TutorTurnRequest](call))
 		return drain(stream(s, err))
+	case "sendDialogueTurn":
+		s, err := c.SendDialogueTurn(ctx, body[lingara.DialogueTurnRequest](call))
+		return drain(stream(s, err))
 	case "streamEvents":
 		s, err := c.StreamEvents(ctx, streamEventsOptions(params))
 		return drain(stream(s, err))
-	case "listEvents":
-		return result(c.ListEvents(ctx, listEventsOptions(params)))
-	case "sendEvent":
-		return sendEvent(ctx, c, call)
 	default:
-		return invokeJSON(ctx, c, operation, id)
+		return invokeJSON(ctx, c, operation, call)
 	}
 }
 
-func invokeJSON(ctx context.Context, c *lingara.Client, operation, id string) observed {
+func invokeJSON(ctx context.Context, c *lingara.Client, operation string, call map[string]any) observed {
+	params, _ := call["params"].(map[string]any)
+	id, _ := params["id"].(string)
 	switch operation {
 	case "getLessonPlan":
 		return result(c.GetLessonPlan(ctx, id))
@@ -119,6 +121,24 @@ func invokeJSON(ctx context.Context, c *lingara.Client, operation, id string) ob
 		return result(c.ListAPIVersions(ctx))
 	case "getApiVersion":
 		return result(c.GetAPIVersion(ctx, id))
+	}
+	return invokeWithInput(ctx, c, operation, call)
+}
+
+// invokeWithInput runs the JSON operations that take a body, query or a
+// named path parameter.
+func invokeWithInput(ctx context.Context, c *lingara.Client, operation string, call map[string]any) observed {
+	params, _ := call["params"].(map[string]any)
+	switch operation {
+	case "listEvents":
+		return result(c.ListEvents(ctx, listEventsOptions(params)))
+	case "sendEvent":
+		return sendEvent(ctx, c, call)
+	case "createEmbedToken":
+		return minted(c.CreateEmbedToken(ctx, body[lingara.EmbedTokenRequest](call)))
+	case "deleteEmbedPlayer":
+		ref, _ := params["player_ref"].(string)
+		return noContent(c.DeleteEmbedPlayer(ctx, ref))
 	}
 	return observed{outcome: "harness: no operation " + operation}
 }
@@ -135,7 +155,43 @@ func result[T any](res *lingara.Result[T], err error) observed {
 	if err != nil {
 		return failed(err, nil, nil)
 	}
-	return observed{outcome: "completed", status: 200, body: res.Value, servedVersion: orNil(res.ServedVersion)}
+	return observed{outcome: "completed", status: 200, body: res.Value, servedVersion: orNil(res.ServedVersion), renderings: rendered(res)}
+}
+
+// noContent is a bodiless 204 result (ADR 1.10.26w D4).
+func noContent(res *lingara.Result[struct{}], err error) observed {
+	if err != nil {
+		return failed(err, nil, nil)
+	}
+	return observed{outcome: "completed", status: 204, servedVersion: orNil(res.ServedVersion), renderings: rendered(res)}
+}
+
+// minted reports a MintedToken's body in wire form, read through the
+// exposing accessor: snake_case keys, expires_at as received and expires_in
+// in whole seconds. Its renderings are the result's own, which redact.
+func minted(res *lingara.Result[lingara.MintedToken], err error) observed {
+	if err != nil {
+		return failed(err, nil, nil)
+	}
+	m := res.Value
+	wire := map[string]any{
+		"token": m.Token.ExposeSecret(), "expires_at": m.ExpiresAt.Format(time.RFC3339), "expires_in": int64(m.ExpiresIn / time.Second),
+		"subject": m.Subject, "scopes": m.Scopes, "account_linked": m.AccountLinked,
+	}
+	return observed{outcome: "completed", status: 200, body: wire, servedVersion: orNil(res.ServedVersion), renderings: rendered(res)}
+}
+
+// rendered is every rendering of a completed call's result, for the
+// `redacted` scan (conformance/README.md; ADR 1.10.26w D7).
+func rendered(v any) []string {
+	var out []string
+	for _, verb := range []string{"%v", "%+v", "%#v", "%s"} {
+		out = append(out, fmt.Sprintf(verb, v))
+	}
+	if raw, err := json.Marshal(v); err == nil {
+		out = append(out, string(raw))
+	}
+	return out
 }
 
 // stream erases a stream's event type, so one consume serves all four.

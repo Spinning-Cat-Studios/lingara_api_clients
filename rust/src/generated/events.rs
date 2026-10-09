@@ -67,6 +67,39 @@ pub struct AppUninstalled {
     pub subject: String,
     pub data: super::models::AppUninstalledData,
 }
+/// `app.disabled`, with its typed `data`: [`Event::AppDisabled`].
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct AppDisabled {
+    /// `lgr_evt_…`: the key to deduplicate deliveries by.
+    pub id: String,
+    pub created_at: String,
+    /// The API version `data` is rendered at: your client's pin.
+    pub api_version: String,
+    pub subject: String,
+    pub data: super::models::AppDisabledData,
+}
+/// `app.enabled`, with its typed `data`: [`Event::AppEnabled`].
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct AppEnabled {
+    /// `lgr_evt_…`: the key to deduplicate deliveries by.
+    pub id: String,
+    pub created_at: String,
+    /// The API version `data` is rendered at: your client's pin.
+    pub api_version: String,
+    pub subject: String,
+    pub data: super::models::AppEnabledData,
+}
+/// `practice.completed`, with its typed `data`: [`Event::PracticeCompleted`].
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+pub struct PracticeCompleted {
+    /// `lgr_evt_…`: the key to deduplicate deliveries by.
+    pub id: String,
+    pub created_at: String,
+    /// The API version `data` is rendered at: your client's pin.
+    pub api_version: String,
+    pub subject: String,
+    pub data: super::models::PracticeCompletedData,
+}
 /// An event type newer than this crate. Acknowledge it (answer a
 /// webhook `2xx`) and log it: the catalogue only grows, and an
 /// unacknowledged delivery is retried for about a day.
@@ -91,6 +124,9 @@ pub enum Event {
     WebhookTest(WebhookTest),
     AppInstalled(AppInstalled),
     AppUninstalled(AppUninstalled),
+    AppDisabled(AppDisabled),
+    AppEnabled(AppEnabled),
+    PracticeCompleted(PracticeCompleted),
     Unknown(UnknownEvent),
 }
 impl Event {
@@ -103,6 +139,9 @@ impl Event {
             Event::WebhookTest(e) => &e.id,
             Event::AppInstalled(e) => &e.id,
             Event::AppUninstalled(e) => &e.id,
+            Event::AppDisabled(e) => &e.id,
+            Event::AppEnabled(e) => &e.id,
+            Event::PracticeCompleted(e) => &e.id,
             Event::Unknown(e) => &e.id,
         }
     }
@@ -115,6 +154,9 @@ impl Event {
             Event::WebhookTest(_) => "webhook.test",
             Event::AppInstalled(_) => "app.installed",
             Event::AppUninstalled(_) => "app.uninstalled",
+            Event::AppDisabled(_) => "app.disabled",
+            Event::AppEnabled(_) => "app.enabled",
+            Event::PracticeCompleted(_) => "practice.completed",
             Event::Unknown(e) => &e.type_,
         }
     }
@@ -126,6 +168,9 @@ impl Event {
             Event::WebhookTest(e) => &e.created_at,
             Event::AppInstalled(e) => &e.created_at,
             Event::AppUninstalled(e) => &e.created_at,
+            Event::AppDisabled(e) => &e.created_at,
+            Event::AppEnabled(e) => &e.created_at,
+            Event::PracticeCompleted(e) => &e.created_at,
             Event::Unknown(e) => &e.created_at,
         }
     }
@@ -138,6 +183,9 @@ impl Event {
             Event::WebhookTest(e) => &e.api_version,
             Event::AppInstalled(e) => &e.api_version,
             Event::AppUninstalled(e) => &e.api_version,
+            Event::AppDisabled(e) => &e.api_version,
+            Event::AppEnabled(e) => &e.api_version,
+            Event::PracticeCompleted(e) => &e.api_version,
             Event::Unknown(e) => &e.api_version,
         }
     }
@@ -149,6 +197,9 @@ impl Event {
             Event::WebhookTest(e) => &e.subject,
             Event::AppInstalled(e) => &e.subject,
             Event::AppUninstalled(e) => &e.subject,
+            Event::AppDisabled(e) => &e.subject,
+            Event::AppEnabled(e) => &e.subject,
+            Event::PracticeCompleted(e) => &e.subject,
             Event::Unknown(e) => &e.subject,
         }
     }
@@ -181,6 +232,11 @@ impl<'de> serde::Deserialize<'de> for Event {
             "webhook.test" => serde_json::from_value(value).map(Event::WebhookTest),
             "app.installed" => serde_json::from_value(value).map(Event::AppInstalled),
             "app.uninstalled" => serde_json::from_value(value).map(Event::AppUninstalled),
+            "app.disabled" => serde_json::from_value(value).map(Event::AppDisabled),
+            "app.enabled" => serde_json::from_value(value).map(Event::AppEnabled),
+            "practice.completed" => {
+                serde_json::from_value(value).map(Event::PracticeCompleted)
+            }
             _ => serde_json::from_value(value).map(Event::Unknown),
         };
         event.map_err(serde::de::Error::custom)
@@ -201,4 +257,6 @@ pub enum InboundEvent {
     WorldContextChanged(super::models::WorldContextChanged),
     #[serde(rename = "world.practice_requested")]
     WorldPracticeRequested(super::models::WorldPracticeRequested),
+    #[serde(rename = "world.practice_completed")]
+    WorldPracticeCompleted(super::models::WorldPracticeCompleted),
 }

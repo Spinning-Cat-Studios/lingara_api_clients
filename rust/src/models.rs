@@ -6,4 +6,6 @@
 //! `VocabRequest.count` is `Option<NonZeroU8>`.
 
 pub use crate::generated::models::*;
-pub use crate::generated::streams::{CreateLessonPlanEvent, GenerateVocabularyEvent, SendTutorMessageEvent, StreamEventsEvent, StreamLessonPlanEvent};
+pub use crate::generated::streams::{
+    CreateLessonPlanEvent, GenerateVocabularyEvent, SendDialogueTurnEvent, SendTutorMessageEvent, StreamEventsEvent, StreamLessonPlanEvent,
+};

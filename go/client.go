@@ -176,6 +176,22 @@ func sendJSON[T any](ctx context.Context, c *Client, r request) (*Result[T], err
 	return &Result[T]{Value: value, ServedVersion: served}, nil
 }
 
+// sendNoContent sends one request whose success has no body, a 204 (ADR
+// 1.10.26w D4). Any 2xx is success and its body is discarded unread, so a
+// later 200 {} is not a break; the Lingara-Version echo and the deprecation
+// hook are observed as for a JSON answer.
+func sendNoContent(ctx context.Context, c *Client, r request) (*Result[struct{}], error) {
+	res, err := c.send(ctx, ctx, r)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+	served := c.versions.observe(res.Header, res.Request.URL)
+	// Drained, never read, so the connection can be reused.
+	_, _ = io.Copy(io.Discard, io.LimitReader(res.Body, 64<<10))
+	return &Result[struct{}]{ServedVersion: served}, nil
+}
+
 // streamCall names one stream operation and its input: a path id, or a body,
 // and any query, extra headers or single attempt (a tail open, K5a).
 type streamCall struct {
@@ -220,9 +236,16 @@ func openStream[E any](ctx context.Context, c *Client, op streamCall, decode fun
 	}, nil
 }
 
-// url is the base URL and the route's path, with {id} percent-encoded.
-func (c *Client) url(path, id string) string {
-	return c.baseURL + strings.ReplaceAll(path, "{id}", encodeSegment(id))
+// url is the base URL and the route's path, with its one {…} placeholder,
+// whatever its name ({id}, {player_ref}), replaced by param encoded as one
+// segment (ADR 1.10.26w D5). A path with no placeholder ignores param.
+func (c *Client) url(path, param string) string {
+	if open := strings.IndexByte(path, '{'); open >= 0 {
+		if length := strings.IndexByte(path[open:], '}'); length >= 0 {
+			path = path[:open] + encodeSegment(param) + path[open+length+1:]
+		}
+	}
+	return c.baseURL + path
 }
 
 // withQuery appends a query string, when there is one.

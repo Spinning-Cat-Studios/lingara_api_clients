@@ -57,4 +57,32 @@ class RedactionTest < Minitest::Test
   ensure
     server&.close
   end
+
+  MINTED = "lgr_et_unit0000000000000000000000000000000000000"
+  MINT_ANSWER = {token: MINTED, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: "lgr_sub_unit",
+                 scopes: ["embed:play"], account_linked: false}.freeze
+
+  # 1.10.26w AC19: inspect, to_s and pp of a MintedToken (and of the
+  # Response holding it) show [REDACTED], never the lgr_et_ value, while
+  # token.expose_secret returns it; a fixture missing subject is refused as
+  # malformed_response, and that error renders nothing of the body.
+  def test_a_minted_token_renders_redacted
+    minted = Lingara::MintedToken.decode(JSON.generate(MINT_ANSWER))
+    assert_equal MINTED, minted.token.expose_secret
+    assert_equal [Time.utc(2026, 10, 1, 9, 27, 44), 900, "lgr_sub_unit", ["embed:play"], false],
+      [minted.expires_at, minted.expires_in, minted.subject, minted.scopes, minted.account_linked]
+    [minted, Lingara::Response.new(minted, nil)].each do |holder|
+      renderings(holder).each do |text|
+        refute_includes text, MINTED
+        assert_includes text, "[REDACTED]"
+      end
+    end
+
+    error = assert_raises(Lingara::TransportError) { Lingara::MintedToken.decode(JSON.generate(MINT_ANSWER.except(:subject))) }
+    assert_equal :malformed_response, error.kind
+    assert_nil error.cause
+    renderings(error).each { |text| refute_includes text, MINTED }
+    wrong = MINT_ANSWER.merge(token: "lgr_at_notminted")
+    assert_raises(Lingara::TransportError) { Lingara::MintedToken.decode(JSON.generate(wrong)) }
+  end
 end

@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara API",
     "x-i18n": "info",
-    "version": "2026-10-golden-remora",
+    "version": "2026-10-virile-dragon",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage."
   },
   "servers": [
@@ -1406,6 +1406,148 @@
           "204": {
             "x-i18n": "ops.embed_player_delete.no_content",
             "description": "The player is gone",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/embed/players/{player_ref}/link": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "put": {
+        "operationId": "linkEmbedPlayer",
+        "tags": [
+          "embed"
+        ],
+        "x-i18n": "ops.embed_player_link",
+        "summary": "Link a player to their Lingara account",
+        "description": "Links one of your players to the Lingara account that just granted your app access. Call it with the delegated token your server received for that account, never with your client's own token. From then on the player's tokens act as the account, as far as the grant allows: ask for `events:read` or you hear nothing about the player after the link. Settled plans move to the account; a plan still being written stays until you call again. Safe to repeat: a repeat answers `existing` and moves what could not move before. Linking costs you nothing.",
+        "security": [
+          {
+            "oauth2": [
+              "embed:play"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlayerRef"
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.embed_player_link.ok",
+            "description": "The player's link",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbedPlayerLink"
+                },
+                "example": {
+                  "status": "linked",
+                  "subject": "lgr_sub_9c41d07be2a35f6810c4e9d2b7a3f650",
+                  "previous_subject": "lgr_sub_2be0f15a8c7d3e9604b1a2c5d8e7f903",
+                  "linked_at": "2026-11-02T18:04:11Z",
+                  "scopes": [
+                    "embed:play",
+                    "events:read",
+                    "events:write",
+                    "lesson_plans:read",
+                    "lesson_plans:write"
+                  ],
+                  "carried": {
+                    "lesson_plans": 4
+                  },
+                  "kept": {
+                    "lesson_plans": 1
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "unlinkEmbedPlayer",
+        "tags": [
+          "embed"
+        ],
+        "x-i18n": "ops.embed_player_unlink",
+        "summary": "Unlink a player from their Lingara account",
+        "description": "Ends a player's link. The player plays as your guest again from the next call. Nothing moves back: what the link carried stays in the learner's account. A player with no live link, or one already unlinked, answers `404 embed_link_not_found`.",
+        "security": [
+          {
+            "oauth2": [
+              "embed:mint"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlayerRef"
+          }
+        ],
+        "responses": {
+          "204": {
+            "x-i18n": "ops.embed_player_unlink.no_content",
+            "description": "The link has ended",
             "headers": {
               "Lingara-Version": {
                 "$ref": "#/components/headers/LingaraVersion"
@@ -3124,6 +3266,38 @@
           "install_id"
         ]
       },
+      "AppDisabledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
+      "AppEnabledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
       "AppContextSlice": {
         "type": "string",
         "enum": [
@@ -3569,6 +3743,74 @@
           "subject",
           "scopes",
           "account_linked"
+        ]
+      },
+      "EmbedPlayerLink": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/LinkStatus"
+          },
+          "subject": {
+            "x-i18n": "schemas.embed_link.subject",
+            "description": "The account's `lgr_sub_`: what this player's events carry from now on.",
+            "type": "string"
+          },
+          "previous_subject": {
+            "x-i18n": "schemas.embed_link.previous_subject",
+            "description": "The guest's `lgr_sub_`: what the player's earlier events keep. Route both to the same `player_ref`.",
+            "type": "string"
+          },
+          "linked_at": {
+            "x-i18n": "schemas.embed_link.linked_at",
+            "description": "When the link was made. On an `existing` answer, the first call's time.",
+            "type": "string",
+            "format": "date-time"
+          },
+          "scopes": {
+            "x-i18n": "schemas.embed_link.scopes",
+            "description": "The most a token for this player can now hold: what the account granted, of the scopes a player's token can carry.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "carried": {
+            "x-i18n": "schemas.embed_link.carried",
+            "description": "Rows this call moved to the account, per table. Only tables with a count appear.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "kept": {
+            "x-i18n": "schemas.embed_link.kept",
+            "description": "Rows this call left with the guest, per table: a plan still being written, or a row the account already had. Call again once `lesson_plans` here has a plan that has finished.",
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "required": [
+          "status",
+          "subject",
+          "previous_subject",
+          "linked_at",
+          "scopes",
+          "carried",
+          "kept"
+        ]
+      },
+      "LinkStatus": {
+        "x-i18n": "schemas.embed_link.status",
+        "description": "`linked`: this call made the link. `existing`: it was already live for this account, and the counts are only what this call moved.",
+        "type": "string",
+        "enum": [
+          "linked",
+          "existing"
         ]
       },
       "DialogueTurnRequest": {

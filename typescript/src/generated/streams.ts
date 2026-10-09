@@ -42,6 +42,14 @@ export const STREAMS = {
     events: ["event", "done", "error"],
     ends: { done: "end", error: "raise" },
   },
+  sendDialogueTurn: {
+    method: "POST",
+    path: "/v1/embed/dialogue/turns",
+    requestBody: "DialogueTurnRequest",
+    union: "SendDialogueTurnEvent",
+    events: ["delta", "notice", "done", "error"],
+    ends: { done: "end", error: "raise" },
+  },
 } as const;
 
 export type StreamOperation = keyof typeof STREAMS;

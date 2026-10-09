@@ -134,6 +134,7 @@ describe("EventStream", () => {
     const cases: [StreamOperation, string, boolean][] = [
       ["generateVocabulary", "done", false],
       ["sendTutorMessage", "done", false],
+      ["sendDialogueTurn", "done", false],
       ["createLessonPlan", "result", true],
       ["streamLessonPlan", "result", true],
       ["streamLessonPlan", "pending", true],

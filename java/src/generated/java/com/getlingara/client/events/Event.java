@@ -17,6 +17,9 @@ public sealed interface Event
         WebhookTest,
         AppInstalled,
         AppUninstalled,
+        AppDisabled,
+        AppEnabled,
+        PracticeCompleted,
         UnknownEvent {
   /**
    * Returns the event's id, {@code lgr_evt_…}: the receiver's deduplication key.

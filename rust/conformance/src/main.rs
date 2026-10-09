@@ -20,7 +20,7 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 use compare::{Observed, compare, substitute};
-use observe::{json_result, stream};
+use observe::{empty_result, json_result, minted_result, stream};
 use rig::{Rig, Urls};
 
 /// The crate under test's own manifest, for its version.
@@ -170,7 +170,11 @@ fn input<T: DeserializeOwned>(call: &Value, key: &str) -> Result<T, String> {
 }
 
 fn id(call: &Value) -> Result<String, String> {
-    call.pointer("/params/id").and_then(Value::as_str).map(str::to_owned).ok_or_else(|| "params.id is missing".to_owned())
+    param(call, "id")
+}
+
+fn param(call: &Value, name: &str) -> Result<String, String> {
+    call.get("params").and_then(|p| p.get(name)).and_then(Value::as_str).map(str::to_owned).ok_or_else(|| format!("params.{name} is missing"))
 }
 
 async fn invoke(rig: &Rig, call: &Value) -> Result<Observed, String> {
@@ -196,6 +200,9 @@ async fn invoke(rig: &Rig, call: &Value) -> Result<Observed, String> {
             seen.status = seen.status.map(|_| 202);
             seen
         }
+        "createEmbedToken" => minted_result(c.create_embed_token(&input(call, "body")?).await),
+        "deleteEmbedPlayer" => empty_result(c.delete_embed_player(&param(call, "player_ref")?).await),
+        "sendDialogueTurn" => stream(c.send_dialogue_turn(&input(call, "body")?).await, cancel).await,
         other => return Err(format!("no operation {other}")),
     })
 }

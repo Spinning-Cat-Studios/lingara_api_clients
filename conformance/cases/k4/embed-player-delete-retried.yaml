@@ -1,0 +1,21 @@
+id: k4.embed-player-delete-retried
+title: A 503 with Retry-After on deleteEmbedPlayer is slept and retried once, and the second DELETE's 204 completes
+behaviours: [K4]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: deleteEmbedPlayer
+      params: { player_ref: p-1001 }
+    expect:
+      outcome: completed
+      status: 204
+      sleeps_s: [1]
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k4delete, token_type: Bearer, expires_in: 3600, scope: "embed:mint" } }
+    - request: { method: DELETE, path: /v1/embed/players/p-1001 }
+      response: { status: 503, headers: { retry-after: "1" }, json: { code: unavailable, error: Try again shortly. } }
+    - request: { method: DELETE, path: /v1/embed/players/p-1001 }
+      response: { status: 204 }

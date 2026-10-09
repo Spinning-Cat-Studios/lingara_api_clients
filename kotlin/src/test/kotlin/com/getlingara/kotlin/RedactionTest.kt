@@ -1,10 +1,15 @@
 package com.getlingara.kotlin
 
+import com.getlingara.kotlin.embed.MintedToken
 import com.getlingara.kotlin.internal.ErrorMapper
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Test
 import java.io.IOException
 import java.lang.reflect.Modifier
+import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -58,6 +63,40 @@ class RedactionTest {
             assertOnlyExposeSecretIsRaw(AccessToken(TOKEN), TOKEN)
         }
 
+    /**
+     * 1.10.26w AC18: MintedToken.toString() redacts and token.exposeSecret() returns the value,
+     * while the other five fields read as sent; a fixture missing subject is refused as
+     * malformed_response, and that error renders no token.
+     */
+    @Test
+    fun aMintedTokenRendersRedacted() {
+        val fields =
+            mapOf(
+                "token" to JsonPrimitive(MINTED),
+                "expires_at" to JsonPrimitive("2026-10-01T09:27:44Z"),
+                "expires_in" to JsonPrimitive(900),
+                "subject" to JsonPrimitive("lgr_sub_redact"),
+                "scopes" to JsonArray(listOf(JsonPrimitive("embed:play"))),
+                "account_linked" to JsonPrimitive(false),
+            )
+        val token = MintedToken.of(JsonObject(fields))
+        assertFalse(token.toString().contains(MINTED), token.toString())
+        assertTrue(token.toString().contains("[REDACTED]"))
+        assertFalse(ApiResponse(token, null).toString().contains(MINTED))
+        assertEquals(MINTED, token.token.exposeSecret())
+        assertEquals("2026-10-01T09:27:44Z", token.expiresAt)
+        assertEquals(Duration.ofSeconds(900), token.expiresIn)
+        assertEquals("lgr_sub_redact", token.subject)
+        assertEquals(listOf("embed:play"), token.scopes)
+        assertFalse(token.accountLinked)
+
+        val refused = assertFailsWith<TransportException> { MintedToken.of(JsonObject(fields - "subject")) }
+        assertEquals(TransportKind.MALFORMED_RESPONSE, refused.kind)
+        renderings(refused).forEach { assertFalse(it.contains(MINTED), it) }
+        val notEmbed = fields + ("token" to JsonPrimitive("lgr_at_not_an_embed_token"))
+        assertFailsWith<TransportException> { MintedToken.of(JsonObject(notEmbed)) }
+    }
+
     private fun assertOnlyExposeSecretIsRaw(
         holder: Any,
         raw: String,
@@ -71,5 +110,6 @@ class RedactionTest {
     private companion object {
         const val SECRET = "lgr_cs_redact_0123456789abcdefghijklmnopqrstu"
         const val TOKEN = "lgr_at_redact_token"
+        const val MINTED = "lgr_et_redact_0123456789abcdefghijklmnopqrstuvwxyz0"
     }
 }

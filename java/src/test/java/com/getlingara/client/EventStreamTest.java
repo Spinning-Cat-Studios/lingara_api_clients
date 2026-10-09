@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlingara.client.internal.Streams;
 import com.getlingara.client.model.CreateLessonPlanEvent;
 import com.getlingara.client.model.GenerateVocabularyEvent;
+import com.getlingara.client.model.SendDialogueTurnEvent;
 import com.getlingara.client.model.SendTutorMessageEvent;
 import com.getlingara.client.model.StreamLessonPlanEvent;
 import com.getlingara.client.model.VocabRequest;
@@ -247,6 +248,12 @@ class EventStreamTest {
             DONE,
             Scripted.Body.FAIL);
     assertEquals(1, tutor.size());
+    // 1.10.26w D8: the NPC turn is the tutor's shape; bytes after done are never read.
+    String delta = "event: delta\ndata: {\"text\":\"十块钱\"}\n\n";
+    List<SendDialogueTurnEvent> dialogue =
+        run(Streams.SEND_DIALOGUE_TURN, Streams::decodeSendDialogueTurn, delta, DONE, delta);
+    assertEquals(1, dialogue.size());
+    assertInstanceOf(SendDialogueTurnEvent.Delta.class, dialogue.get(0));
     assertTerminalTableIsTheView();
   }
 

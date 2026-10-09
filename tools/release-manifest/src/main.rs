@@ -55,7 +55,7 @@ fn with_release(release: &Release, words: &[&str]) -> Result<String, Fail> {
         ["langs"] => Ok(line(install::langs(release))),
         ["artefact", id, tag] => Ok(install::artefact(release, id, tag)?.map(|(b, u)| line(format!("{b}\t{u}"))).unwrap_or_default()),
         ["install-line", id, tag] => install::install_line(release, id, tag),
-        // Packagist has no per-version URL: nothing printed, exit 3.
+        // Packagist and the stores have no per-version URL: nothing printed, exit 3.
         ["probe", id, tag] => match registry::probe(release, id, tag)? {
             Some(urls) => Ok(urls.iter().map(|u| line(u.clone())).collect()),
             None => Err(Fail { code: 3, message: String::new() }),

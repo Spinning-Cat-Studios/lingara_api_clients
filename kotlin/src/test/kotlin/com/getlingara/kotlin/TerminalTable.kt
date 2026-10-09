@@ -20,10 +20,14 @@ object TerminalTable {
     fun assertIsTheView() {
         val view = Json.parseToJsonElement(File(System.getProperty("lingara.view")).readText()).jsonObject
         val streams = view.getValue("x-lingara-streams").jsonArray.map { it.jsonObject }
-        val methods =
-            LingaraClient::class.java.methods
-                .map { it.name }
-                .toSet()
+        // A stream method is a member, or an extension on LingaraClient where the client file is at
+        // its function budget (ADR 1.10.26w D8: sendDialogueTurn in embed/ClientEmbed.kt).
+        val extensions =
+            Class
+                .forName("com.getlingara.kotlin.embed.ClientEmbedKt")
+                .methods
+                .filter { it.parameterTypes.firstOrNull() == LingaraClient::class.java }
+        val methods = (LingaraClient::class.java.methods.toList() + extensions).map { it.name }.toSet()
         for (entry in streams) {
             val id = entry.text("operationId")
             val route = assertNotNull(Streams.ROUTES[id], id)

@@ -12,14 +12,15 @@ output-options:
   # x-lingara-streams or from the excluded unions; the default prune drops them.
   skip-prune: true
   # oapi-codegen's oneOf output imports its runtime package. go/codegen writes
-  # these five as sealed interfaces in streams_gen.go instead; the event tail's
-  # union is ADR 30.9.26aa D7's.
+  # these six as sealed interfaces in streams_gen.go instead; the event tail's
+  # union is ADR 30.9.26aa D7's, the NPC turn's ADR 1.10.26w D6's.
   exclude-schemas:
     - GenerateVocabularyEvent
     - CreateLessonPlanEvent
     - StreamLessonPlanEvent
     - SendTutorMessageEvent
     - StreamEventsEvent
+    - SendDialogueTurnEvent
   # The default maps format uuid to a type from the runtime package.
   type-mapping:
     string:

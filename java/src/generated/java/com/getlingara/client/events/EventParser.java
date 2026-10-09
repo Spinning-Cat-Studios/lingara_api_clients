@@ -74,6 +74,12 @@ final class EventParser {
         return new AppInstalled(id, createdAt, apiVersion, subject, decode(data, com.getlingara.client.model.AppInstalledData.class));
       case AppUninstalled.TYPE:
         return new AppUninstalled(id, createdAt, apiVersion, subject, decode(data, com.getlingara.client.model.AppUninstalledData.class));
+      case AppDisabled.TYPE:
+        return new AppDisabled(id, createdAt, apiVersion, subject, decode(data, com.getlingara.client.model.AppDisabledData.class));
+      case AppEnabled.TYPE:
+        return new AppEnabled(id, createdAt, apiVersion, subject, decode(data, com.getlingara.client.model.AppEnabledData.class));
+      case PracticeCompleted.TYPE:
+        return new PracticeCompleted(id, createdAt, apiVersion, subject, decode(data, com.getlingara.client.model.PracticeCompletedData.class));
       default:
         return new UnknownEvent(id, type, createdAt, apiVersion, subject, data);
     }

@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara events",
     "x-i18n": "asyncapi.info",
-    "version": "2026-10-golden-remora",
+    "version": "2026-10-virile-dragon",
     "description": "The events Lingara sends about your account, to a webhook endpoint you register or through the event feed and stream, and the events your game or integration can send to Lingara. Every outbound event is the same envelope on every transport."
   },
   "servers": {
@@ -58,6 +58,12 @@
         "appUninstalled": {
           "$ref": "#/components/messages/AppUninstalled"
         },
+        "appDisabled": {
+          "$ref": "#/components/messages/AppDisabled"
+        },
+        "appEnabled": {
+          "$ref": "#/components/messages/AppEnabled"
+        },
         "practiceCompleted": {
           "$ref": "#/components/messages/PracticeCompleted"
         }
@@ -89,6 +95,12 @@
         "appUninstalled": {
           "$ref": "#/components/messages/AppUninstalled"
         },
+        "appDisabled": {
+          "$ref": "#/components/messages/AppDisabled"
+        },
+        "appEnabled": {
+          "$ref": "#/components/messages/AppEnabled"
+        },
         "practiceCompleted": {
           "$ref": "#/components/messages/PracticeCompleted"
         }
@@ -119,6 +131,12 @@
         },
         "appUninstalled": {
           "$ref": "#/components/messages/AppUninstalled"
+        },
+        "appDisabled": {
+          "$ref": "#/components/messages/AppDisabled"
+        },
+        "appEnabled": {
+          "$ref": "#/components/messages/AppEnabled"
         },
         "practiceCompleted": {
           "$ref": "#/components/messages/PracticeCompleted"
@@ -419,6 +437,102 @@
       "messages": [
         {
           "$ref": "#/channels/stream/messages/appUninstalled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppDisabledWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/appDisabled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppEnabledWebhook": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/webhook"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/webhook/messages/appEnabled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppDisabledFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/appDisabled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppEnabledFeed": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/feed"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/feed/messages/appEnabled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppDisabledStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/appDisabled"
+        }
+      ],
+      "security": [
+        {
+          "$ref": "#/components/securitySchemes/endpointOwner"
+        }
+      ]
+    },
+    "sendAppEnabledStream": {
+      "action": "send",
+      "channel": {
+        "$ref": "#/channels/stream"
+      },
+      "messages": [
+        {
+          "$ref": "#/channels/stream/messages/appEnabled"
         }
       ],
       "security": [
@@ -750,6 +864,38 @@
         ]
       },
       "AppUninstalledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
+      "AppDisabledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
+      "AppEnabledData": {
         "type": "object",
         "properties": {
           "client_id": {
@@ -1804,6 +1950,114 @@
               "id": "lgr_evt_00998877665544332211ffeeddccbbaa",
               "type": "app.uninstalled",
               "created_at": "2026-10-02T10:00:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "client_id": "lgr_cid_4hT9kQ2mZx7Lp1Vb8Nc3Rw",
+                "install_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f"
+              }
+            }
+          }
+        ]
+      },
+      "AppDisabled": {
+        "name": "app.disabled",
+        "x-i18n": "asyncapi.messages.app_disabled",
+        "description": "A learner paused your app. Only your app's own client receives it. If they installed it by granting access, then until they resume it your client's access tokens for this learner answer `403 app_disabled` and you hear no other event about them. `app.enabled` tells you when they resume.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "app.disabled"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AppDisabledData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_11223344556677889900aabbccddeeff",
+              "type": "app.disabled",
+              "created_at": "2026-10-07T10:00:00Z",
+              "api_version": "2026-09-equipped-boxfish",
+              "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
+              "data": {
+                "client_id": "lgr_cid_4hT9kQ2mZx7Lp1Vb8Nc3Rw",
+                "install_id": "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f"
+              }
+            }
+          }
+        ]
+      },
+      "AppEnabled": {
+        "name": "app.enabled",
+        "x-i18n": "asyncapi.messages.app_enabled",
+        "description": "A learner resumed your app. Only your app's own client receives it. Its existing tokens work again; no new consent is needed.",
+        "contentType": "application/json",
+        "payload": {
+          "type": "object",
+          "required": [
+            "id",
+            "type",
+            "created_at",
+            "api_version",
+            "subject",
+            "data"
+          ],
+          "properties": {
+            "id": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "const": "app.enabled"
+            },
+            "created_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "api_version": {
+              "type": "string"
+            },
+            "subject": {
+              "type": "string"
+            },
+            "data": {
+              "$ref": "#/components/schemas/AppEnabledData"
+            }
+          }
+        },
+        "examples": [
+          {
+            "payload": {
+              "id": "lgr_evt_ffeeddccbbaa00998877665544332211",
+              "type": "app.enabled",
+              "created_at": "2026-10-07T12:00:00Z",
               "api_version": "2026-09-equipped-boxfish",
               "subject": "lgr_sub_8f445eaad6febfab1731b2f8cb17c24e",
               "data": {

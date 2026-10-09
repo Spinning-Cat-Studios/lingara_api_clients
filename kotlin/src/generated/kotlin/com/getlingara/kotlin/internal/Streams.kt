@@ -107,9 +107,23 @@ internal object Streams {
             ::decodeStreamEvents,
         )
 
+    /** `sendDialogueTurn`. */
+    val SEND_DIALOGUE_TURN: Route<com.getlingara.kotlin.model.SendDialogueTurnEvent> =
+        Route(
+            "sendDialogueTurn",
+            "POST",
+            "/v1/embed/dialogue/turns",
+            com.getlingara.kotlin.model.DialogueTurnRequest::class,
+            listOf(),
+            listOf("delta", "notice", "done", "error"),
+            mapOf("done" to Ending.QUIET, "error" to Ending.RAISE),
+            mapOf("delta" to com.getlingara.kotlin.model.TurnDelta.serializer(), "notice" to com.getlingara.kotlin.model.Notice.serializer(), "done" to kotlinx.serialization.json.JsonElement.serializer(), "error" to com.getlingara.kotlin.model.StreamError.serializer()),
+            ::decodeSendDialogueTurn,
+        )
+
     /** Every stream route, by operationId. */
     val ROUTES: Map<String, Route<*>> =
-        mapOf("generateVocabulary" to GENERATE_VOCABULARY, "createLessonPlan" to CREATE_LESSON_PLAN, "streamLessonPlan" to STREAM_LESSON_PLAN, "sendTutorMessage" to SEND_TUTOR_MESSAGE, "streamEvents" to STREAM_EVENTS)
+        mapOf("generateVocabulary" to GENERATE_VOCABULARY, "createLessonPlan" to CREATE_LESSON_PLAN, "streamLessonPlan" to STREAM_LESSON_PLAN, "sendTutorMessage" to SEND_TUTOR_MESSAGE, "streamEvents" to STREAM_EVENTS, "sendDialogueTurn" to SEND_DIALOGUE_TURN)
 
     /** Decodes one `generateVocabulary` event, or returns null for a name the union has no member for. */
     private fun decodeGenerateVocabulary(
@@ -170,6 +184,18 @@ internal object Streams {
     ): com.getlingara.kotlin.model.StreamEventsEvent? =
         when (event) {
             "event" -> com.getlingara.kotlin.model.StreamEventsEvent.Event(json.decodeFromJsonElement(com.getlingara.kotlin.model.EventEnvelope.serializer(), data))
+            else -> null
+        }
+
+    /** Decodes one `sendDialogueTurn` event, or returns null for a name the union has no member for. */
+    private fun decodeSendDialogueTurn(
+        event: String,
+        data: JsonElement,
+        json: Json,
+    ): com.getlingara.kotlin.model.SendDialogueTurnEvent? =
+        when (event) {
+            "delta" -> com.getlingara.kotlin.model.SendDialogueTurnEvent.Delta(json.decodeFromJsonElement(com.getlingara.kotlin.model.TurnDelta.serializer(), data))
+            "notice" -> com.getlingara.kotlin.model.SendDialogueTurnEvent.Notice(json.decodeFromJsonElement(com.getlingara.kotlin.model.Notice.serializer(), data))
             else -> null
         }
 }

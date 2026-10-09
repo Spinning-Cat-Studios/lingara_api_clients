@@ -1,7 +1,7 @@
 [package]
 name = "lingara"
 # Equal to the repository's VERSION; the release tooling writes both.
-version = "0.1.0-alpha.13"
+version = "0.2.0-alpha.1"
 edition = "2024"
 # 1.85 was the floor edition 2024 and its MSRV-aware resolver set. 1.87 is
 # the floor the tree sets: yoke-derive 0.8.3 (via reqwest's url stack) needs

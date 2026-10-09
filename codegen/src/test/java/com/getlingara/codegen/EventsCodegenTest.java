@@ -42,7 +42,7 @@ class EventsCodegenTest {
   void javaEmitterWritesTheUnionAndRefusesAGeneratorCopy() throws Exception {
     EventsCodegen codegen = new EventsCodegen(view(), sources, StreamsCodegen.Lang.JAVA);
     List<EventsCodegen.Entry> entries = codegen.entries();
-    assertEquals(6, entries.stream().filter(EventsCodegen.Entry::outbound).count());
+    assertEquals(9, entries.stream().filter(EventsCodegen.Entry::outbound).count());
     stageModels(MODEL, ".java", entries);
     codegen.write();
     Path events = sources.resolve("com/getlingara/client/events/");

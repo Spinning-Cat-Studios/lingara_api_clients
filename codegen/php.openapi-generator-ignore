@@ -12,3 +12,4 @@
 **/Model/StreamLessonPlanEvent*.php
 **/Model/SendTutorMessageEvent*.php
 **/Model/StreamEventsEvent*.php
+**/Model/SendDialogueTurnEvent*.php

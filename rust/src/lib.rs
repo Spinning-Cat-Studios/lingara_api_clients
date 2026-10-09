@@ -23,7 +23,8 @@
 //! Every library keeps one contract, `conformance/CONTRACT.md` in the
 //! repository: the token handling, retries, errors and streams below are
 //! its K1–K6, and [`events`] holds its K5a tail, its event helpers and its
-//! appendix W webhook verifier.
+//! appendix W webhook verifier. [`embed`] holds the calls a game's server
+//! makes for its players, and the redacting [`embed::MintedToken`].
 
 #[cfg(not(any(feature = "rustls", feature = "native-tls")))]
 compile_error!("lingara needs a TLS backend: enable the `rustls` feature (the default) or the `native-tls` feature");
@@ -31,6 +32,7 @@ compile_error!("lingara needs a TLS backend: enable the `rustls` feature (the de
 mod builder;
 mod builder_options;
 mod client;
+pub mod embed;
 mod error;
 pub mod events;
 mod generated;

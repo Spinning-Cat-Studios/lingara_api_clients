@@ -32,7 +32,13 @@ use Lingara\Exception\OAuthException;
 use Lingara\Exception\TransportException;
 use Lingara\HttpStack;
 use Lingara\Internal\Operations;
+use Lingara\MintedToken;
+use Lingara\Model\DialogueEntry;
+use Lingara\Model\DialogueTurnRequest;
+use Lingara\Model\EmbedTokenRequest;
 use Lingara\Model\LessonPlanCreateRequest;
+use Lingara\Model\Npc;
+use Lingara\Model\Speaker;
 use Lingara\Model\TutorTurnRequest;
 use Lingara\Model\VocabRequest;
 use Lingara\ObjectSerializer;
@@ -140,6 +146,9 @@ function invoke(Client $client, int $step): array
             'createLessonPlan' => consume($client->createLessonPlan(new LessonPlanCreateRequest($body)), $operation, $call['cancel_after_events'] ?? null),
             'sendTutorMessage' => consume($client->sendTutorMessage(new TutorTurnRequest($body)), $operation, $call['cancel_after_events'] ?? null),
             'streamLessonPlan' => consume($client->streamLessonPlan($id), $operation, $call['cancel_after_events'] ?? null),
+            'sendDialogueTurn' => consume($client->sendDialogueTurn(dialogueTurn($body)), $operation, $call['cancel_after_events'] ?? null),
+            'createEmbedToken' => completed($client->createEmbedToken(new EmbedTokenRequest($body))),
+            'deleteEmbedPlayer' => completed($client->deleteEmbedPlayer((string) ($call['params']['player_ref'] ?? '')), 204),
             'getLessonPlan' => completed($client->getLessonPlan($id)),
             'getApiVersion' => completed($client->getApiVersion($id)),
             'getUsage' => completed($client->getUsage()),
@@ -153,14 +162,47 @@ function invoke(Client $client, int $step): array
 }
 
 /**
+ * A case body as DialogueTurnRequest, its npc and history entries built as
+ * their models: the array constructor would leave them arrays, and the
+ * serializer's deserialize() would set every absent key to null, which
+ * sanitizeForSerialization then sends.
+ */
+function dialogueTurn(array $body): DialogueTurnRequest
+{
+    $body['npc'] = new Npc($body['npc']);
+    if (isset($body['history'])) {
+        $body['history'] = array_map(
+            static fn (array $entry): DialogueEntry => new DialogueEntry(['speaker' => Speaker::from($entry['speaker']), 'text' => $entry['text']]),
+            $body['history'],
+        );
+    }
+    return new DialogueTurnRequest($body);
+}
+
+/**
  * $status is the operation's success status: ApiResponse holds the body,
- * and every 2xx but sendEvent's 202 is a 200.
+ * and every 2xx but sendEvent's 202 and deleteEmbedPlayer's 204 is a 200.
+ * The result's renderings join the `redacted` scan (ADR 1.10.26w D7).
  *
  * @param ApiResponse<object> $response
  */
 function completed(ApiResponse $response, int $status = 200): array
 {
-    return ['outcome' => 'completed', 'status' => $status, 'body' => plain($response->value), 'served_version' => $response->servedVersion];
+    $value = $response->value;
+    $body = $value instanceof MintedToken ? wire($value) : plain($value);
+    return [
+        'outcome' => 'completed', 'status' => $status, 'body' => $body, 'served_version' => $response->servedVersion,
+        'renderings' => renderings($response),
+    ];
+}
+
+/** A MintedToken in wire form, through its one exposing accessor: snake_case, expires_at as received, expires_in in seconds. */
+function wire(MintedToken $token): array
+{
+    return [
+        'token' => $token->token->exposeSecret(), 'expires_at' => $token->expiresAt, 'expires_in' => $token->expiresIn,
+        'subject' => $token->subject, 'scopes' => $token->scopes, 'account_linked' => $token->accountLinked,
+    ];
 }
 
 /** Drains a stream; after `cancel_after_events` events it breaks out, which closes the connection. */

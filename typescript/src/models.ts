@@ -51,8 +51,24 @@ export type UsageThresholdReachedData = Schemas["UsageThresholdReachedData"];
 export type WebhookTestData = Schemas["WebhookTestData"];
 export type AppInstalledData = Schemas["AppInstalledData"];
 export type AppUninstalledData = Schemas["AppUninstalledData"];
+export type AppDisabledData = Schemas["AppDisabledData"];
+export type AppEnabledData = Schemas["AppEnabledData"];
+export type PracticeCompletedData = Schemas["PracticeCompletedData"];
 export type WorldContextChanged = Schemas["WorldContextChanged"];
 export type WorldPracticeRequested = Schemas["WorldPracticeRequested"];
+export type WorldPracticeCompleted = Schemas["WorldPracticeCompleted"];
+export type PracticeItem = Schemas["PracticeItem"];
+export type PracticeOutcome = Schemas["PracticeOutcome"];
 export type Npc = Schemas["Npc"];
 export type InboundEventAccepted = Schemas["InboundEventAccepted"];
 export type ReactionReport = Schemas["ReactionReport"];
+
+// Embedding (ADR 1.10.26w): the mint's request and its generated answer
+// (createEmbedToken returns the hand-written MintedToken, never this), and
+// the NPC turn's request, its window entries and its stream union
+export type EmbedTokenRequest = Schemas["EmbedTokenRequest"];
+export type EmbedToken = Schemas["EmbedToken"];
+export type DialogueTurnRequest = Schemas["DialogueTurnRequest"];
+export type DialogueEntry = Schemas["DialogueEntry"];
+export type Speaker = Schemas["Speaker"];
+export type SendDialogueTurnEvent = Schemas["SendDialogueTurnEvent"];

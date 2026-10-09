@@ -10,10 +10,13 @@ use Lingara\Exception\TransportException;
 use Lingara\Exception\TransportKind;
 use Lingara\HttpStack;
 use Lingara\Internal\Operations;
+use Lingara\Model\DialogueTurnRequest;
 use Lingara\Model\LessonPlanCreateRequest;
+use Lingara\Model\Npc;
 use Lingara\Model\TutorTurnRequest;
 use Lingara\Stream\CreateLessonPlanEvent;
 use Lingara\Stream\GenerateVocabularyEvent;
+use Lingara\Stream\SendDialogueTurnEvent;
 use Lingara\Stream\SendTutorMessageEvent;
 use Lingara\Stream\StreamLessonPlanEvent;
 use Lingara\Tests\Support\FakeHttpClient;
@@ -148,6 +151,8 @@ final class EventStreamTest extends StacksTestCase
             ['createLessonPlan', "event: result\ndata: {\"plan\":" . self::lessonPlan() . "}\n\n{$after}", [CreateLessonPlanEvent\Result::class]],
             ['streamLessonPlan', "event: pending\ndata: {\"plan_id\":\"" . self::PLAN . "\",\"status\":\"generating\"}\n\n{$after}", [StreamLessonPlanEvent\Pending::class]],
             ['sendTutorMessage', "event: delta\ndata: {\"text\":\"hi\"}\n\nevent: done\ndata: {}\n\n{$after}", [SendTutorMessageEvent\Delta::class]],
+            // ADR 1.10.26w D8: the dialogue turn is the tutor's row.
+            ['sendDialogueTurn', "event: delta\ndata: {\"text\":\"hi\"}\n\nevent: done\ndata: {}\n\n{$after}", [SendDialogueTurnEvent\Delta::class]],
         ];
         foreach ($cases as [$operation, $body, $classes]) {
             $fake = new FakeHttpClient(FakeHttpClient::sse($body));
@@ -225,6 +230,8 @@ final class EventStreamTest extends StacksTestCase
             'generateVocabulary' => $client->generateVocabulary(self::vocab()),
             'createLessonPlan' => $client->createLessonPlan(new LessonPlanCreateRequest(['context' => 'a night market', 'source_lang' => 'en', 'target_lang' => 'zh', 'level' => 2])),
             'streamLessonPlan' => $client->streamLessonPlan(self::PLAN),
+            'sendDialogueTurn' => $client->sendDialogueTurn(new DialogueTurnRequest(['npc' => new Npc(['name' => 'Auntie Lin']),
+                'source_lang' => 'en', 'target_lang' => 'zh', 'level' => 2, 'line' => 'hello'])),
             default => $client->sendTutorMessage(new TutorTurnRequest(['message' => 'hello', 'source_lang' => 'en', 'target_lang' => 'zh'])),
         };
     }

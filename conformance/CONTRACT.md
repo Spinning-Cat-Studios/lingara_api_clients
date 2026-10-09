@@ -18,12 +18,14 @@ source*, *call*, *stream*.
 
 These are properties of the Lingara API that the rules below depend on.
 
-- **Operations.** Thirteen. Nine need an access token: `generateVocabulary`
+- **Operations.** Sixteen. Twelve need an access token: `generateVocabulary`
   (scope `vocab:generate`), `createLessonPlan` (`lesson_plans:write`),
   `getLessonPlan` and `streamLessonPlan` (`lesson_plans:read`),
   `sendTutorMessage` (`tutor:converse`), `getUsage` (`usage:read`),
-  `listEvents` and `streamEvents` (`events:read`), and `sendEvent`
-  (`events:write`, plus `lesson_plans:write` when it asks for generation).
+  `listEvents` and `streamEvents` (`events:read`), `sendEvent`
+  (`events:write`, plus `lesson_plans:write` when it asks for generation),
+  `createEmbedToken` and `deleteEmbedPlayer` (`embed:mint`, a metered client
+  only), and `sendDialogueTurn` (`embed:play`) (ADR 1.10.26w).
   Four need none (`security: []`): `getOpenApiDocument`,
   `getAsyncApiDocument`, `listApiVersions` and `getApiVersion`.
 - **Events** (ADR 30.9.26aa). Every door carries one envelope, `{id, type,
@@ -36,7 +38,9 @@ These are properties of the Lingara API that the rules below depend on.
   as `next_cursor`, and the stream ends with `done` after 15 minutes or with
   `error`. `sendEvent` requires an `Idempotency-Key` header of 1–255 visible
   ASCII characters; a replay under the same key returns the first answer as
-  an equal JSON value, and bodies are never compared.
+  an equal JSON value, and bodies are never compared. ADR 1.10.26w's mint
+  adds the inbound `world.practice_completed` (`events:write` and
+  `embed:play`) and its outbound echo `practice.completed` (`embed:play`).
 - **Versions.** Every `/v1` request takes an optional `Lingara-Version`
   header, `^\d{4}-(0[1-9]|1[0-2])-[a-z]+-[a-z]+$`. Without it, a token gets
   its client's pinned version and a tokenless request gets the current one.
@@ -52,8 +56,20 @@ These are properties of the Lingara API that the rules below depend on.
   `upstream_unavailable`, 503 `unavailable`, anything else `internal`. Named
   codes beside that table include 403 `insufficient_scope`, 403
   `metered_unavailable`, 402 `spend_cap_reached`, 402
-  `metered_billing_inactive`, 400 `api_version_unknown` and 410
-  `api_version_discontinued`.
+  `metered_billing_inactive`, 400 `api_version_unknown`, 410
+  `api_version_discontinued`, and the embed mint's 403
+  `embed_needs_metered`, 400 `embed_scope_not_grantable`, 400
+  `embed_origin_not_registered` and 409 `embed_player_limit_reached`. None
+  changes a library's behaviour: every `{code, error}` is `ApiError`.
+- **Path parameters** (ADR 1.10.26w D5). A path parameter is UTF-8 encoded,
+  and every byte outside RFC 3986's unreserved set (`A–Z a–z 0–9 - . _ ~`)
+  is written as `%XX` with upper-case hex. `/` is always encoded. The
+  parameter is never split, trimmed or normalised. `player_ref` is the first
+  one a caller chooses, so `guild/42 (é)*` is one segment,
+  `guild%2F42%20%28%C3%A9%29%2A`.
+- **Empty answers.** A `204` has no body; the result carries only
+  `served_version`. `deleteEmbedPlayer` answers `204`, an unknown
+  `player_ref` included. A `DELETE` sends no body and no `Content-Type`.
 - **`Retry-After`** is delta-seconds, rounded up, never `0`. Not every 429 or
   503 carries one: some rate-limit refusals do not, and neither does the
   maintenance response.
@@ -75,17 +91,21 @@ These are properties of the Lingara API that the rules below depend on.
   `Retry-After`), 500 `server_error`. Its limits are hourly rolling windows,
   so its `Retry-After` can be up to 3600.
 - **Credentials.** Client ids are `lgr_cid_` plus 22 characters, secrets
-  `lgr_cs_` plus 43, access tokens `lgr_at_…`.
+  `lgr_cs_` plus 43, access tokens `lgr_at_…`, and minted embed tokens
+  `lgr_et_` plus 43.
 - **Streams.** Server-sent events: `event:` plus one `data:` line of JSON,
   frames separated by a blank line, keepalive the comment `: keepalive`. No
   `retry:` field is ever sent, and only `streamEvents` sends `id:`. `generateVocabulary` sends
   `started`, `item`…, `done`; `sendTutorMessage` sends `delta`…, an optional
-  `notice`, `done`; `createLessonPlan` sends `started`, `phase`…, then
+  `notice`, `done`; `sendDialogueTurn` sends `delta`…, an optional
+  `notice`, `done`, with no `started`; `createLessonPlan` sends `started`, `phase`…, then
   `result`, with no `done`, and a plan served from the library is a lone
   `result`; `streamLessonPlan` sends `started`, `phase`, then `result` or
   `pending`. Any stream may end on `error` `{code, message, plan_id?}`
   instead. `done`'s payload is `{}`. The vocabulary and lesson-plan streams
-  send a keepalive every 15 s; the tutor stream sends none.
+  send a keepalive every 15 s; the tutor and dialogue streams send none.
+  `sendDialogueTurn` is opened without K4's retries, as a tail's connection
+  is: each attempt spends NPC cells, so a `429` or `503` is raised at once.
 
 ## K1 — the token source
 
@@ -166,7 +186,9 @@ itself, where 401 is `invalid_client`.
 - MAY be exposed through one explicitly named accessor (`expose_secret`
   style) for callers who need the raw value.
 
-The `client_id` is not secret and is rendered.
+The `client_id` is not secret and is rendered. A minted embed token
+(`MintedToken.token`, ADR 1.10.26w) is an access token for this rule: it
+renders `[REDACTED]` in every rendering of a mint's result.
 
 `invalidate` during an exchange is a no-op: nothing is cached yet, and the
 flight's result is newer than any token the caller holds.

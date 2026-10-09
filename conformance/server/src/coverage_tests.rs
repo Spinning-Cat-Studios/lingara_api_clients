@@ -202,3 +202,16 @@ fn a_k5a_behaviour_without_a_case_fails() {
     let parsed = case::parse(k5a, Path::new("k5a/x.yaml")).unwrap();
     assert_eq!(parsed.case.behaviours, vec![case::Behaviour::K5a]);
 }
+
+/// 1.10.26w AC3: a `DELETE` request parses; any other new verb is refused.
+#[test]
+fn a_delete_request_parses_and_patch_is_refused() {
+    let with = |method: &str| {
+        format!(
+            "id: op.x\ntitle: t\nbehaviours: [K1]\nsteps:\n  - call: {{ operation: deleteEmbedPlayer, params: {{ player_ref: p-1 }} }}\n    expect: {{ outcome: completed }}\nexchanges:\n  items:\n    - request: {{ method: {method}, path: /v1/embed/players/p-1 }}\n      response: {{ status: 204 }}\n"
+        )
+    };
+    assert!(case::parse(&with("DELETE"), Path::new("op/x.yaml")).is_ok());
+    let refused = case::parse(&with("PATCH"), Path::new("op/x.yaml")).unwrap_err();
+    assert!(refused.contains("`PATCH` is not GET, POST or DELETE"), "{refused}");
+}

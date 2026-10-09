@@ -1,0 +1,21 @@
+id: op.embed-player-delete-encodes-ref
+title: A player_ref is sent as one path segment, every byte outside the unreserved set as upper-case %XX
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: deleteEmbedPlayer
+      params: { player_ref: "guild/42 (é)*" }
+    expect:
+      outcome: completed
+      status: 204
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opdeleteref, token_type: Bearer, expires_in: 3600, scope: "embed:mint" } }
+    - request:
+        method: DELETE
+        path: /v1/embed/players/guild%2F42%20%28%C3%A9%29%2A
+        headers: { authorization: { equals: Bearer lgr_at_opdeleteref } }
+      response: { status: 204 }

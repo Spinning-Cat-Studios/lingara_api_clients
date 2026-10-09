@@ -34,3 +34,25 @@ fn install_line_is_c5s_substitution() {
     fs::remove_file(root.join("snippets/go/install.sh")).unwrap();
     assert!(install_line(&load(&dir), "go", TAG).unwrap_err().message.contains("0 install.* files"));
 }
+
+// 1.10.26ag AC7
+#[test]
+fn install_line_follows_the_snippets_key() {
+    let dir = fixture();
+    let root = dir.path();
+    let entry = |id: &str, registry: &str, extra: &str| {
+        format!("\n[[language]]\nid = \"{id}\"\nregistry = \"{registry}\"\npackage = \"p\"\n{extra}since = \"next\"\n")
+    };
+    let unity = entry("unity", "nuget", "snippets = \"snippets/player/unity\"\n");
+    let text = fs::read_to_string(root.join("languages.toml")).unwrap();
+    write(root, "languages.toml", &format!("{text}{unity}{}{}", entry("godot", "godot-assetlib", ""), entry("unreal", "fab", "")));
+    write(root, "snippets/player/unity/install.sh", "dotnet add package Lingara.Embed --version {{version}}\n");
+    write(root, "snippets/unity/install.sh", "the default directory, which the key replaces\n");
+    let release = load(&dir);
+    assert_eq!(install_line(&release, "unity", TAG).unwrap(), "dotnet add package Lingara.Embed --version 0.1.0-alpha.1\n");
+
+    for store in ["godot", "unreal"] {
+        let fail = install_line(&release, store, TAG).unwrap_err();
+        assert_eq!(fail.code, 3, "{store}: {}", fail.message);
+    }
+}

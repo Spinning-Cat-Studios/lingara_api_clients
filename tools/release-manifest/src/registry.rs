@@ -5,7 +5,7 @@ use crate::manifest::Release;
 use crate::{Fail, version};
 
 /// One URL per coordinate, or `None` for a registry with no per-version URL
-/// (Packagist), which the CLI turns into exit 3.
+/// (Packagist, and 1.10.26ag W4's stores), which the CLI turns into exit 3.
 pub fn probe(release: &Release, id: &str, tag: &str) -> Result<Option<Vec<String>>, Fail> {
     let lang = release.language(id)?;
     let semver = tag.strip_prefix('v').unwrap_or(tag);
@@ -18,7 +18,12 @@ pub fn probe(release: &Release, id: &str, tag: &str) -> Result<Option<Vec<String
         }
         "maven-central" => maven_url(package, semver)?,
         "go" => format!("https://proxy.golang.org/{}/@v/{tag}.info", case_encode(package)),
-        "packagist" => return Ok(None),
+        // W5: NuGet's flat container, which lowercases both the id and the version.
+        "nuget" => {
+            let id = package.to_lowercase();
+            format!("https://api.nuget.org/v3-flatcontainer/{id}/{}/{id}.nuspec", semver.to_lowercase())
+        }
+        "packagist" | "godot-assetlib" | "fab" => return Ok(None),
         other => return Err(Fail::input(format!("probe: {id}: unknown registry \"{other}\""))),
     };
     Ok(Some(vec![url]))

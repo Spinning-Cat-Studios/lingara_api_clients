@@ -22,9 +22,10 @@ pub fn artefact(release: &Release, id: &str, tag: &str) -> Result<Option<(String
     Ok(resolve(release, release.language(id)?, tag))
 }
 
-/// Every `snippets/<id>/install.*`, sorted.
-pub fn install_files(root: &Path, id: &str) -> Vec<PathBuf> {
-    let Ok(entries) = fs::read_dir(root.join("snippets").join(id)) else { return Vec::new() };
+/// Every `install.*` in one snippets directory (`snippets/<id>` unless the
+/// entry sets `snippets`, 1.10.26ag W3), sorted.
+pub fn install_files(root: &Path, snippets: &str) -> Vec<PathBuf> {
+    let Ok(entries) = fs::read_dir(root.join(snippets)) else { return Vec::new() };
     let mut files: Vec<PathBuf> = entries
         .filter_map(Result::ok)
         .map(|e| e.path())
@@ -36,11 +37,16 @@ pub fn install_files(root: &Path, id: &str) -> Vec<PathBuf> {
 
 /// The install snippet with every `{{version}}` replaced by the tag's
 /// `X.Y.Z`: the site's substitution, so the proof runs what the site shows.
+/// A store entry has none to prove (1.10.26ag W4): exit 3, as `probe` does.
 pub fn install_line(release: &Release, id: &str, tag: &str) -> Result<String, Fail> {
-    release.language(id)?;
-    let files = install_files(&release.root, id);
+    let lang = release.language(id)?;
+    if lang.is_store() {
+        return Err(Fail { code: 3, message: format!("{id}: {} is a store; there is no install line", lang.registry) });
+    }
+    let snippets = lang.snippets_dir();
+    let files = install_files(&release.root, &snippets);
     let [file] = files.as_slice() else {
-        return Err(Fail::input(format!("snippets/{id}/: {} install.* files, exactly one expected", files.len())));
+        return Err(Fail::input(format!("{snippets}/: {} install.* files, exactly one expected", files.len())));
     };
     let text = fs::read_to_string(file).map_err(|e| Fail::input(format!("{}: {e}", file.display())))?;
     Ok(text.replace("{{version}}", tag.strip_prefix('v').unwrap_or(tag)))

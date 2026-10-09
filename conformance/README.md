@@ -65,7 +65,7 @@ exchanges:
     - times: <n>                 # default 1
       group: <n>                 # consecutive items sharing a group match in any order
       request:
-        method: GET | POST
+        method: GET | POST | DELETE
         path: <path>             # exact; the query goes in `query` (absent = no query)
         query: {…}
         headers: { <lowercase name>: { equals | prefix | contains | pattern: <str> } | { absent: true } | { basic: [id, secret] } | { same_as: { request: <n>, header: <name> } } }
@@ -75,7 +75,7 @@ exchanges:
         delay_ms: <n>
         status: <int>
         headers: {…}             # content-type defaults: json, text/plain; charset=utf-8, text/event-stream
-        json: {…}                # or text: <str>, or sse:
+        json: {…}                # or text: <str>, or sse:; none of the three is an empty body
         sse:
           chunks:                # each written and flushed on its own
             - "<text>"
@@ -169,7 +169,11 @@ Comparison rules:
 - `cancel_after_events: n` cancels the call, with the language's native
   cancellation, after the n-th event is yielded;
 - `redacted` strings must not appear in any debug, string or inspect
-  rendering of the client, the token source or a raised error.
+  rendering of the client, the token source, a raised error, or a completed
+  call's result (ADR 1.10.26w D7: a minted embed token is a result);
+- a `response` with none of `json`, `text` or `sse` is an empty body with
+  no `content-type`; a `204` carries no `content-length` either (RFC 9110
+  §8.6), and a `DELETE` request sends no body.
 
 ## Vectors
 

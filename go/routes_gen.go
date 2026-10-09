@@ -5,8 +5,10 @@ package lingara
 // routes is every operation's method and path, keyed by operationId: from
 // paths for a JSON operation and from x-lingara-streams for a stream.
 var routes = map[string]route{
+	"createEmbedToken": {method: "POST", path: "/v1/embed/tokens", needsToken: true},
 	"createLessonPlan": {method: "POST", path: "/v1/lesson-plans", needsToken: true,
 		stream: &streamRoute{requestBody: "LessonPlanCreateRequest", events: []string{"started", "phase", "result", "error"}, ends: map[string]ending{"result": endYield, "error": endRaise}}},
+	"deleteEmbedPlayer": {method: "DELETE", path: "/v1/embed/players/{player_ref}", needsToken: true},
 	"generateVocabulary": {method: "POST", path: "/v1/vocab/stream", needsToken: true,
 		stream: &streamRoute{requestBody: "VocabRequest", events: []string{"started", "item", "done", "error"}, ends: map[string]ending{"done": endQuiet, "error": endRaise}}},
 	"getApiVersion":       {method: "GET", path: "/v1/versions/{id}", needsToken: false},
@@ -16,7 +18,9 @@ var routes = map[string]route{
 	"getUsage":            {method: "GET", path: "/v1/usage", needsToken: true},
 	"listApiVersions":     {method: "GET", path: "/v1/versions", needsToken: false},
 	"listEvents":          {method: "GET", path: "/v1/events", needsToken: true},
-	"sendEvent":           {method: "POST", path: "/v1/events", needsToken: true},
+	"sendDialogueTurn": {method: "POST", path: "/v1/embed/dialogue/turns", needsToken: true,
+		stream: &streamRoute{requestBody: "DialogueTurnRequest", events: []string{"delta", "notice", "done", "error"}, ends: map[string]ending{"done": endQuiet, "error": endRaise}}},
+	"sendEvent": {method: "POST", path: "/v1/events", needsToken: true},
 	"sendTutorMessage": {method: "POST", path: "/v1/tutor/message", needsToken: true,
 		stream: &streamRoute{requestBody: "TutorTurnRequest", events: []string{"delta", "notice", "done", "error"}, ends: map[string]ending{"done": endQuiet, "error": endRaise}}},
 	"streamEvents": {method: "GET", path: "/v1/events/stream", needsToken: true,

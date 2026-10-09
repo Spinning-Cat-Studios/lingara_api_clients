@@ -8,6 +8,8 @@ use Lingara\AccessToken;
 use Lingara\Client;
 use Lingara\Exception\LingaraException;
 use Lingara\Exception\TransportException;
+use Lingara\Exception\TransportKind;
+use Lingara\Model\EmbedTokenRequest;
 use Lingara\Tests\Support\ArrayCache;
 use Lingara\Tests\Support\FakeHttpClient;
 use Nyholm\Psr7\Response;
@@ -71,6 +73,48 @@ final class RedactionTest extends TestCase
         // The client holds no secret of its own, and its no-argument methods
         // are operations that would send requests.
         self::assertSame(['exposeSecret', 'exposeSecret'], [...self::rawAccessors($source), ...self::rawAccessors($token)]);
+    }
+
+    /**
+     * 1.10.26w AC20: var_dump, print_r and serialize of a MintedToken render
+     * its token `[REDACTED]` and never the `lgr_et_` value, while
+     * `token->exposeSecret()` returns it; an answer missing `subject` is
+     * refused as malformed_response, and neither that error, its trace nor
+     * the client renders the token the body held.
+     */
+    public function testAMintedTokenRendersRedacted(): void
+    {
+        $minted = 'lgr_et_redaction000000000000000000000000000000000';
+        $answer = ['token' => $minted, 'expires_at' => '2026-10-01T09:27:44Z', 'expires_in' => 900,
+            'subject' => 'lgr_sub_redaction', 'scopes' => ['embed:play'], 'account_linked' => false];
+        $missing = $answer;
+        unset($missing['subject']);
+        $fake = new FakeHttpClient(FakeHttpClient::token(self::TOKEN), FakeHttpClient::json(200, $answer), FakeHttpClient::json(200, $missing));
+        $client = new Client(clientId: 'lgr_cid_visible', clientSecret: self::SECRET, logger: new NullLogger(), http: $fake->stack());
+        $request = new EmbedTokenRequest(['player_ref' => 'player-1']);
+
+        $token = $client->createEmbedToken($request)->value;
+        ob_start();
+        var_dump($token);
+        $forms = [(string) ob_get_clean(), print_r($token, true), serialize($token)];
+        foreach ($forms as $form) {
+            self::assertStringNotContainsString($minted, $form);
+            self::assertStringContainsString('[REDACTED]', $form);
+            self::assertStringContainsString('lgr_sub_redaction', $form);
+        }
+        self::assertNotFalse(json_encode($token));
+        self::assertStringNotContainsString($minted, (string) json_encode($token));
+        self::assertStringNotContainsString($minted, (string) @var_export($token, true));
+        self::assertSame([$minted, '2026-10-01T09:27:44Z', 900, ['embed:play'], false], [
+            $token->token->exposeSecret(), $token->expiresAt, $token->expiresIn, $token->scopes, $token->accountLinked,
+        ]);
+
+        $error = self::thrown(static fn() => $client->createEmbedToken($request));
+        self::assertInstanceOf(TransportException::class, $error);
+        self::assertSame(TransportKind::MalformedResponse, $error->kind());
+        foreach ([...self::dumps($error), ...self::dumps($client), self::walk($error->getTrace())] as $form) {
+            self::assertStringNotContainsString($minted, $form);
+        }
     }
 
     /** A network failure that echoes the request, Authorization included, as a PSR-18 exception may. */

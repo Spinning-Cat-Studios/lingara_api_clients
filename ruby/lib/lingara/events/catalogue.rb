@@ -30,6 +30,15 @@ module Lingara
     # app.uninstalled: data is a Lingara::AppUninstalledData.
     AppUninstalled = Data.define(*ENVELOPE) { include Event }
 
+    # app.disabled: data is a Lingara::AppDisabledData.
+    AppDisabled = Data.define(*ENVELOPE) { include Event }
+
+    # app.enabled: data is a Lingara::AppEnabledData.
+    AppEnabled = Data.define(*ENVELOPE) { include Event }
+
+    # practice.completed: data is a Lingara::PracticeCompletedData.
+    PracticeCompleted = Data.define(*ENVELOPE) { include Event }
+
     # An event of a type this library does not know: data is the raw JSON
     # object, as a Hash. The catalogue only grows, so acknowledge it.
     UnknownEvent = Data.define(*ENVELOPE) { include Event }
@@ -42,7 +51,10 @@ module Lingara
         "usage.threshold_reached" => [UsageThresholdReached, "UsageThresholdReachedData"].freeze,
         "webhook.test" => [WebhookTest, nil].freeze,
         "app.installed" => [AppInstalled, "AppInstalledData"].freeze,
-        "app.uninstalled" => [AppUninstalled, "AppUninstalledData"].freeze
+        "app.uninstalled" => [AppUninstalled, "AppUninstalledData"].freeze,
+        "app.disabled" => [AppDisabled, "AppDisabledData"].freeze,
+        "app.enabled" => [AppEnabled, "AppEnabledData"].freeze,
+        "practice.completed" => [PracticeCompleted, "PracticeCompletedData"].freeze
       }.freeze
     end
 
@@ -53,7 +65,8 @@ module Lingara
       # Each inbound type's constructor.
       CONSTRUCTORS = {
         "world.context_changed" => :world_context_changed,
-        "world.practice_requested" => :world_practice_requested
+        "world.practice_requested" => :world_practice_requested,
+        "world.practice_completed" => :world_practice_completed
       }.freeze
 
       attr_reader :type, :data
@@ -68,6 +81,11 @@ module Lingara
       # world.practice_requested, from a Lingara::WorldPracticeRequested or the Hash one is built from.
       def self.world_practice_requested(data)
         new("world.practice_requested", data.is_a?(Lingara::WorldPracticeRequested) ? data : Lingara::WorldPracticeRequested.new(data))
+      end
+
+      # world.practice_completed, from a Lingara::WorldPracticeCompleted or the Hash one is built from.
+      def self.world_practice_completed(data)
+        new("world.practice_completed", data.is_a?(Lingara::WorldPracticeCompleted) ? data : Lingara::WorldPracticeCompleted.new(data))
       end
 
       def initialize(type, data)

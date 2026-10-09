@@ -56,10 +56,12 @@ if err != nil {
 fmt.Println(usage.Value.Allowance, usage.ServedVersion)
 ```
 
-Thirteen methods, each the `operationId` with its first letter upper-cased and
+Sixteen methods, each the `operationId` with its first letter upper-cased and
 Go's initialisms applied. Every one takes a `context.Context` first. The
 events operations (`ListEvents`, `StreamEvents`, `SendEvent`) and their
-helpers are under [Webhooks and events](#webhooks-and-events).
+helpers are under [Webhooks and events](#webhooks-and-events), and the embed
+operations (`CreateEmbedToken`, `DeleteEmbedPlayer`, `SendDialogueTurn`)
+under [Embedding Lingara](#embedding-lingara).
 
 - `GenerateVocabulary`, `CreateLessonPlan`, `StreamLessonPlan` and
   `SendTutorMessage` send their request at once and return a
@@ -156,7 +158,8 @@ version, or upgrade the library.
 Every event, through every door, is one envelope: `ID`, `Type`, `CreatedAt`,
 `APIVersion`, `Subject` and a typed `Data`. `lingara.Event` is a sealed
 interface; type-switch on its arms (`LessonPlanReady`, `LessonPlanFailed`,
-`UsageThresholdReached`, `WebhookTest`, `AppInstalled`, `AppUninstalled`),
+`UsageThresholdReached`, `WebhookTest`, `AppInstalled`, `AppUninstalled`,
+`PracticeCompleted`),
 and read the envelope of any of them through `ev.Meta()`.
 
 **Pin your client to the version this library was generated for**,
@@ -232,6 +235,50 @@ accepted, err := client.SendEvent(ctx, event, lingara.WithIdempotencyKey("game-s
   `lesson_plan.ready` or `lesson_plan.failed` event. A `partial` or
   `complete` plan was served from the library and can be read now; an event
   may still arrive for it, so tolerate one.
+
+## Embedding Lingara
+
+A game or website can vouch for its own players: your server mints each
+player a short-lived embed token, and the player's device uses it.
+
+```go
+minted, err := client.CreateEmbedToken(ctx, lingara.EmbedTokenRequest{PlayerRef: "player-1001"})
+// store minted.Value.Subject; hand minted.Value.Token.ExposeSecret() (lgr_et_…) to the device
+```
+
+- **Mint on your server, never on the player's device**, from a **metered**
+  client holding `embed:mint`. Otherwise the answer is a `403`
+  `insufficient_scope` or `embed_needs_metered`, returned as an `*APIError`.
+  **Store `Subject`** beside your player: it is the player's stable
+  `lgr_sub_`, and how every event names them.
+- `MintedToken.Token` renders as `[REDACTED]` like every token here;
+  `ExposeSecret()` reads it. The token lives 900 s and Lingara never refreshes
+  it, so mint again when the player kit asks. `ExpiresIn` is there for a
+  device whose clock cannot be trusted; `ExpiresAt` for one whose clock can.
+- `DeleteEmbedPlayer(ctx, playerRef)` deletes a player and revokes their
+  tokens. An unknown player is still a success, so it is idempotent, and it
+  keeps working while embedding is switched off for your client. The answer
+  has no body: the `Result` carries only `ServedVersion`.
+- `SendDialogueTurn` streams an NPC's reply, `delta` by `delta`. The window is
+  yours: at most 12 `History` entries, `Line` and each entry at most 500
+  characters, and no total cap. Send each NPC reply back cut to its first 500
+  characters. A turn is **never retried**: each attempt spends the player's
+  NPC cells and your metered cells, so a `429` or `503` is returned at once
+  with its `RetryAfter`, and you decide whether to send it again. No retry
+  helps `403 embed_needs_metered`, or `422 safety_input_flagged`, which means
+  say something else.
+- `PracticeCompleted` arrives through the webhook, the feed and the tail when
+  your client holds `events:read` and `embed:play`; its `Subject` names the
+  player. `InboundWorldPracticeCompleted` sends one, with `events:write` and
+  `embed:play`.
+- **A player-side caller** supplies its embed token through a custom
+  `TokenSource` (`WithTokenSource`); no client secret is involved there. The
+  library never sends `X-Lingara-Embed-Origin`, so a token minted with an
+  `Origin` belongs to the browser widget: a game mints without one.
+
+The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
+build on these calls: server kits for higher-level minting and webhook
+helpers, and player kits for the engines.
 
 ## The contract
 

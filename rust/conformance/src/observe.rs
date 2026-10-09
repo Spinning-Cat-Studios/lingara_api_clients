@@ -1,6 +1,9 @@
 //! A call's result, in the contract's vocabulary: its outcome, its body or
 //! events, and a raised error's snake_case fields and renderings.
 
+use std::fmt::Debug;
+
+use lingara::embed::MintedToken;
 use lingara::{ApiResponse, Error, EventStream};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -8,16 +11,45 @@ use serde_json::{Map, Value, json};
 
 use crate::compare::Observed;
 
-pub fn json_result<T: Serialize>(result: Result<ApiResponse<T>, Error>) -> Observed {
+pub fn json_result<T: Serialize + Debug>(result: Result<ApiResponse<T>, Error>) -> Observed {
     match result {
-        Ok(res) => Observed {
-            outcome: "completed",
-            status: Some(200),
-            body: serde_json::to_value(&*res).ok(),
-            served_version: res.served_version().map(str::to_owned),
-            ..Observed::default()
-        },
+        Ok(res) => completed(&res, 200, serde_json::to_value(&*res).ok()),
         Err(err) => failed(err, Vec::new(), None),
+    }
+}
+
+/// A bodiless answer (ADR 1.10.26w D4): the result carries only the echo.
+pub fn empty_result(result: Result<ApiResponse<()>, Error>) -> Observed {
+    match result {
+        Ok(res) => completed(&res, 204, None),
+        Err(err) => failed(err, Vec::new(), None),
+    }
+}
+
+/// A mint's result, its body in wire form read through the one exposing
+/// accessor; its renderings still go to the `redacted` scan.
+pub fn minted_result(result: Result<ApiResponse<MintedToken>, Error>) -> Observed {
+    match result {
+        Ok(res) => {
+            let body = json!({
+                "token": res.token.expose_secret(), "expires_at": res.expires_at, "expires_in": res.expires_in.as_secs(),
+                "subject": res.subject, "scopes": res.scopes, "account_linked": res.account_linked,
+            });
+            completed(&res, 200, Some(body))
+        }
+        Err(err) => failed(err, Vec::new(), None),
+    }
+}
+
+/// A completed call: its result's renderings join the `redacted` scan.
+fn completed<T: Debug>(res: &ApiResponse<T>, status: u16, body: Option<Value>) -> Observed {
+    Observed {
+        outcome: "completed",
+        status: Some(status),
+        body,
+        served_version: res.served_version().map(str::to_owned),
+        renderings: vec![format!("{res:?}"), format!("{res:#?}")],
+        ..Observed::default()
     }
 }
 

@@ -7,3 +7,4 @@
 **/model/StreamLessonPlanEvent*.java
 **/model/SendTutorMessageEvent*.java
 **/model/StreamEventsEvent*.java
+**/model/SendDialogueTurnEvent*.java

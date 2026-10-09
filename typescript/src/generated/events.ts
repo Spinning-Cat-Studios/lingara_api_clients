@@ -34,6 +34,15 @@ export type AppInstalled = EventOf<"app.installed", Schemas["AppInstalledData"]>
 /** `app.uninstalled`. */
 export type AppUninstalled = EventOf<"app.uninstalled", Schemas["AppUninstalledData"]>;
 
+/** `app.disabled`. */
+export type AppDisabled = EventOf<"app.disabled", Schemas["AppDisabledData"]>;
+
+/** `app.enabled`. */
+export type AppEnabled = EventOf<"app.enabled", Schemas["AppEnabledData"]>;
+
+/** `practice.completed`. */
+export type PracticeCompleted = EventOf<"practice.completed", Schemas["PracticeCompletedData"]>;
+
 const UNKNOWN = Symbol.for("lingara.event.UnknownEvent");
 
 /**
@@ -75,12 +84,16 @@ export type Event =
   | WebhookTest
   | AppInstalled
   | AppUninstalled
+  | AppDisabled
+  | AppEnabled
+  | PracticeCompleted
   | UnknownEvent;
 
 /** An event your game sends with `sendEvent`, serialised as `{type, data}`. */
 export type InboundEvent =
   | { readonly type: "world.context_changed"; readonly data: Schemas["WorldContextChanged"] }
-  | { readonly type: "world.practice_requested"; readonly data: Schemas["WorldPracticeRequested"] };
+  | { readonly type: "world.practice_requested"; readonly data: Schemas["WorldPracticeRequested"] }
+  | { readonly type: "world.practice_completed"; readonly data: Schemas["WorldPracticeCompleted"] };
 
 /** One constructor per inbound type, named after its `data` model. */
 export const InboundEvent = {
@@ -88,6 +101,8 @@ export const InboundEvent = {
   worldContextChanged: (data: Schemas["WorldContextChanged"]): InboundEvent => ({ type: "world.context_changed", data }),
   /** `world.practice_requested`. */
   worldPracticeRequested: (data: Schemas["WorldPracticeRequested"]): InboundEvent => ({ type: "world.practice_requested", data }),
+  /** `world.practice_completed`. */
+  worldPracticeCompleted: (data: Schemas["WorldPracticeCompleted"]): InboundEvent => ({ type: "world.practice_completed", data }),
 } as const;
 
 interface Shape {
@@ -106,6 +121,9 @@ const SHAPES: Record<string, Shape> = {
   "webhook.test": {"type":["object"]},
   "app.installed": {"type":["object"],"properties":{"client_id":{"type":["string"]},"install_id":{"type":["string"]},"context":{"type":["array"],"items":{"type":["string"],"enum":["languages","plan_summary","review_due","tutor_topic"]}},"tutor_note":{"type":["boolean"]}},"required":["client_id","install_id","context","tutor_note"]},
   "app.uninstalled": {"type":["object"],"properties":{"client_id":{"type":["string"]},"install_id":{"type":["string"]}},"required":["client_id","install_id"]},
+  "app.disabled": {"type":["object"],"properties":{"client_id":{"type":["string"]},"install_id":{"type":["string"]}},"required":["client_id","install_id"]},
+  "app.enabled": {"type":["object"],"properties":{"client_id":{"type":["string"]},"install_id":{"type":["string"]}},"required":["client_id","install_id"]},
+  "practice.completed": {"type":["object"],"properties":{"plan_id":{"type":["string"]},"items":{"type":["array"],"items":{"type":["object"],"properties":{"set_number":{"type":["integer"]},"question":{"type":["integer"]},"outcome":{"type":["string"],"enum":["correct","incorrect","revealed","self_correct","self_incorrect","skipped"]}},"required":["set_number","question","outcome"]}},"completed":{"type":["boolean"]}},"required":["plan_id","items","completed"]},
 };
 
 function isType(type: string, value: unknown): boolean {

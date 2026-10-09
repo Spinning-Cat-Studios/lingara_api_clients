@@ -75,6 +75,18 @@ impl ::std::convert::TryFrom<::std::string::String> for AppContextSlice {
         value.parse()
     }
 }
+///`AppDisabledData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct AppDisabledData {
+    pub client_id: ::std::string::String,
+    pub install_id: ::std::string::String,
+}
+///`AppEnabledData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct AppEnabledData {
+    pub client_id: ::std::string::String,
+    pub install_id: ::std::string::String,
+}
 ///`AppInstalledData`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct AppInstalledData {
@@ -88,6 +100,197 @@ pub struct AppInstalledData {
 pub struct AppUninstalledData {
     pub client_id: ::std::string::String,
     pub install_id: ::std::string::String,
+}
+///`DialogueEntry`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct DialogueEntry {
+    pub speaker: Speaker,
+    pub text: DialogueEntryText,
+}
+///`DialogueEntryText`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct DialogueEntryText(::std::string::String);
+impl ::std::ops::Deref for DialogueEntryText {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<DialogueEntryText> for ::std::string::String {
+    fn from(value: DialogueEntryText) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for DialogueEntryText {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 500usize {
+            return Err("longer than 500 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for DialogueEntryText {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DialogueEntryText {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for DialogueEntryText {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`DialogueTurnRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct DialogueTurnRequest {
+    ///The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub history: ::std::vec::Vec<DialogueEntry>,
+    pub level: ::std::num::NonZeroU8,
+    pub line: DialogueTurnRequestLine,
+    pub npc: Npc,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scene: ::std::option::Option<DialogueTurnRequestScene>,
+    pub source_lang: ::std::string::String,
+    pub target_lang: ::std::string::String,
+}
+///`DialogueTurnRequestLine`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct DialogueTurnRequestLine(::std::string::String);
+impl ::std::ops::Deref for DialogueTurnRequestLine {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<DialogueTurnRequestLine> for ::std::string::String {
+    fn from(value: DialogueTurnRequestLine) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for DialogueTurnRequestLine {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 500usize {
+            return Err("longer than 500 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for DialogueTurnRequestLine {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DialogueTurnRequestLine {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for DialogueTurnRequestLine {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`DialogueTurnRequestScene`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct DialogueTurnRequestScene(::std::string::String);
+impl ::std::ops::Deref for DialogueTurnRequestScene {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<DialogueTurnRequestScene> for ::std::string::String {
+    fn from(value: DialogueTurnRequestScene) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for DialogueTurnRequestScene {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 160usize {
+            return Err("longer than 160 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for DialogueTurnRequestScene {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DialogueTurnRequestScene {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for DialogueTurnRequestScene {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
 }
 ///`Done`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -111,6 +314,206 @@ for Done {
         value: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
     ) -> Self {
         Self(value)
+    }
+}
+///`EmbedToken`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct EmbedToken {
+    pub account_linked: bool,
+    pub expires_at: ::std::string::String,
+    ///Seconds until the token expires, counted from this answer. Use it when the device's clock cannot be trusted.
+    pub expires_in: u32,
+    pub scopes: ::std::vec::Vec<::std::string::String>,
+    pub subject: ::std::string::String,
+    pub token: ::std::string::String,
+}
+///`EmbedTokenRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct EmbedTokenRequest {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub origin: ::std::option::Option<EmbedTokenRequestOrigin>,
+    ///Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.
+    pub player_ref: EmbedTokenRequestPlayerRef,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub scopes: ::std::option::Option<::std::vec::Vec<EmbedTokenRequestScopesItem>>,
+}
+///`EmbedTokenRequestOrigin`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct EmbedTokenRequestOrigin(::std::string::String);
+impl ::std::ops::Deref for EmbedTokenRequestOrigin {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<EmbedTokenRequestOrigin> for ::std::string::String {
+    fn from(value: EmbedTokenRequestOrigin) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for EmbedTokenRequestOrigin {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 255usize {
+            return Err("longer than 255 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for EmbedTokenRequestOrigin {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for EmbedTokenRequestOrigin {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for EmbedTokenRequestOrigin {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct EmbedTokenRequestPlayerRef(::std::string::String);
+impl ::std::ops::Deref for EmbedTokenRequestPlayerRef {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<EmbedTokenRequestPlayerRef> for ::std::string::String {
+    fn from(value: EmbedTokenRequestPlayerRef) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for EmbedTokenRequestPlayerRef {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 128usize {
+            return Err("longer than 128 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for EmbedTokenRequestPlayerRef {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for EmbedTokenRequestPlayerRef {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for EmbedTokenRequestPlayerRef {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`EmbedTokenRequestScopesItem`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum EmbedTokenRequestScopesItem {
+    #[serde(rename = "events:read")]
+    EventsRead,
+    #[serde(rename = "events:write")]
+    EventsWrite,
+    #[serde(rename = "lesson_plans:read")]
+    LessonPlansRead,
+    #[serde(rename = "lesson_plans:write")]
+    LessonPlansWrite,
+    #[serde(rename = "embed:play")]
+    EmbedPlay,
+}
+impl ::std::fmt::Display for EmbedTokenRequestScopesItem {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::EventsRead => f.write_str("events:read"),
+            Self::EventsWrite => f.write_str("events:write"),
+            Self::LessonPlansRead => f.write_str("lesson_plans:read"),
+            Self::LessonPlansWrite => f.write_str("lesson_plans:write"),
+            Self::EmbedPlay => f.write_str("embed:play"),
+        }
+    }
+}
+impl ::std::str::FromStr for EmbedTokenRequestScopesItem {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "events:read" => Ok(Self::EventsRead),
+            "events:write" => Ok(Self::EventsWrite),
+            "lesson_plans:read" => Ok(Self::LessonPlansRead),
+            "lesson_plans:write" => Ok(Self::LessonPlansWrite),
+            "embed:play" => Ok(Self::EmbedPlay),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for EmbedTokenRequestScopesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for EmbedTokenRequestScopesItem {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
     }
 }
 ///`Error`
@@ -546,6 +949,91 @@ pub struct PlanWord {
     pub translation: ::std::string::String,
     pub word: ::std::string::String,
 }
+///`PracticeCompletedData`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct PracticeCompletedData {
+    pub completed: bool,
+    pub items: ::std::vec::Vec<PracticeItem>,
+    pub plan_id: ::std::string::String,
+}
+///`PracticeItem`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct PracticeItem {
+    pub outcome: PracticeOutcome,
+    pub question: u8,
+    pub set_number: ::std::num::NonZeroU8,
+}
+///`PracticeOutcome`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum PracticeOutcome {
+    #[serde(rename = "correct")]
+    Correct,
+    #[serde(rename = "incorrect")]
+    Incorrect,
+    #[serde(rename = "revealed")]
+    Revealed,
+    #[serde(rename = "self_correct")]
+    SelfCorrect,
+    #[serde(rename = "self_incorrect")]
+    SelfIncorrect,
+    #[serde(rename = "skipped")]
+    Skipped,
+}
+impl ::std::fmt::Display for PracticeOutcome {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Correct => f.write_str("correct"),
+            Self::Incorrect => f.write_str("incorrect"),
+            Self::Revealed => f.write_str("revealed"),
+            Self::SelfCorrect => f.write_str("self_correct"),
+            Self::SelfIncorrect => f.write_str("self_incorrect"),
+            Self::Skipped => f.write_str("skipped"),
+        }
+    }
+}
+impl ::std::str::FromStr for PracticeOutcome {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "correct" => Ok(Self::Correct),
+            "incorrect" => Ok(Self::Incorrect),
+            "revealed" => Ok(Self::Revealed),
+            "self_correct" => Ok(Self::SelfCorrect),
+            "self_incorrect" => Ok(Self::SelfIncorrect),
+            "skipped" => Ok(Self::Skipped),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PracticeOutcome {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PracticeOutcome {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
 ///`ReactionReport`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct ReactionReport {
@@ -612,6 +1100,61 @@ impl ::std::convert::TryFrom<&str> for ReactionStatus {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for ReactionStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`Speaker`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum Speaker {
+    #[serde(rename = "player")]
+    Player,
+    #[serde(rename = "npc")]
+    Npc,
+}
+impl ::std::fmt::Display for Speaker {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Player => f.write_str("player"),
+            Self::Npc => f.write_str("npc"),
+        }
+    }
+}
+impl ::std::str::FromStr for Speaker {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "player" => Ok(Self::Player),
+            "npc" => Ok(Self::Npc),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for Speaker {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for Speaker {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -1134,6 +1677,14 @@ impl<'de> ::serde::Deserialize<'de> for WorldContextChangedTagsItem {
                 <D::Error as ::serde::de::Error>::custom(e.to_string())
             })
     }
+}
+///`WorldPracticeCompleted`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct WorldPracticeCompleted {
+    #[serde(default)]
+    pub completed: bool,
+    pub items: ::std::vec::Vec<PracticeItem>,
+    pub plan_id: ::std::string::String,
 }
 ///`WorldPracticeRequested`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]

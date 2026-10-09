@@ -49,7 +49,7 @@ module Lingara
       ))
     end
 
-    # ── The thirteen operations, over operations.rb ───────────────────────
+    # ── The operations, over operations.rb ────────────────────────────────
 
     # Streams a vocabulary list (scope vocab:generate).
     def generate_vocabulary(**body, &block)
@@ -158,6 +158,38 @@ module Lingara
       json("sendEvent", [], body: JSON.generate(event.to_hash), headers: {"Idempotency-Key" => key})
     end
 
+    # ── Embedding (ADR 1.10.26w) ──────────────────────────────────────────
+
+    # Mints a player's embed token (scope embed:mint, a metered client
+    # only): player_ref:, and optionally scopes: (a list) and origin:. Call
+    # it on your server, never on a player's device. Returns a MintedToken,
+    # whose token renders [REDACTED]. The token lives 900 s and is never
+    # refreshed: mint again when the player kit asks.
+    def create_embed_token(**body)
+      operation = OPERATIONS.fetch("createEmbedToken")
+      json("createEmbedToken", [], body: payload(operation, body), decode: MintedToken.method(:decode))
+    end
+
+    # Deletes a player and revokes its tokens (scope embed:mint). An unknown
+    # player_ref is a success too, so a retry is safe, and it works while
+    # embedding is switched off. Returns a Response whose value is nil.
+    def delete_embed_player(player_ref)
+      no_content("deleteEmbedPlayer", [player_ref])
+    end
+
+    # Streams an NPC's reply to one line (scope embed:play, from an embed
+    # token or a metered client's own token): delta and notice events, ending
+    # on done. Each turn spends the player's NPC cells and the payer's, so it
+    # is sent once, never retried: a 429 or 503 raises ApiError at once,
+    # retry_after included, and the caller decides whether to send again.
+    # The window is the schema's: at most 12 history entries, line and each
+    # entry at most 500 characters; send an NPC reply back cut to its first
+    # 500. 403 embed_needs_metered and 422 safety_input_flagged (say
+    # something else) are refusals no retry helps.
+    def send_dialogue_turn(**body, &block)
+      stream("sendDialogueTurn", [], body, policy: @tail_policy, &block)
+    end
+
     def to_s
       inspect
     end
@@ -179,14 +211,32 @@ module Lingara
       raise ArgumentError, "stream_idle_timeout: must be a positive number" unless idle.is_a?(Numeric) && idle.positive?
     end
 
-    # +body+ is JSON text already; +headers+ join every attempt's.
-    def json(id, args, query: nil, body: nil, headers: {})
+    # +body+ is JSON text already; +headers+ join every attempt's. +decode+
+    # replaces the generated model's decoding (create_embed_token's).
+    def json(id, args, query: nil, body: nil, headers: {}, decode: nil)
       operation = OPERATIONS.fetch(id)
       url = url_for(operation, args, query)
+      decode ||= ->(text) { Decoding.response(operation[:response], text) }
       pipeline(operation, url, body, headers: headers) do |response, _phase, observe|
         served = observe.call(response)
-        Response.new(value: Decoding.response(operation[:response], response.body.to_s), served_version: served)
+        Response.new(value: decode.call(response.body.to_s), served_version: served)
       end
+    end
+
+    # An operation whose success has no body (D4): no request body and no
+    # Content-Type, and any 2xx body is discarded unread. Called by name: a
+    # route's `response: nil` already means "a plain Hash".
+    def no_content(id, args)
+      operation = OPERATIONS.fetch(id)
+      pipeline(operation, url_for(operation, args), nil) do |response, _phase, observe|
+        Response.new(value: nil, served_version: observe.call(response))
+      end
+    end
+
+    # The request model's constructor refuses a bad keyword before any
+    # request is sent: a programming error, like Client.new's.
+    def payload(operation, body)
+      body && JSON.generate(Lingara.const_get(operation[:request_body]).new(body).to_hash)
     end
 
     # One page of the feed as its raw Hash, so each item reaches
@@ -198,14 +248,13 @@ module Lingara
       end
     end
 
-    def stream(id, args, body, query: nil, headers: {}, &block)
+    # +policy+ is the single-attempt one for a stream that must not be
+    # retried (send_dialogue_turn).
+    def stream(id, args, body, query: nil, headers: {}, policy: @policy, &block)
       operation = OPERATIONS.fetch(id)
       url = url_for(operation, args, query)
-      # The request model's constructor refuses a bad keyword before any
-      # request is sent: a programming error, like Client.new's.
-      payload = body && JSON.generate(Lingara.const_get(operation[:request_body]).new(body).to_hash)
-      send = ->(*call, **options, &consume) { pipeline(*call, headers: headers, **options, &consume) }
-      events = EventStream.new(pipeline: send, operation: operation, url: url, body: payload)
+      send = ->(*call, **options, &consume) { pipeline(*call, headers: headers, policy: policy, **options, &consume) }
+      events = EventStream.new(pipeline: send, operation: operation, url: url, body: payload(operation, body))
       block ? events.run(&block) : events
     end
 

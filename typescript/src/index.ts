@@ -23,3 +23,5 @@ export { EventFeed } from "./events/feed.js";
 export type { EventsParams, ListEventsParams } from "./events/feed.js";
 export { EventTail } from "./events/tail.js";
 export type { SendEventOptions } from "./events/send.js";
+// Embedding (ADR 1.10.26w): the token createEmbedToken mints.
+export { MintedToken } from "./embed.js";

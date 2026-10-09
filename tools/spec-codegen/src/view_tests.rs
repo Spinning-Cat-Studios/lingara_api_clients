@@ -21,14 +21,15 @@ fn vendored_pair() -> (Value, Option<Value>) {
     (read(&pair.openapi), pair.asyncapi.as_deref().map(read))
 }
 
-const UNIONS: [&str; 5] = [
+const UNIONS: [&str; 6] = [
     "GenerateVocabularyEvent",
     "CreateLessonPlanEvent",
     "StreamLessonPlanEvent",
     "SendTutorMessageEvent",
     "StreamEventsEvent",
+    "SendDialogueTurnEvent",
 ];
-const REMAINING: [&str; 8] = [
+const REMAINING: [&str; 10] = [
     "getLessonPlan",
     "getUsage",
     "getOpenApiDocument",
@@ -37,6 +38,8 @@ const REMAINING: [&str; 8] = [
     "getApiVersion",
     "listEvents",
     "sendEvent",
+    "createEmbedToken",
+    "deleteEmbedPlayer",
 ];
 
 fn operation_ids(doc: &Value) -> Vec<&str> {
@@ -69,6 +72,7 @@ fn the_vendored_spec_names_how_each_stream_ends() {
         ["streamLessonPlan", ["result", "pending", "error"], 15, false],
         ["sendTutorMessage", ["done", "error"], null, false],
         ["streamEvents", ["done", "error"], 15, true],
+        ["sendDialogueTurn", ["done", "error"], null, false],
     ]);
     let view = vendored_view();
     for (name, doc) in OUTPUTS.iter().zip([&view.v31, &view.v30]) {
@@ -82,9 +86,9 @@ fn the_vendored_spec_names_how_each_stream_ends() {
     }
 }
 
-// 29.9.26m AC8
+// 29.9.26m AC8; 1.10.26w adds the embed mint's stream and two operations
 #[test]
-fn the_vendored_spec_yields_five_streams_and_eight_operations() {
+fn the_vendored_spec_yields_six_streams_and_ten_operations() {
     let (spec, catalogue) = vendored_pair();
     let source = fs::read_to_string(spec_dir().join("SOURCE")).unwrap();
     let first = build_view(&spec, catalogue.as_ref(), source.trim()).unwrap();
@@ -99,7 +103,7 @@ fn the_vendored_spec_yields_five_streams_and_eight_operations() {
         assert_eq!(rendered, render(b), "{name}: two runs differ");
         assert_eq!(unions(a), want_unions, "{name}");
         assert_eq!(operation_ids(a), want_ops, "{name}");
-        assert_eq!(a["x-lingara-streams"].as_array().unwrap().len(), 5, "{name}");
+        assert_eq!(a["x-lingara-streams"].as_array().unwrap().len(), 6, "{name}");
         assert_eq!(a["info"]["x-lingara-view"]["source"], source.trim(), "{name}");
         assert!(!rendered.contains("x-i18n") && !rendered.contains("itemSchema"), "{name}");
         let committed = fs::read_to_string(spec_dir().join("generator").join(name)).unwrap();
@@ -119,7 +123,8 @@ fn the_vendored_pair_names_the_event_catalogue() {
             .map(|e| json!([e["type"], e["direction"]]))
             .collect();
         // The six of D3 as written, plus A2's two `app.*` lifecycle events
-        // (Step 0: roadmap 30.9.26ae landed them before E6's mint).
+        // (Step 0: roadmap 30.9.26ae landed them before E6's mint), the apps
+        // pause's two (7.10.26b) and B2's practice pair (1.10.26w Step 0).
         let want = json!([
             ["lesson_plan.ready", "out"],
             ["lesson_plan.failed", "out"],
@@ -127,16 +132,40 @@ fn the_vendored_pair_names_the_event_catalogue() {
             ["webhook.test", "out"],
             ["app.installed", "out"],
             ["app.uninstalled", "out"],
+            ["app.disabled", "out"],
+            ["app.enabled", "out"],
             ["world.context_changed", "in"],
             ["world.practice_requested", "in"],
+            ["world.practice_completed", "in"],
+            ["practice.completed", "out"],
         ]);
         assert_eq!(Value::Array(got), want, "{name}");
-        let test = &doc["x-lingara-events"][3];
+        let events = doc["x-lingara-events"].as_array().unwrap();
+        let test = events.iter().find(|e| e["type"] == "webhook.test").expect("webhook.test is lifted");
         assert_eq!(test["transports"], json!(["webhook"]), "{name}: webhook.test is webhook-only");
         let tail = doc["x-lingara-streams"].as_array().unwrap().iter().find(|e| e["operationId"] == "streamEvents");
         let tail = tail.expect("the events stream is lifted");
         assert_eq!(tail["resumable"], true, "{name}: the stream is a tail");
         assert_eq!(tail["endsOn"], json!(["done", "error"]), "{name}");
         assert!(doc["components"]["schemas"].get("InboundEventRequest").is_none(), "{name}");
+    }
+}
+
+// 1.10.26w AC2
+#[test]
+fn the_vendored_pair_names_the_embed_operations() {
+    let view = vendored_view();
+    for (name, doc) in OUTPUTS.iter().zip([&view.v31, &view.v30]) {
+        let ops = operation_ids(doc);
+        assert!(ops.contains(&"createEmbedToken") && ops.contains(&"deleteEmbedPlayer"), "{name}: {ops:?}");
+        let streams = doc["x-lingara-streams"].as_array().unwrap();
+        let turn = streams.iter().find(|e| e["operationId"] == "sendDialogueTurn").expect("the NPC turn is lifted");
+        assert_eq!(turn["endsOn"], json!(["done", "error"]), "{name}");
+        assert_eq!(turn["keepaliveSeconds"], Value::Null, "{name}: no keepalive");
+        assert_eq!(turn["resumable"], false, "{name}: not a tail");
+        let events = doc["x-lingara-events"].as_array().unwrap();
+        let direction = |t: &str| events.iter().find(|e| e["type"] == t).map(|e| e["direction"].clone());
+        assert_eq!(direction("world.practice_completed"), Some(json!("in")), "{name}");
+        assert_eq!(direction("practice.completed"), Some(json!("out")), "{name}");
     }
 }

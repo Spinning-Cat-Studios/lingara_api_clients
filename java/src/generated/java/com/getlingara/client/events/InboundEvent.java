@@ -36,6 +36,16 @@ public final class InboundEvent {
   }
 
   /**
+   * A {@code world.practice_completed} event.
+   *
+   * @param data the event's data
+   * @return the event
+   */
+  public static InboundEvent worldPracticeCompleted(com.getlingara.client.model.WorldPracticeCompleted data) {
+    return new InboundEvent("world.practice_completed", data);
+  }
+
+  /**
    * Returns the wire type, such as {@code world.context_changed}.
    *
    * @return the type

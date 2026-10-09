@@ -95,6 +95,33 @@ func (e CreateLessonPlanEventStartedEvent) Valid() bool {
 	}
 }
 
+// Defines values for EmbedTokenRequestScopes.
+const (
+	EmbedTokenRequestScopesEmbedPlay        EmbedTokenRequestScopes = "embed:play"
+	EmbedTokenRequestScopesEventsRead       EmbedTokenRequestScopes = "events:read"
+	EmbedTokenRequestScopesEventsWrite      EmbedTokenRequestScopes = "events:write"
+	EmbedTokenRequestScopesLessonPlansRead  EmbedTokenRequestScopes = "lesson_plans:read"
+	EmbedTokenRequestScopesLessonPlansWrite EmbedTokenRequestScopes = "lesson_plans:write"
+)
+
+// Valid indicates whether the value is a known member of the EmbedTokenRequestScopes enum.
+func (e EmbedTokenRequestScopes) Valid() bool {
+	switch e {
+	case EmbedTokenRequestScopesEmbedPlay:
+		return true
+	case EmbedTokenRequestScopesEventsRead:
+		return true
+	case EmbedTokenRequestScopesEventsWrite:
+		return true
+	case EmbedTokenRequestScopesLessonPlansRead:
+		return true
+	case EmbedTokenRequestScopesLessonPlansWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GenerateVocabularyEventDoneEvent.
 const (
 	GenerateVocabularyEventDoneEventDone GenerateVocabularyEventDoneEvent = "done"
@@ -212,6 +239,36 @@ func (e PlanStatus) Valid() bool {
 	}
 }
 
+// Defines values for PracticeOutcome.
+const (
+	PracticeOutcomeCorrect       PracticeOutcome = "correct"
+	PracticeOutcomeIncorrect     PracticeOutcome = "incorrect"
+	PracticeOutcomeRevealed      PracticeOutcome = "revealed"
+	PracticeOutcomeSelfCorrect   PracticeOutcome = "self_correct"
+	PracticeOutcomeSelfIncorrect PracticeOutcome = "self_incorrect"
+	PracticeOutcomeSkipped       PracticeOutcome = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the PracticeOutcome enum.
+func (e PracticeOutcome) Valid() bool {
+	switch e {
+	case PracticeOutcomeCorrect:
+		return true
+	case PracticeOutcomeIncorrect:
+		return true
+	case PracticeOutcomeRevealed:
+		return true
+	case PracticeOutcomeSelfCorrect:
+		return true
+	case PracticeOutcomeSelfIncorrect:
+		return true
+	case PracticeOutcomeSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReactionStatus.
 const (
 	ReactionStatusFailed  ReactionStatus = "failed"
@@ -227,6 +284,66 @@ func (e ReactionStatus) Valid() bool {
 	case ReactionStatusRefused:
 		return true
 	case ReactionStatusStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SendDialogueTurnEventDeltaEvent.
+const (
+	SendDialogueTurnEventDeltaEventDelta SendDialogueTurnEventDeltaEvent = "delta"
+)
+
+// Valid indicates whether the value is a known member of the SendDialogueTurnEventDeltaEvent enum.
+func (e SendDialogueTurnEventDeltaEvent) Valid() bool {
+	switch e {
+	case SendDialogueTurnEventDeltaEventDelta:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SendDialogueTurnEventDoneEvent.
+const (
+	SendDialogueTurnEventDoneEventDone SendDialogueTurnEventDoneEvent = "done"
+)
+
+// Valid indicates whether the value is a known member of the SendDialogueTurnEventDoneEvent enum.
+func (e SendDialogueTurnEventDoneEvent) Valid() bool {
+	switch e {
+	case SendDialogueTurnEventDoneEventDone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SendDialogueTurnEventErrorEvent.
+const (
+	SendDialogueTurnEventErrorEventError SendDialogueTurnEventErrorEvent = "error"
+)
+
+// Valid indicates whether the value is a known member of the SendDialogueTurnEventErrorEvent enum.
+func (e SendDialogueTurnEventErrorEvent) Valid() bool {
+	switch e {
+	case SendDialogueTurnEventErrorEventError:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SendDialogueTurnEventNoticeEvent.
+const (
+	SendDialogueTurnEventNoticeEventNotice SendDialogueTurnEventNoticeEvent = "notice"
+)
+
+// Valid indicates whether the value is a known member of the SendDialogueTurnEventNoticeEvent enum.
+func (e SendDialogueTurnEventNoticeEvent) Valid() bool {
+	switch e {
+	case SendDialogueTurnEventNoticeEventNotice:
 		return true
 	default:
 		return false
@@ -287,6 +404,24 @@ const (
 func (e SendTutorMessageEventNoticeEvent) Valid() bool {
 	switch e {
 	case SendTutorMessageEventNoticeEventNotice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Speaker.
+const (
+	SpeakerNpc    Speaker = "npc"
+	SpeakerPlayer Speaker = "player"
+)
+
+// Valid indicates whether the value is a known member of the Speaker enum.
+func (e Speaker) Valid() bool {
+	switch e {
+	case SpeakerNpc:
+		return true
+	case SpeakerPlayer:
 		return true
 	default:
 		return false
@@ -549,6 +684,18 @@ type AllowanceRow struct {
 // AppContextSlice defines model for AppContextSlice.
 type AppContextSlice string
 
+// AppDisabledData defines model for AppDisabledData.
+type AppDisabledData struct {
+	ClientID  string `json:"client_id"`
+	InstallID string `json:"install_id"`
+}
+
+// AppEnabledData defines model for AppEnabledData.
+type AppEnabledData struct {
+	ClientID  string `json:"client_id"`
+	InstallID string `json:"install_id"`
+}
+
 // AppInstalledData defines model for AppInstalledData.
 type AppInstalledData struct {
 	ClientID  string            `json:"client_id"`
@@ -599,8 +746,50 @@ type CreateLessonPlanEventStarted struct {
 // CreateLessonPlanEventStartedEvent defines model for CreateLessonPlanEventStarted.Event.
 type CreateLessonPlanEventStartedEvent string
 
+// DialogueEntry defines model for DialogueEntry.
+type DialogueEntry struct {
+	Speaker Speaker `json:"speaker"`
+	Text    string  `json:"text"`
+}
+
+// DialogueTurnRequest defines model for DialogueTurnRequest.
+type DialogueTurnRequest struct {
+	// History The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.
+	History    *[]DialogueEntry `json:"history,omitempty"`
+	Level      uint8            `json:"level"`
+	Line       string           `json:"line"`
+	Npc        Npc              `json:"npc"`
+	Scene      *string          `json:"scene,omitempty"`
+	SourceLang string           `json:"source_lang"`
+	TargetLang string           `json:"target_lang"`
+}
+
 // Done defines model for Done.
 type Done = map[string]interface{}
+
+// EmbedToken defines model for EmbedToken.
+type EmbedToken struct {
+	AccountLinked bool      `json:"account_linked"`
+	ExpiresAt     time.Time `json:"expires_at"`
+
+	// ExpiresIn Seconds until the token expires, counted from this answer. Use it when the device's clock cannot be trusted.
+	ExpiresIn uint32   `json:"expires_in"`
+	Scopes    []string `json:"scopes"`
+	Subject   string   `json:"subject"`
+	Token     string   `json:"token"`
+}
+
+// EmbedTokenRequest defines model for EmbedTokenRequest.
+type EmbedTokenRequest struct {
+	Origin *string `json:"origin,omitempty"`
+
+	// PlayerRef Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.
+	PlayerRef string                     `json:"player_ref"`
+	Scopes    *[]EmbedTokenRequestScopes `json:"scopes,omitempty"`
+}
+
+// EmbedTokenRequestScopes defines model for EmbedTokenRequest.Scopes.
+type EmbedTokenRequestScopes string
 
 // ErrorEnvelope defines model for Error.
 type ErrorEnvelope struct {
@@ -783,6 +972,23 @@ type PlanWord struct {
 	Word          string  `json:"word"`
 }
 
+// PracticeCompletedData defines model for PracticeCompletedData.
+type PracticeCompletedData struct {
+	Completed bool           `json:"completed"`
+	Items     []PracticeItem `json:"items"`
+	PlanID    string         `json:"plan_id"`
+}
+
+// PracticeItem defines model for PracticeItem.
+type PracticeItem struct {
+	Outcome   PracticeOutcome `json:"outcome"`
+	Question  uint8           `json:"question"`
+	SetNumber uint8           `json:"set_number"`
+}
+
+// PracticeOutcome defines model for PracticeOutcome.
+type PracticeOutcome string
+
 // ReactionReport defines model for ReactionReport.
 type ReactionReport struct {
 	Code   *string `json:"code,omitempty"`
@@ -796,6 +1002,42 @@ type ReactionReport struct {
 
 // ReactionStatus defines model for ReactionStatus.
 type ReactionStatus string
+
+// SendDialogueTurnEventDelta defines model for SendDialogueTurnEventDelta.
+type SendDialogueTurnEventDelta struct {
+	Data  TurnDelta                       `json:"data"`
+	Event SendDialogueTurnEventDeltaEvent `json:"event"`
+}
+
+// SendDialogueTurnEventDeltaEvent defines model for SendDialogueTurnEventDelta.Event.
+type SendDialogueTurnEventDeltaEvent string
+
+// SendDialogueTurnEventDone defines model for SendDialogueTurnEventDone.
+type SendDialogueTurnEventDone struct {
+	Data  Done                           `json:"data"`
+	Event SendDialogueTurnEventDoneEvent `json:"event"`
+}
+
+// SendDialogueTurnEventDoneEvent defines model for SendDialogueTurnEventDone.Event.
+type SendDialogueTurnEventDoneEvent string
+
+// SendDialogueTurnEventError defines model for SendDialogueTurnEventError.
+type SendDialogueTurnEventError struct {
+	Data  StreamError                     `json:"data"`
+	Event SendDialogueTurnEventErrorEvent `json:"event"`
+}
+
+// SendDialogueTurnEventErrorEvent defines model for SendDialogueTurnEventError.Event.
+type SendDialogueTurnEventErrorEvent string
+
+// SendDialogueTurnEventNotice defines model for SendDialogueTurnEventNotice.
+type SendDialogueTurnEventNotice struct {
+	Data  Notice                           `json:"data"`
+	Event SendDialogueTurnEventNoticeEvent `json:"event"`
+}
+
+// SendDialogueTurnEventNoticeEvent defines model for SendDialogueTurnEventNotice.Event.
+type SendDialogueTurnEventNoticeEvent string
 
 // SendTutorMessageEventDelta defines model for SendTutorMessageEventDelta.
 type SendTutorMessageEventDelta struct {
@@ -832,6 +1074,9 @@ type SendTutorMessageEventNotice struct {
 
 // SendTutorMessageEventNoticeEvent defines model for SendTutorMessageEventNotice.Event.
 type SendTutorMessageEventNoticeEvent string
+
+// Speaker defines model for Speaker.
+type Speaker string
 
 // StreamError defines model for StreamError.
 type StreamError struct {
@@ -1063,6 +1308,13 @@ type WorldContextChanged struct {
 	TargetLang string    `json:"target_lang"`
 }
 
+// WorldPracticeCompleted defines model for WorldPracticeCompleted.
+type WorldPracticeCompleted struct {
+	Completed *bool          `json:"completed,omitempty"`
+	Items     []PracticeItem `json:"items"`
+	PlanID    string         `json:"plan_id"`
+}
+
 // WorldPracticeRequested defines model for WorldPracticeRequested.
 type WorldPracticeRequested struct {
 	Generate   *bool     `json:"generate,omitempty"`
@@ -1097,6 +1349,9 @@ type LingaraVersion = string
 // PlanID defines model for PlanId.
 type PlanID = string
 
+// PlayerRef defines model for PlayerRef.
+type PlayerRef = string
+
 // VersionID defines model for VersionId.
 type VersionID = string
 
@@ -1117,6 +1372,18 @@ type VersionDiscontinued = ErrorEnvelope
 
 // GetAsyncAPIDocumentParams defines parameters for GetAsyncAPIDocument.
 type GetAsyncAPIDocumentParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// DeleteEmbedPlayerParams defines parameters for DeleteEmbedPlayer.
+type DeleteEmbedPlayerParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// CreateEmbedTokenParams defines parameters for CreateEmbedToken.
+type CreateEmbedTokenParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
 	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
 }
@@ -1183,6 +1450,9 @@ type GetAPIVersionParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
 	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
 }
+
+// CreateEmbedTokenJSONRequestBody defines body for CreateEmbedToken for application/json ContentType.
+type CreateEmbedTokenJSONRequestBody = EmbedTokenRequest
 
 // SendEventJSONRequestBody defines body for SendEvent for application/json ContentType.
 type SendEventJSONRequestBody = SendEventJSONBody

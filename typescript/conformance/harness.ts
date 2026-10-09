@@ -14,6 +14,7 @@ import {
   Lingara,
   LingaraError,
   MaintenanceError,
+  MintedToken,
   OAuthError,
   TransportError,
   type DeprecationNotice,
@@ -76,7 +77,7 @@ interface Case {
 // gives none; every other operation without params takes only its options.
 const PARAMS_FIRST = new Set(["listEvents", "streamEvents"]);
 // The success status of an operation that does not answer 200.
-const STATUS: Record<string, number> = { sendEvent: 202 };
+const STATUS: Record<string, number> = { sendEvent: 202, deleteEmbedPlayer: 204 };
 
 /** One case's client, its virtual clock, its sleeps and its hook calls. */
 interface Rig {
@@ -167,7 +168,15 @@ type Run = HelperRun;
 /** The call's first argument: its params, or its body (an `InboundEvent` for `sendEvent`). */
 function firstArgument(call: Call): unknown {
   if (call.operation === "sendEvent") return inboundEvent(call.body);
+  if (call.operation === "deleteEmbedPlayer") return { playerRef: call.params?.["player_ref"] };
   return call.params ?? call.body ?? (PARAMS_FIRST.has(call.operation) ? {} : undefined);
+}
+
+/** A result's body in wire form: a `MintedToken` through `exposeToken`, snake_case, `expires_in` in seconds. */
+function wireBody(value: unknown): unknown {
+  if (!(value instanceof MintedToken)) return value;
+  const { expiresAt, expiresIn, subject, scopes, accountLinked } = value;
+  return { token: value.exposeToken(), expires_at: expiresAt, expires_in: expiresIn, subject, scopes, account_linked: accountLinked };
 }
 
 /** Runs one call to completion, error or cancellation. */
@@ -181,8 +190,9 @@ async function invoke(r: Rig, call: Call): Promise<Run> {
   const events: unknown[] = [];
   try {
     if (result instanceof EventStream) return await drain(result, events, call, ac);
-    const body = (await result) as { servedVersion?: string };
-    return { outcome: "completed", status: STATUS[call.operation] ?? 200, body, events, servedVersion: body.servedVersion };
+    const value = (await result) as { servedVersion?: string };
+    const status = STATUS[call.operation] ?? 200;
+    return { outcome: "completed", status, body: wireBody(value), events, servedVersion: value.servedVersion, result: value };
   } catch (e) {
     const servedVersion = result instanceof EventStream ? await result.servedVersion : undefined;
     if (ac.signal.aborted && e === ac.signal.reason) return { outcome: "cancelled", events, servedVersion };
@@ -206,7 +216,8 @@ async function runStep(r: Rig, step: Step, expect: Expect): Promise<string[]> {
   const [name, runs] = await stepRuns(r, step);
   const sleepsS = r.sleeps.map((ms) => Math.round(ms / 1000));
   return runs.flatMap((run, i) => {
-    const renderings = [...render(r.client), ...render(r.client.tokenSource), ...render(run.raised)];
+    // A completed call's result is rendered too: a MintedToken is a token (K1).
+    const renderings = [...render(r.client), ...render(r.client.tokenSource), ...render(run.raised), ...render(run.result)];
     const seen: Observed = { ...run, sleepsS, hookCalls: [...r.hookCalls], renderings };
     const label = runs.length > 1 ? `call ${i + 1}: ` : "";
     return compare(expect, seen).map((m) => `${name}: ${label}${m}`);

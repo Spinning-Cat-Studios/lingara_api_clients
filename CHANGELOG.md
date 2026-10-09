@@ -1,5 +1,25 @@
 # Changelog
 
+## v0.2.0-alpha.1 — 2026-10-09
+
+
+Generated from Lingara API 2026-10-virile-dragon (development) at spec backend@de35d01dd19e4ae8c6d576715a555a14d4370659.
+
+### Added
+
+- `release-manifest` reads seven opt-in `languages.toml` keys, so the embed SDK can release through this tool rather than a fork: a per-file `registries` subset of nine known registries (`nuget`, `godot-assetlib` and `fab` join the six), an entry's `dir` and `snippets` directories, store registries with no install line or probe, NuGet's `.nuspec` probe, a `prefix` on `version_files`, and `extra_assets` in the `verify.assets` set. A file that sets none of them, this repository's included, is checked exactly as before. The `matrix` rows also carry `dir` and `manual`. Tooling only; no library changes.
+- All seven libraries are generated from API version `2026-10-golden-remora` (ADR 1.10.26w). They gain three operations: `createEmbedToken` mints a player's 15-minute embed token from a metered client holding `embed:mint`; `deleteEmbedPlayer` deletes a player and revokes its tokens, answering an empty `204` (the libraries' first `DELETE`); and `sendDialogueTurn` streams an NPC's reply (`embed:play`), opened without retries because each attempt is billed.
+- `MintedToken`, the mint's result: its `token` renders `[REDACTED]` in every rendering and is read through the one exposing accessor, beside `expiresAt`, `expiresIn`, `subject`, `scopes` and `accountLinked`. A mint answer missing any of the six fields is `TransportError{kind: malformed_response}`.
+- The event catalogue gains the inbound `world.practice_completed` and the outbound `practice.completed`, plus the apps pause's `app.disabled` and `app.enabled`, which the same version froze. Each is typed in the feed, the tail and the webhook verifier.
+
+### Changed
+
+- TypeScript encodes every path parameter as one segment, with every byte outside RFC 3986's unreserved set written as upper-case `%XX`. `encodeURIComponent` left `! ' ( ) *` unencoded; no existing id contains them, so no existing call changes on the wire.
+
+### Fixed
+
+### Removed
+
 ## v0.1.0-alpha.13 — 2026-10-06
 
 

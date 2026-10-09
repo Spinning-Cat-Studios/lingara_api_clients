@@ -6,6 +6,15 @@ module Lingara
   # is its terminal table: :yield (yielded, then the stream ends), :quiet
   # (a Done payload, never yielded) and :raise (the error event).
   OPERATIONS = {
+    "createEmbedToken" => {
+      method: "POST",
+      path: "/v1/embed/tokens",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: "EmbedTokenRequest",
+      response: "EmbedToken",
+      stream: nil
+    }.freeze,
     "createLessonPlan" => {
       method: "POST",
       path: "/v1/lesson-plans",
@@ -14,6 +23,15 @@ module Lingara
       request_body: "LessonPlanCreateRequest",
       response: nil,
       stream: {union: "CreateLessonPlanEvent", events: {"started" => "CreateLessonPlanEventStarted", "phase" => "CreateLessonPlanEventPhase", "result" => "CreateLessonPlanEventResult", "error" => "CreateLessonPlanEventError"}.freeze, ends: {"result" => :yield, "error" => :raise}.freeze}.freeze
+    }.freeze,
+    "deleteEmbedPlayer" => {
+      method: "DELETE",
+      path: "/v1/embed/players/{player_ref}",
+      path_params: ["player_ref"].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: nil,
+      stream: nil
     }.freeze,
     "generateVocabulary" => {
       method: "POST",
@@ -86,6 +104,15 @@ module Lingara
       request_body: nil,
       response: "EventPage",
       stream: nil
+    }.freeze,
+    "sendDialogueTurn" => {
+      method: "POST",
+      path: "/v1/embed/dialogue/turns",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: "DialogueTurnRequest",
+      response: nil,
+      stream: {union: "SendDialogueTurnEvent", events: {"delta" => "SendDialogueTurnEventDelta", "notice" => "SendDialogueTurnEventNotice", "done" => "SendDialogueTurnEventDone", "error" => "SendDialogueTurnEventError"}.freeze, ends: {"done" => :quiet, "error" => :raise}.freeze}.freeze
     }.freeze,
     "sendEvent" => {
       method: "POST",

@@ -7,8 +7,11 @@ import com.getlingara.client.ApiResponse;
 import com.getlingara.client.EventStream;
 import com.getlingara.client.LingaraClient;
 import com.getlingara.client.MaintenanceException;
+import com.getlingara.client.MintedToken;
 import com.getlingara.client.OAuthException;
 import com.getlingara.client.TransportException;
+import com.getlingara.client.model.DialogueTurnRequest;
+import com.getlingara.client.model.EmbedTokenRequest;
 import com.getlingara.client.model.LessonPlanCreateRequest;
 import com.getlingara.client.model.TutorTurnRequest;
 import com.getlingara.client.model.VocabRequest;
@@ -41,7 +44,7 @@ final class Observe {
     final List<String> eventIds = new ArrayList<>();
     final List<String> unknownTypes = new ArrayList<>();
     String cursor;
-    // Every rendering of the client and of a raised error.
+    // Every rendering of the client, of a completed call's result, and of a raised error.
     final List<String> renderings = new ArrayList<>();
   }
 
@@ -108,6 +111,9 @@ final class Observe {
         return consume(() -> c.streamLessonPlan(id), cancelAfter);
       case "sendTutorMessage":
         return consume(() -> c.sendTutorMessage(body(call, TutorTurnRequest.class)), cancelAfter);
+      case "sendDialogueTurn":
+        return consume(
+            () -> c.sendDialogueTurn(body(call, DialogueTurnRequest.class)), cancelAfter);
       case "streamEvents":
         return consume(() -> c.streamEvents(EventSteps.request(call.path("params"))), cancelAfter);
       default:
@@ -137,6 +143,14 @@ final class Observe {
         Seen sent = result(() -> EventSteps.send(c, call));
         sent.status = sent.status == null ? null : 202;
         return sent;
+      case "createEmbedToken":
+        return result(() -> c.createEmbedToken(body(call, EmbedTokenRequest.class)));
+      case "deleteEmbedPlayer":
+        // deleteEmbedPlayer's success is a 204 with no body (ADR 1.10.26w D4).
+        Seen deleted =
+            result(() -> c.deleteEmbedPlayer(call.path("params").path("player_ref").asText()));
+        deleted.status = deleted.status == null ? null : 204;
+        return deleted;
       default:
         Seen seen = new Seen();
         seen.outcome = "harness: no operation " + operation;
@@ -158,9 +172,27 @@ final class Observe {
     Seen seen = new Seen();
     seen.outcome = "completed";
     seen.status = 200;
-    seen.body = Harness.JSON.valueToTree(response.body());
+    seen.body =
+        response.body() instanceof MintedToken minted
+            ? wire(minted)
+            : Harness.JSON.valueToTree(response.body());
     seen.servedVersion = response.servedVersion().orElse(null);
+    // The result's renderings join the redacted scan (ADR 1.10.26w D7).
+    seen.renderings.add(String.valueOf(response));
+    seen.renderings.add(String.valueOf(response.body()));
     return seen;
+  }
+
+  /** A minted token in wire form, read through its one exposing accessor (ADR 1.10.26w D8). */
+  private static JsonNode wire(MintedToken minted) {
+    ObjectNode out = Harness.JSON.createObjectNode();
+    out.put("token", minted.token().exposeSecret());
+    out.put("expires_at", minted.expiresAt());
+    out.put("expires_in", minted.expiresIn().getSeconds());
+    out.put("subject", minted.subject());
+    minted.scopes().forEach(out.putArray("scopes")::add);
+    out.put("account_linked", minted.accountLinked());
+    return out;
   }
 
   /** Drains a stream; after {@code cancelAfter} events it closes it, Java's cancellation. */

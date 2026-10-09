@@ -70,6 +70,30 @@ type AppUninstalled struct {
 
 func (AppUninstalled) isEvent() {}
 
+// AppDisabled is the app.disabled event.
+type AppDisabled struct {
+	EventMeta
+	Data AppDisabledData `json:"data"`
+}
+
+func (AppDisabled) isEvent() {}
+
+// AppEnabled is the app.enabled event.
+type AppEnabled struct {
+	EventMeta
+	Data AppEnabledData `json:"data"`
+}
+
+func (AppEnabled) isEvent() {}
+
+// PracticeCompleted is the practice.completed event.
+type PracticeCompleted struct {
+	EventMeta
+	Data PracticeCompletedData `json:"data"`
+}
+
+func (PracticeCompleted) isEvent() {}
+
 // InboundEvent is an event for SendEvent. Build one with a constructor: each
 // fixes the wire type its data belongs to. The zero value is refused.
 type InboundEvent struct {
@@ -85,6 +109,11 @@ func InboundWorldContextChanged(data WorldContextChanged) InboundEvent {
 // InboundWorldPracticeRequested is the world.practice_requested event.
 func InboundWorldPracticeRequested(data WorldPracticeRequested) InboundEvent {
 	return InboundEvent{eventType: "world.practice_requested", data: data}
+}
+
+// InboundWorldPracticeCompleted is the world.practice_completed event.
+func InboundWorldPracticeCompleted(data WorldPracticeCompleted) InboundEvent {
+	return InboundEvent{eventType: "world.practice_completed", data: data}
 }
 
 // ParseEvent reads one event envelope. A known type whose data does not
@@ -127,6 +156,24 @@ func ParseEvent(raw []byte) (Event, error) {
 		return e, nil
 	case "app.uninstalled":
 		e := AppUninstalled{EventMeta: meta}
+		if err := decodeEventData(meta.Type, data, &e.Data); err != nil {
+			return nil, err
+		}
+		return e, nil
+	case "app.disabled":
+		e := AppDisabled{EventMeta: meta}
+		if err := decodeEventData(meta.Type, data, &e.Data); err != nil {
+			return nil, err
+		}
+		return e, nil
+	case "app.enabled":
+		e := AppEnabled{EventMeta: meta}
+		if err := decodeEventData(meta.Type, data, &e.Data); err != nil {
+			return nil, err
+		}
+		return e, nil
+	case "practice.completed":
+		e := PracticeCompleted{EventMeta: meta}
 		if err := decodeEventData(meta.Type, data, &e.Data); err != nil {
 			return nil, err
 		}

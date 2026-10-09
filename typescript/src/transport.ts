@@ -22,6 +22,23 @@ export async function fetchOnce(req: FetchOnce): Promise<Response> {
   }
 }
 
+const UNRESERVED = /^[A-Za-z0-9\-._~]$/;
+
+/**
+ * One path parameter as one path segment (CONTRACT.md, Protocol facts; ADR
+ * 1.10.26w D5): UTF-8, and every byte outside RFC 3986's unreserved set as
+ * upper-case `%XX`, `/` included. Never split, trimmed or normalised.
+ * `encodeURIComponent` is not enough: it leaves `! ' ( ) *` as they are.
+ */
+export function encodeSegment(value: string): string {
+  let out = "";
+  for (const byte of new TextEncoder().encode(value)) {
+    const char = String.fromCharCode(byte);
+    out += UNRESERVED.test(char) ? char : `%${byte.toString(16).toUpperCase().padStart(2, "0")}`;
+  }
+  return out;
+}
+
 /**
  * What a failed fetch or body read becomes: the signal's reason when the
  * signal aborted (the library never wraps a cancellation), otherwise a

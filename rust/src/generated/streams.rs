@@ -72,6 +72,20 @@ pub enum StreamEventsEvent {
     #[serde(rename = "error")]
     Error(super::models::StreamError),
 }
+/// The events `sendDialogueTurn` yields (`SendDialogueTurnEvent` in the spec).
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
+#[serde(tag = "event", content = "data")]
+#[non_exhaustive]
+pub enum SendDialogueTurnEvent {
+    #[serde(rename = "delta")]
+    Delta(super::models::TurnDelta),
+    #[serde(rename = "notice")]
+    Notice(super::models::Notice),
+    #[serde(rename = "done")]
+    Done(super::models::Done),
+    #[serde(rename = "error")]
+    Error(super::models::StreamError),
+}
 /// `generateVocabulary`: `POST /v1/vocab/stream`.
 pub(crate) const GENERATE_VOCABULARY: StreamRoute = StreamRoute {
     operation_id: "generateVocabulary",
@@ -131,13 +145,25 @@ pub(crate) const STREAM_EVENTS: StreamRoute = StreamRoute {
     ends: &[("done", Outcome::End), ("error", Outcome::Raise)],
     resumable: true,
 };
+/// `sendDialogueTurn`: `POST /v1/embed/dialogue/turns`.
+pub(crate) const SEND_DIALOGUE_TURN: StreamRoute = StreamRoute {
+    operation_id: "sendDialogueTurn",
+    method: "POST",
+    path: "/v1/embed/dialogue/turns",
+    request_body: Some("DialogueTurnRequest"),
+    path_params: &[],
+    events: &["delta", "notice", "done", "error"],
+    ends: &[("done", Outcome::End), ("error", Outcome::Raise)],
+    resumable: false,
+};
 /// Every stream operation, in the view's order: what the unit test
 /// holds the terminal table and the client's methods against.
 #[cfg(test)]
-pub(crate) const ROUTES: [StreamRoute; 5] = [
+pub(crate) const ROUTES: [StreamRoute; 6] = [
     GENERATE_VOCABULARY,
     CREATE_LESSON_PLAN,
     STREAM_LESSON_PLAN,
     SEND_TUTOR_MESSAGE,
     STREAM_EVENTS,
+    SEND_DIALOGUE_TURN,
 ];

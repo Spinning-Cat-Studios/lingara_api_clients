@@ -23,8 +23,11 @@ module Harness
   CLOCK_START = 1_790_000_000
   STREAMS = {
     "generateVocabulary" => :generate_vocabulary, "createLessonPlan" => :create_lesson_plan,
-    "sendTutorMessage" => :send_tutor_message
+    "sendTutorMessage" => :send_tutor_message, "sendDialogueTurn" => :send_dialogue_turn
   }.freeze
+  # The embed operations (ADR 1.10.26w): the mint takes the case's body,
+  # the delete its params.player_ref and answers 204.
+  EMBED_CALLS = %w[createEmbedToken deleteEmbedPlayer].freeze
   JSON_CALLS = {
     "getUsage" => :get_usage, "getOpenApiDocument" => :get_open_api_document, "listApiVersions" => :list_api_versions,
     "getAsyncApiDocument" => :get_async_api_document
@@ -106,20 +109,42 @@ module Harness
   def invoke(client, call)
     operation = call["operation"]
     id = (call["params"] || {})["id"]
-    body = (call["body"] || {}).transform_keys(&:to_sym)
     cancel_after = call["cancel_after_events"]
     if STREAMS.key?(operation) || operation == "streamLessonPlan"
       args = STREAMS.key?(operation) ? [STREAMS[operation]] : [:stream_lesson_plan, id]
-      consume(client, args, body, cancel_after)
+      consume(client, args, body_of(call), cancel_after)
     elsif WITH_ID.key?(operation)
       result { client.public_send(WITH_ID[operation], id) }
     elsif JSON_CALLS.key?(operation)
       result { client.public_send(JSON_CALLS[operation]) }
     elsif EVENT_CALLS.include?(operation)
       invoke_event(client, call)
+    elsif EMBED_CALLS.include?(operation)
+      invoke_embed(client, call)
     else
       {outcome: "harness: no operation #{operation}"}
     end
+  end
+
+  # The call's body, with keyword keys.
+  def body_of(call)
+    (call["body"] || {}).transform_keys(&:to_sym)
+  end
+
+  def invoke_embed(client, call)
+    if call["operation"] == "deleteEmbedPlayer"
+      result(204) { client.delete_embed_player((call["params"] || {})["player_ref"]) }
+    else
+      result { client.create_embed_token(**body_of(call)) }
+    end
+  end
+
+  # A MintedToken in wire form, read through the exposing accessor:
+  # snake_case keys, expires_at as received, expires_in in seconds.
+  def wire(value)
+    return value unless value.is_a?(Lingara::MintedToken)
+    {"token" => value.token.expose_secret, "expires_at" => value.expires_at, "expires_in" => value.expires_in,
+     "subject" => value.subject, "scopes" => value.scopes, "account_linked" => value.account_linked}
   end
 
   # sendEvent's InboundEvent is built from the case's {type, data} through
@@ -137,9 +162,11 @@ module Harness
     end
   end
 
+  # A completed call's result joins the renderings `redacted` scans (D7).
   def result(status = 200)
     response = yield
-    {outcome: "completed", status: status, body: response.value, served_version: response.served_version}
+    {outcome: "completed", status: status, body: wire(response.value), served_version: response.served_version,
+     renderings: renderings(response) + renderings(response.value)}
   rescue Lingara::Error => e
     failed(e, nil)
   end

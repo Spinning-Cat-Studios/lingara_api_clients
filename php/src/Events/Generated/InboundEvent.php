@@ -32,6 +32,12 @@ final readonly class InboundEvent implements \JsonSerializable
         return new self('world.practice_requested', $data);
     }
 
+    /** The `world.practice_completed` event. */
+    public static function worldPracticeCompleted(\Lingara\Model\WorldPracticeCompleted $data): self
+    {
+        return new self('world.practice_completed', $data);
+    }
+
     public function jsonSerialize(): \stdClass
     {
         return (object) [

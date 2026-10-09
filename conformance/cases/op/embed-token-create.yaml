@@ -1,0 +1,27 @@
+id: op.embed-token-create
+title: Minting a player's token sends the request JSON-equal and returns the six fields as a MintedToken
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createEmbedToken
+      body: { player_ref: player-1001, scopes: ["embed:play", "lesson_plans:read"], origin: "https://game.example.com" }
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-golden-remora
+      body: { token: lgr_et_conformance00000000000000000000000000000000, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance0f1e2d3c4b5a6978, scopes: ["embed:play", "lesson_plans:read"], account_linked: false }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opmint, token_type: Bearer, expires_in: 3600, scope: "embed:mint" } }
+    - request:
+        method: POST
+        path: /v1/embed/tokens
+        headers: { authorization: { equals: Bearer lgr_at_opmint }, accept: { contains: application/json } }
+        json: { player_ref: player-1001, scopes: ["embed:play", "lesson_plans:read"], origin: "https://game.example.com" }
+      response:
+        status: 200
+        headers: { lingara-version: 2026-10-golden-remora, cache-control: no-store }
+        json: { token: lgr_et_conformance00000000000000000000000000000000, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance0f1e2d3c4b5a6978, scopes: ["embed:play", "lesson_plans:read"], account_linked: false }

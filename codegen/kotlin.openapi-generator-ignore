@@ -8,3 +8,4 @@
 **/model/StreamLessonPlanEvent*.kt
 **/model/SendTutorMessageEvent*.kt
 **/model/StreamEventsEvent*.kt
+**/model/SendDialogueTurnEvent*.kt

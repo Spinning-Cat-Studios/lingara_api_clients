@@ -61,7 +61,7 @@ calls them. A client without credentials sends the other nine without
 
 ## Streams
 
-The four streaming methods take a block, or return a stream:
+The streaming methods take a block, or return a stream:
 
 - **With a block**, the call sends the request, yields each event and returns
   a `Lingara::StreamResult` (`#served_version`). `break`, `return` or `throw`
@@ -157,6 +157,61 @@ for another event returns the **first** answer. Only
 Event `data` is rendered at your client's pinned version, and this library's
 models are those of `Lingara::GENERATED_FOR_VERSION`: pin your client to it.
 
+## Embedding Lingara
+
+A game or website that puts Lingara in front of its players vouches for each
+player from its own server.
+
+**Mint on your server, never on a player's device**, from a **metered**
+client holding `embed:mint` (with an explicit `scopes:`, include it):
+
+```ruby
+minted = client.create_embed_token(player_ref: "guild-42/player-1001", scopes: ["embed:play"]).value
+minted.subject              # "lgr_sub_…": store it beside the player
+minted.token.expose_secret  # "lgr_et_…": hand it, with minted.expires_at, to the player kit
+```
+
+`player_ref` is your own reference for the player (at most 128 bytes). It is
+sent as one path segment wherever it appears, so `/`, spaces and non-ASCII
+text are safe. The result is a `Lingara::MintedToken`, and its `token` renders
+`[REDACTED]` in `inspect`, `to_s` and `pp` like every other token here. Store
+`subject`: it is how every event and webhook names that player. The token
+lives 900 s and Lingara never refreshes it, so mint again when the player kit
+asks. `expires_in` (whole seconds) is there for a device whose clock cannot be
+trusted. An allowance client is refused with `403 embed_needs_metered`.
+
+`client.delete_embed_player(player_ref)` deletes a player and revokes its
+tokens. It returns a `Lingara::Response` whose `value` is `nil`. It is
+idempotent, since an unknown player is a success too, and it keeps working
+while embedding is switched off for your client.
+
+`client.send_dialogue_turn(npc:, source_lang:, target_lang:, level:, line:, history:)`
+streams one NPC reply (`embed:play`, from an embed token or a metered
+client's own token) as `delta` and `notice` events, ending on `done`. The
+window is yours to keep, and the schema bounds it: at most 12 `history`
+entries, with `line` and each entry at most 500 characters. Send an NPC reply
+back into `history` cut to its first 500 characters. A turn is **never
+retried**, because each attempt spends the player's NPC cells and the payer's:
+a `429` or `503` raises `Lingara::ApiError` at once with its `retry_after`,
+and you decide whether to send the turn again. No retry helps
+`403 embed_needs_metered` or `422 safety_input_flagged` (say something else).
+
+`practice.completed` arrives typed as `Lingara::Events::PracticeCompleted` on
+the feed, the tail and webhooks, and your client needs `events:read` and
+`embed:play` to hear it. A game reports practice with
+`Lingara::Events::InboundEvent.world_practice_completed(…)`, which needs
+`events:write` and `embed:play`.
+
+A player-side caller uses an embed token through a custom `token_source:`
+whose `#token` returns `Lingara::AccessToken.new(lgr_et_token)`: no client
+secret is involved. The library never sends `X-Lingara-Embed-Origin`, so a
+token minted with `origin:` belongs to the browser widget, and a game mints
+without one.
+
+For higher-level helpers on your server, see the
+[Lingara embed server kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
+(the `lingara-embed` gem).
+
 ## Errors
 
 Every failure is a `Lingara::Error`, one of four:
@@ -169,7 +224,8 @@ Every failure is a `Lingara::Error`, one of four:
 | `Lingara::TransportError` | no usable answer | `kind`: `:connect`, `:tls`, `:reset`, `:timeout`, `:stream_ended_early`, `:malformed_response`, `:malformed_event` |
 
 A `429` or `503` with a `Retry-After` of at most `retry_after_cap:` (60 s) is
-retried, up to `max_attempts:` (3) tries; a `401` fetches a fresh token and
+retried, up to `max_attempts:` (3) tries, except by `send_dialogue_turn`,
+which sends once; a `401` fetches a fresh token and
 retries once. A stream that has yielded an event is never replayed. Your own
 interrupt (`Thread#raise`, `Thread#kill`, `Timeout.timeout`) is never wrapped
 and never retried.

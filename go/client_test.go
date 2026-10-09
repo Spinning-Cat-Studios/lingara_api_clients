@@ -94,10 +94,10 @@ func goName(operationID string) string {
 	return strings.NewReplacer("Api", "API", "Id", "ID").Replace(name)
 }
 
-// TestOperationMethodsMatchGeneratedRoutes: 29.9.26q AC23. The thirteen
+// TestOperationMethodsMatchGeneratedRoutes: 29.9.26q AC23. The sixteen
 // client methods and routes_gen.go's keys name the same operations under
-// D3's naming rule, both ways. Events and TailEvents are 30.9.26aa's helpers,
-// not operations.
+// D3's naming rule, both ways (1.10.26w added the three embed operations).
+// Events and TailEvents are 30.9.26aa's helpers, not operations.
 func TestOperationMethodsMatchGeneratedRoutes(t *testing.T) {
 	notOperations := map[string]bool{"Format": true, "LogValue": true, "Events": true, "TailEvents": true}
 	methods := map[string]bool{}
@@ -121,8 +121,26 @@ func TestOperationMethodsMatchGeneratedRoutes(t *testing.T) {
 			t.Errorf("*Client has %s, which is no operation in routes", name)
 		}
 	}
-	if len(routes) != 13 || len(methods) != 13 {
-		t.Errorf("%d routes and %d methods, want thirteen of each", len(routes), len(methods))
+	if len(routes) != 16 || len(methods) != 16 {
+		t.Errorf("%d routes and %d methods, want sixteen of each", len(routes), len(methods))
+	}
+}
+
+// TestURLEncodesANamedPathParameter: 1.10.26w AC16. url() substitutes the
+// route's one placeholder whatever its name, so deleteEmbedPlayer's
+// {player_ref} carries `guild/42 (é)*` as one segment, every byte outside
+// the unreserved set as upper-case %XX; {id} is filled as before.
+func TestURLEncodesANamedPathParameter(t *testing.T) {
+	c := &Client{baseURL: "https://api.example"}
+	got := c.url(routes["deleteEmbedPlayer"].path, "guild/42 (é)*")
+	if want := "https://api.example/v1/embed/players/guild%2F42%20%28%C3%A9%29%2A"; got != want {
+		t.Errorf("url() = %s, want %s", got, want)
+	}
+	if got := c.url(routes["getLessonPlan"].path, "p-1"); got != "https://api.example/v1/lesson-plans/p-1" {
+		t.Errorf("{id}: url() = %s", got)
+	}
+	if got := c.url(routes["getUsage"].path, ""); got != "https://api.example/v1/usage" {
+		t.Errorf("no placeholder: url() = %s", got)
 	}
 }
 

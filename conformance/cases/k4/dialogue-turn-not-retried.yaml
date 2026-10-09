@@ -1,0 +1,19 @@
+id: k4.dialogue-turn-not-retried
+title: An NPC turn answered 429 with Retry-After is sent once, never slept on, and raised with its Retry-After (each attempt spends NPC cells)
+behaviours: [K4, K5]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: sendDialogueTurn
+      body: { npc: { name: Auntie Lin }, source_lang: en, target_lang: zh, level: 2, line: 你好 }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 429, code: rate_limited, retry_after: 1 } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k4dialogue, token_type: Bearer, expires_in: 3600, scope: "embed:play" } }
+    - request: { method: POST, path: /v1/embed/dialogue/turns, json: { npc: { name: Auntie Lin }, source_lang: en, target_lang: zh, level: 2, line: 你好 } }
+      response: { status: 429, headers: { retry-after: "1" }, json: { code: rate_limited, error: This player has spoken to characters too often this hour. } }

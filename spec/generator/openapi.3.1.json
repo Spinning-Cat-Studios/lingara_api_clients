@@ -2,10 +2,10 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Lingara API",
-    "version": "2026-10-affable-towhee",
+    "version": "2026-10-golden-remora",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage.",
     "x-lingara-view": {
-      "source": "backend@5901561d1d52a31e57207323a5b44667d2abac87",
+      "source": "backend@de35d01dd19e4ae8c6d576715a555a14d4370659",
       "from": "3.2.0"
     }
   },
@@ -31,6 +31,10 @@
     {
       "name": "events",
       "description": "Read the events that happen in your account, page by page or as a stream."
+    },
+    {
+      "name": "embed",
+      "description": "Vouch for your game's or site's players, and remove them."
     },
     {
       "name": "account",
@@ -327,7 +331,7 @@
           "events"
         ],
         "summary": "Send an event",
-        "description": "Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat.",
+        "description": "Tells Lingara what happened in your game, such as the learner entering a new place. The event is recorded once and answered with `202`. With `generate: true` Lingara also starts a lesson plan, which needs `lesson_plans:write` and is limited and billed like `POST /v1/lesson-plans`: `reaction` names the plan, and `lesson_plan.ready` or `lesson_plan.failed` follows. Describe the world, never a player's name or chat. A `world.practice_completed` event reports how the learner did on items of a lesson plan they own; it never starts a plan, and Lingara sends you `practice.completed` with the same items.",
         "security": [
           {
             "oauth2": [
@@ -379,6 +383,27 @@
                       "level": 2
                     }
                   }
+                },
+                "worldPracticeCompleted": {
+                  "value": {
+                    "type": "world.practice_completed",
+                    "data": {
+                      "plan_id": "3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37",
+                      "items": [
+                        {
+                          "set_number": 2,
+                          "question": 0,
+                          "outcome": "correct"
+                        },
+                        {
+                          "set_number": 2,
+                          "question": 3,
+                          "outcome": "self_incorrect"
+                        }
+                      ],
+                      "completed": false
+                    }
+                  }
                 }
               }
             }
@@ -424,6 +449,155 @@
           },
           "402": {
             "$ref": "#/components/responses/PaymentRequired"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/embed/tokens": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "post": {
+        "operationId": "createEmbedToken",
+        "tags": [
+          "embed"
+        ],
+        "summary": "Mint a token for a player",
+        "description": "Vouches for one of your players and returns a token your game or page uses for them for 15 minutes. The first token for a `player_ref` creates a learner for that player; later ones reuse it. Ask again when the token expires; it is never refreshed. Needs a `metered` client.",
+        "security": [
+          {
+            "oauth2": [
+              "embed:mint"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmbedTokenRequest"
+              },
+              "example": {
+                "player_ref": "player-1001",
+                "scopes": [
+                  "embed:play",
+                  "lesson_plans:read",
+                  "lesson_plans:write"
+                ],
+                "origin": "https://game.example.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The player's token",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmbedToken"
+                },
+                "example": {
+                  "token": "lgr_et_9fK2mQ7xR4tV1wY8zA3bC6dE0gH5jL2nP7sU4vX9yZ1",
+                  "expires_at": "2026-10-01T09:27:44Z",
+                  "expires_in": 900,
+                  "subject": "lgr_sub_0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+                  "scopes": [
+                    "lesson_plans:read",
+                    "lesson_plans:write",
+                    "embed:play"
+                  ],
+                  "account_linked": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/embed/players/{player_ref}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "delete": {
+        "operationId": "deleteEmbedPlayer",
+        "tags": [
+          "embed"
+        ],
+        "summary": "Delete a player",
+        "description": "Deletes one of your players and everything they made: their plans, their events and their live tokens. Safe to retry: an unknown `player_ref` answers `204` too.",
+        "security": [
+          {
+            "oauth2": [
+              "embed:mint"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/PlayerRef"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The player is gone",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
           },
           "410": {
             "$ref": "#/components/responses/VersionDiscontinued"
@@ -721,7 +895,9 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara."
+              "events:write": "Send events from your game or integration to Lingara.",
+              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
             }
           },
           "authorizationCode": {
@@ -735,7 +911,9 @@
               "tutor:converse": "Hold tutor conversations. Requires a paid plan.",
               "usage:read": "See your remaining allowance, or a `metered` client's usage this month.",
               "events:read": "Read events about your account, and register endpoints that receive them.",
-              "events:write": "Send events from your game or integration to Lingara."
+              "events:write": "Send events from your game or integration to Lingara.",
+              "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
             }
           }
         }
@@ -838,6 +1016,17 @@
           "minLength": 1,
           "maxLength": 255,
           "pattern": "^[\\x21-\\x7E]+$"
+        }
+      },
+      "PlayerRef": {
+        "name": "player_ref",
+        "in": "path",
+        "required": true,
+        "description": "The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`.",
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
         }
       }
     },
@@ -1903,6 +2092,38 @@
           "install_id"
         ]
       },
+      "AppDisabledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
+      "AppEnabledData": {
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string"
+          },
+          "install_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "client_id",
+          "install_id"
+        ]
+      },
       "AppContextSlice": {
         "type": "string",
         "enum": [
@@ -2053,6 +2274,90 @@
           "name"
         ]
       },
+      "WorldPracticeCompleted": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PracticeItem"
+            },
+            "minItems": 1,
+            "maxItems": 100
+          },
+          "completed": {
+            "type": "boolean",
+            "default": false
+          }
+        },
+        "required": [
+          "plan_id",
+          "items"
+        ]
+      },
+      "PracticeItem": {
+        "type": "object",
+        "properties": {
+          "set_number": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 255
+          },
+          "question": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/PracticeOutcome"
+          }
+        },
+        "required": [
+          "set_number",
+          "question",
+          "outcome"
+        ]
+      },
+      "PracticeOutcome": {
+        "type": "string",
+        "enum": [
+          "correct",
+          "incorrect",
+          "revealed",
+          "self_correct",
+          "self_incorrect",
+          "skipped"
+        ]
+      },
+      "PracticeCompletedData": {
+        "type": "object",
+        "properties": {
+          "plan_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PracticeItem"
+            }
+          },
+          "completed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "plan_id",
+          "items",
+          "completed"
+        ]
+      },
       "InboundEventAccepted": {
         "type": "object",
         "properties": {
@@ -2130,6 +2435,158 @@
           "started",
           "refused",
           "failed"
+        ]
+      },
+      "EmbedTokenRequest": {
+        "type": "object",
+        "properties": {
+          "player_ref": {
+            "description": "Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "scopes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "events:read",
+                "events:write",
+                "lesson_plans:read",
+                "lesson_plans:write",
+                "embed:play"
+              ]
+            },
+            "maxItems": 5,
+            "uniqueItems": true
+          },
+          "origin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 255,
+            "pattern": "^https?://[^/?#@ ]+$"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "player_ref"
+        ]
+      },
+      "EmbedToken": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_in": {
+            "description": "Seconds until the token expires, counted from this answer. Use it when the device's clock cannot be trusted.",
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0
+          },
+          "subject": {
+            "type": "string"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "account_linked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "token",
+          "expires_at",
+          "expires_in",
+          "subject",
+          "scopes",
+          "account_linked"
+        ]
+      },
+      "DialogueTurnRequest": {
+        "type": "object",
+        "properties": {
+          "npc": {
+            "$ref": "#/components/schemas/Npc"
+          },
+          "scene": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 160
+          },
+          "source_lang": {
+            "type": "string"
+          },
+          "target_lang": {
+            "type": "string"
+          },
+          "level": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "line": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "history": {
+            "description": "The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DialogueEntry"
+            },
+            "maxItems": 12,
+            "default": []
+          }
+        },
+        "required": [
+          "npc",
+          "source_lang",
+          "target_lang",
+          "level",
+          "line"
+        ]
+      },
+      "DialogueEntry": {
+        "type": "object",
+        "properties": {
+          "speaker": {
+            "$ref": "#/components/schemas/Speaker"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          }
+        },
+        "required": [
+          "speaker",
+          "text"
+        ]
+      },
+      "Speaker": {
+        "type": "string",
+        "enum": [
+          "player",
+          "npc"
         ]
       },
       "GenerateVocabularyEventStarted": {
@@ -2616,6 +3073,103 @@
             "error": "#/components/schemas/StreamEventsEventError"
           }
         }
+      },
+      "SendDialogueTurnEventDelta": {
+        "type": "object",
+        "required": [
+          "event",
+          "data"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "delta"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/TurnDelta"
+          }
+        }
+      },
+      "SendDialogueTurnEventNotice": {
+        "type": "object",
+        "required": [
+          "event",
+          "data"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "notice"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Notice"
+          }
+        }
+      },
+      "SendDialogueTurnEventDone": {
+        "type": "object",
+        "required": [
+          "event",
+          "data"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "done"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/Done"
+          }
+        }
+      },
+      "SendDialogueTurnEventError": {
+        "type": "object",
+        "required": [
+          "event",
+          "data"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "error"
+            ]
+          },
+          "data": {
+            "$ref": "#/components/schemas/StreamError"
+          }
+        }
+      },
+      "SendDialogueTurnEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SendDialogueTurnEventDelta"
+          },
+          {
+            "$ref": "#/components/schemas/SendDialogueTurnEventNotice"
+          },
+          {
+            "$ref": "#/components/schemas/SendDialogueTurnEventDone"
+          },
+          {
+            "$ref": "#/components/schemas/SendDialogueTurnEventError"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "event",
+          "mapping": {
+            "delta": "#/components/schemas/SendDialogueTurnEventDelta",
+            "notice": "#/components/schemas/SendDialogueTurnEventNotice",
+            "done": "#/components/schemas/SendDialogueTurnEventDone",
+            "error": "#/components/schemas/SendDialogueTurnEventError"
+          }
+        }
       }
     }
   },
@@ -2755,6 +3309,32 @@
       "error": "error",
       "keepaliveSeconds": 15,
       "resumable": true
+    },
+    {
+      "operationId": "sendDialogueTurn",
+      "method": "post",
+      "path": "/v1/embed/dialogue/turns",
+      "requestBody": "#/components/schemas/DialogueTurnRequest",
+      "parameters": [
+        "#/components/parameters/LingaraVersion"
+      ],
+      "scopes": [
+        "embed:play"
+      ],
+      "union": "SendDialogueTurnEvent",
+      "events": [
+        "delta",
+        "notice",
+        "done",
+        "error"
+      ],
+      "endsOn": [
+        "done",
+        "error"
+      ],
+      "error": "error",
+      "keepaliveSeconds": null,
+      "resumable": false
     }
   ],
   "x-lingara-events": [
@@ -2823,6 +3403,28 @@
       ]
     },
     {
+      "type": "app.disabled",
+      "direction": "out",
+      "arm": "AppDisabled",
+      "data": "#/components/schemas/AppDisabledData",
+      "transports": [
+        "feed",
+        "stream",
+        "webhook"
+      ]
+    },
+    {
+      "type": "app.enabled",
+      "direction": "out",
+      "arm": "AppEnabled",
+      "data": "#/components/schemas/AppEnabledData",
+      "transports": [
+        "feed",
+        "stream",
+        "webhook"
+      ]
+    },
+    {
       "type": "world.context_changed",
       "direction": "in",
       "data": "#/components/schemas/WorldContextChanged",
@@ -2836,6 +3438,25 @@
       "data": "#/components/schemas/WorldPracticeRequested",
       "transports": [
         "inbound"
+      ]
+    },
+    {
+      "type": "world.practice_completed",
+      "direction": "in",
+      "data": "#/components/schemas/WorldPracticeCompleted",
+      "transports": [
+        "inbound"
+      ]
+    },
+    {
+      "type": "practice.completed",
+      "direction": "out",
+      "arm": "PracticeCompleted",
+      "data": "#/components/schemas/PracticeCompletedData",
+      "transports": [
+        "feed",
+        "stream",
+        "webhook"
       ]
     }
   ]

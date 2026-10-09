@@ -13,6 +13,7 @@ require_relative "lingara/user_agent"
 require_relative "lingara/deprecation"
 require_relative "lingara/sse_decoder"
 require_relative "lingara/response"
+require_relative "lingara/minted_token"
 
 Dir[File.join(__dir__, "lingara/models/*.rb")].sort.each { |file| require file }
 

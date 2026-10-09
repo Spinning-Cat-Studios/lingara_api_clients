@@ -29,7 +29,7 @@ class ClientTest < Minitest::Test
     snake = ->(id) { id.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase }
     methods = Lingara::Client.public_instance_methods(false) - %i[inspect to_s token_source pretty_print events tail_events]
     assert_equal Lingara::OPERATIONS.keys.map { |id| snake.call(id).to_sym }.sort, methods.sort
-    assert_equal 13, methods.size
+    assert_equal 16, methods.size
   end
 
   # 29.9.26t AC29: Client.new refuses version: "", client_id: without
