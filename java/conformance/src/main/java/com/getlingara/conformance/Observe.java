@@ -151,6 +151,13 @@ final class Observe {
             result(() -> c.deleteEmbedPlayer(call.path("params").path("player_ref").asText()));
         deleted.status = deleted.status == null ? null : 204;
         return deleted;
+      case "linkEmbedPlayer":
+        return result(() -> c.linkEmbedPlayer(call.path("params").path("player_ref").asText()));
+      case "unlinkEmbedPlayer":
+        Seen unlinked =
+            result(() -> c.unlinkEmbedPlayer(call.path("params").path("player_ref").asText()));
+        unlinked.status = unlinked.status == null ? null : 204;
+        return unlinked;
       default:
         Seen seen = new Seen();
         seen.outcome = "harness: no operation " + operation;

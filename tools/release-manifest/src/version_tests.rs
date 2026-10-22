@@ -64,6 +64,79 @@ fn gem_version_is_the_rubygems_spelling() {
     assert_eq!(gem_version("1.0.0"), "1.0.0");
 }
 
+const RB: &str = "module Lingara\n  module Cli\n    VERSION = \"0.1.0-alpha.1\" # lockstep\n  end\nend\n";
+const PHP: &str = "<?php\r\n\r\nfinal class Version\r\n{\r\n    public const VERSION = '0.1.0-alpha.1';\r\n}\r\n";
+
+/// A `ruby` entry whose two `line` version files are written as `rb` and
+/// `php`, keyed by `rb_key` and `php_key`; at `fixture()`'s VERSION `check` passes.
+fn line_files(root: &std::path::Path, (rb_key, rb): (&str, &str), (php_key, php): (&str, &str)) {
+    let entry = format!(
+        "\n[[language]]\nid = \"ruby\"\nregistry = \"rubygems\"\npackage = \"lingara-cli\"\nversion_files = [\n  \
+         {{ path = \"ruby/version.rb\", kind = \"line\", keys = [{rb_key:?}] }},\n  \
+         {{ path = \"ruby/Version.php\", kind = \"line\", keys = [{php_key:?}] }},\n]\nsince = \"next\"\n"
+    );
+    write(root, "languages.toml", &format!("{LANGUAGES}{entry}"));
+    write(root, "ruby/LICENSE", crate::manifest_tests::LICENCE);
+    write(root, "snippets/ruby/install.sh", "gem install lingara-cli -v {{version}}\n");
+    write(root, "ruby/version.rb", rb);
+    write(root, "ruby/Version.php", php);
+}
+
+const RB_KEY: &str = "VERSION = \"";
+const PHP_KEY: &str = "public const VERSION = '";
+
+// 22.10.26r AC6
+#[test]
+fn bump_rewrites_only_a_line_files_value() {
+    let dir = fixture();
+    let root = dir.path();
+    line_files(root, (RB_KEY, RB), (PHP_KEY, PHP));
+    assert_eq!(check(&load(&dir)), Vec::<String>::new());
+
+    assert_eq!(bump(root, "0.2.0-beta.3").unwrap(), Vec::<String>::new());
+    let read = |rel: &str| fs::read_to_string(root.join(rel)).unwrap();
+    assert_eq!(read("ruby/version.rb"), RB.replace("0.1.0-alpha.1", "0.2.0-beta.3"));
+    assert_eq!(read("ruby/Version.php"), PHP.replace("0.1.0-alpha.1", "0.2.0-beta.3"), "CRLF and indentation kept");
+}
+
+// 22.10.26r AC7
+#[test]
+fn check_refuses_each_bad_line_key() {
+    let dir = fixture();
+    let root = dir.path();
+    let cases = [
+        ("VERSION = ", RB, "ruby/version.rb: line prefix `VERSION = ` does not end in \" or '"),
+        ("GEM_VERSION = \"", RB, "ruby/version.rb: line prefix `GEM_VERSION = \"` matches no line"),
+        (RB_KEY, "VERSION = \"0.1.0-alpha.1\"\n  VERSION = \"x\"\n", "ruby/version.rb: line prefix `VERSION = \"` matches more than one line"),
+        (RB_KEY, "  VERSION = \"0.1.0-alpha.1\n", "ruby/version.rb: line prefix `VERSION = \"` has no closing quote on its line"),
+        (RB_KEY, "  VERSION = \"0.0.0\"\n", "ruby/version.rb: VERSION = \" reads \"0.0.0\", VERSION is \"0.1.0-alpha.1\""),
+    ];
+    for (key, rb, finding) in cases {
+        line_files(root, (key, rb), (PHP_KEY, PHP));
+        assert_eq!(check(&load(&dir)), vec![finding.to_string()], "{key:?} over {rb:?}");
+    }
+}
+
+// 22.10.26r AC14
+#[test]
+fn bump_refuses_a_bad_line_key_and_leaves_the_file() {
+    let dir = fixture();
+    let root = dir.path();
+    let cases = [
+        ("public const VERSION = ", PHP),
+        ("const LATER = '", PHP),
+        (PHP_KEY, "    public const VERSION = '1';\n    public const VERSION = '2';\n"),
+        (PHP_KEY, "    public const VERSION = '0.1.0-alpha.1;\n"),
+    ];
+    for (key, php) in cases {
+        line_files(root, (RB_KEY, RB), (key, php));
+        let fail = bump(root, "0.2.0").unwrap_err();
+        assert_eq!(fail.code, 2, "{key:?}: {}", fail.message);
+        assert!(fail.message.starts_with("ruby/Version.php: line prefix"), "{}", fail.message);
+        assert_eq!(fs::read_to_string(root.join("ruby/Version.php")).unwrap(), php, "{key:?}");
+    }
+}
+
 // 1.10.26ag AC8
 #[test]
 fn a_prefixed_version_file_carries_its_prefix() {

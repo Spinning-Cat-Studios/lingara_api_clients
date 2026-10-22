@@ -11,6 +11,7 @@ use Lingara\Exception\LingaraException;
 use Lingara\Exception\TransportException;
 use Lingara\Exception\TransportKind;
 use Lingara\Internal\Deprecations;
+use Lingara\Internal\EmbedCalls;
 use Lingara\Internal\ErrorLogLogger;
 use Lingara\Internal\ErrorMapper;
 use Lingara\Internal\Json;
@@ -21,8 +22,6 @@ use Lingara\Internal\SystemClock;
 use Lingara\Internal\Transport;
 use Lingara\Internal\UserAgent;
 use Lingara\Model\DialogueTurnRequest;
-use Lingara\Model\EmbedToken;
-use Lingara\Model\EmbedTokenRequest;
 use Lingara\Model\EventPage;
 use Lingara\Model\InboundEventAccepted;
 use Lingara\Model\LessonPlan;
@@ -57,6 +56,8 @@ use Psr\SimpleCache\CacheInterface;
  */
 final class Client
 {
+    use EmbedCalls;
+
     public const DEFAULT_BASE_URL = 'https://api.getlingara.com';
     public const DEFAULT_TOKEN_URL = 'https://api.getlingara.com/oauth/token';
 
@@ -134,7 +135,7 @@ final class Client
         ));
     }
 
-    // ── The sixteen operations, over Operations ───────────────────────────
+    // ── The operations, over Operations; the non-stream embed calls are EmbedCalls' ──
 
     /** Streams a vocabulary list (scope vocab:generate). */
     public function generateVocabulary(VocabRequest $request): EventStream
@@ -299,33 +300,6 @@ final class Client
     public function getApiVersion(string $id): ApiResponse
     {
         return $this->json('getApiVersion', [$id], VersionDetail::class);
-    }
-
-    /**
-     * Mints a player's embed token (scope embed:mint; a metered client only,
-     * else 403 embed_needs_metered). Call it on your server, never on a
-     * player's device. Every call mints: nothing is cached, and K4 retries a
-     * 429 or 503 with no Idempotency-Key, since two tokens are harmless.
-     *
-     * @return ApiResponse<MintedToken>
-     */
-    public function createEmbedToken(EmbedTokenRequest $request): ApiResponse
-    {
-        $payload = json_encode(ObjectSerializer::sanitizeForSerialization($request), JSON_THROW_ON_ERROR);
-        $answer = $this->json('createEmbedToken', [], EmbedToken::class, [], [], $payload);
-        return new ApiResponse(MintedToken::fromAnswer($answer->value), $answer->servedVersion);
-    }
-
-    /**
-     * Deletes a player and revokes its tokens (scope embed:mint). An unknown
-     * player is a success too, so a retry is safe, and it works while embed
-     * is dark. The value is an empty \stdClass.
-     *
-     * @return ApiResponse<\stdClass>
-     */
-    public function deleteEmbedPlayer(string $playerRef): ApiResponse
-    {
-        return $this->noContent('deleteEmbedPlayer', [$playerRef]);
     }
 
     /**

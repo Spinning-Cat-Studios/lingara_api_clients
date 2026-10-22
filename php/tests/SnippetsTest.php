@@ -39,9 +39,14 @@ final class SnippetsTest extends TestCase
             'getOpenApiDocument' => [], 'listApiVersions' => [], 'getApiVersion' => [self::VERSION], 'errors' => [],
             'listEvents' => [null], 'streamEvents' => [self::PLAN], 'sendEvent' => [],
             'createEmbedToken' => ['player-1001'], 'deleteEmbedPlayer' => ['guild/42'], 'sendDialogueTurn' => [],
+            'unlinkEmbedPlayer' => ['guild/42'],
         ];
-        // auth and verifyWebhook take no client: they run on their own.
-        self::assertCount(count($calls) + 2, $files, 'one file per snippet');
+        // auth and verifyWebhook take no client, and linkEmbedPlayer takes
+        // delegatedClient's (ADR 22.10.26t D7): they run on their own.
+        self::assertCount(count($calls) + 3, $files, 'one file per snippet');
+        ob_start();
+        \LingaraSnippets\linkEmbedPlayer(self::delegated(), 'guild/42');
+        self::assertStringContainsString('linked as lgr_sub_account', (string) ob_get_clean());
         foreach ($calls as $function => $args) {
             $snippet = 'LingaraSnippets\\' . $function;
             ob_start();
@@ -85,6 +90,15 @@ final class SnippetsTest extends TestCase
         );
     }
 
+    /** The link snippet's client: its delegated token, and a router that refuses any other bearer. */
+    private static function delegated(): Client
+    {
+        $router = static fn(RequestInterface $request): ResponseInterface => $request->getHeaderLine('Authorization') === 'Bearer lgr_at_delegated'
+            ? self::answer($request, false)
+            : FakeHttpClient::json(403, ['code' => 'embed_link_needs_grant', 'error' => 'not the delegated token']);
+        return \LingaraSnippets\delegatedClient('lgr_at_delegated', logger: new NullLogger(), http: (new FakeHttpClient($router, $router, $router))->stack());
+    }
+
     private static function answer(RequestInterface $request, bool $refuseUsage): ResponseInterface
     {
         $path = $request->getUri()->getPath();
@@ -101,15 +115,22 @@ final class SnippetsTest extends TestCase
             str_starts_with($path, '/v1/versions/') => FakeHttpClient::json(200, ['id' => self::VERSION, 'state' => 'supported', 'lts' => false,
                 'minted_at' => '2026-09-20T09:00:00Z', 'summary' => 'x', 'history' => [], 'spec' => ['url' => '/v1/openapi.json', 'sha256' => str_repeat('0', 64)]]),
             str_starts_with($path, '/v1/events') => self::events($request),
-            str_starts_with($path, '/v1/embed/') => self::embed($path),
+            str_starts_with($path, '/v1/embed/') => self::embed($path, $request->getMethod()),
             default => self::lessonsAndStreams($path),
         };
     }
 
-    /** The embed routes (ADR 1.10.26w D9): a mint, an empty 204 for a delete, and an NPC turn. */
-    private static function embed(string $path): ResponseInterface
+    /**
+     * The embed routes (ADR 1.10.26w D9): a mint, an empty 204 for a delete,
+     * and an NPC turn; a link for a PUT to /link (ADR 22.10.26t), and an
+     * empty 204 for its DELETE.
+     */
+    private static function embed(string $path, string $method): ResponseInterface
     {
         return match (true) {
+            str_ends_with($path, '/link') && $method === 'PUT' => FakeHttpClient::json(200, ['status' => 'linked', 'subject' => 'lgr_sub_account',
+                'previous_subject' => 'lgr_sub_snippet', 'linked_at' => '2026-11-02T18:04:11Z', 'scopes' => ['embed:play'],
+                'carried' => new \stdClass(), 'kept' => new \stdClass()]),
             $path === '/v1/embed/tokens' => FakeHttpClient::json(200, ['token' => 'lgr_et_snippet', 'expires_at' => '2026-10-01T09:27:44Z',
                 'expires_in' => 900, 'subject' => 'lgr_sub_snippet', 'scopes' => ['events:read', 'embed:play'], 'account_linked' => false]),
             str_starts_with($path, '/v1/embed/players/') => new Response(204),

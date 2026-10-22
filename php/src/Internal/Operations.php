@@ -120,6 +120,15 @@ final class Operations
             'response' => \Lingara\Model\Usage::class,
             'stream' => null,
         ],
+        'linkEmbedPlayer' => [
+            'method' => 'PUT',
+            'path' => '/v1/embed/players/{player_ref}/link',
+            'pathParams' => ['player_ref'],
+            'needsToken' => true,
+            'request' => null,
+            'response' => \Lingara\Model\EmbedPlayerLink::class,
+            'stream' => null,
+        ],
         'listApiVersions' => [
             'method' => 'GET',
             'path' => '/v1/versions',
@@ -214,6 +223,15 @@ final class Operations
                     'error' => ['class' => null, 'data' => \Lingara\Model\StreamError::class, 'end' => 'raise'],
                 ],
             ],
+        ],
+        'unlinkEmbedPlayer' => [
+            'method' => 'DELETE',
+            'path' => '/v1/embed/players/{player_ref}/link',
+            'pathParams' => ['player_ref'],
+            'needsToken' => true,
+            'request' => null,
+            'response' => null,
+            'stream' => null,
         ],
     ];
 

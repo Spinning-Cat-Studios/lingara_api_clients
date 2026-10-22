@@ -77,7 +77,9 @@ interface Case {
 // gives none; every other operation without params takes only its options.
 const PARAMS_FIRST = new Set(["listEvents", "streamEvents"]);
 // The success status of an operation that does not answer 200.
-const STATUS: Record<string, number> = { sendEvent: 202, deleteEmbedPlayer: 204 };
+const STATUS: Record<string, number> = { sendEvent: 202, deleteEmbedPlayer: 204, unlinkEmbedPlayer: 204 };
+// Operations whose only parameter is `player_ref`, passed as `playerRef`.
+const PLAYER_REF = new Set(["deleteEmbedPlayer", "linkEmbedPlayer", "unlinkEmbedPlayer"]);
 
 /** One case's client, its virtual clock, its sleeps and its hook calls. */
 interface Rig {
@@ -168,7 +170,7 @@ type Run = HelperRun;
 /** The call's first argument: its params, or its body (an `InboundEvent` for `sendEvent`). */
 function firstArgument(call: Call): unknown {
   if (call.operation === "sendEvent") return inboundEvent(call.body);
-  if (call.operation === "deleteEmbedPlayer") return { playerRef: call.params?.["player_ref"] };
+  if (PLAYER_REF.has(call.operation)) return { playerRef: call.params?.["player_ref"] };
   return call.params ?? call.body ?? (PARAMS_FIRST.has(call.operation) ? {} : undefined);
 }
 

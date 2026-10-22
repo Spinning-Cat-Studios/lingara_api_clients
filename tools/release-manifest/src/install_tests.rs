@@ -17,6 +17,22 @@ fn artefact_names_resolve_semver_and_tag() {
     assert_eq!(artefact(&release, "cobol", TAG).unwrap_err().code, 2);
 }
 
+// 22.10.26r AC12
+#[test]
+fn artefact_joins_a_listed_upload() {
+    let dir = fixture();
+    let root = dir.path();
+    let go = "\n[[language]]\nid = \"go\"\nregistry = \"go\"\npackage = \"m\"\n\
+              artefact = { built = \"dist\", uploaded = [\"lingara_{version}_linux_amd64.tar.gz\", \"SHA256SUMS\"] }\nsince = \"next\"\n";
+    let text = fs::read_to_string(root.join("languages.toml")).unwrap();
+    write(root, "languages.toml", &format!("{text}{go}"));
+    let release = load(&dir);
+    let (built, uploaded) = artefact(&release, "go", TAG).unwrap().unwrap();
+    assert_eq!(format!("{built}\t{uploaded}"), "dist\tlingara_v0.1.0-alpha.1_linux_amd64.tar.gz SHA256SUMS");
+    let (built, uploaded) = artefact(&release, "rust", TAG).unwrap().unwrap();
+    assert_eq!(format!("{built}\t{uploaded}"), "target/package/lingara-0.1.0-alpha.1.crate\tlingara-rust-v0.1.0-alpha.1.crate");
+}
+
 // 29.9.26v AC17
 #[test]
 fn install_line_is_c5s_substitution() {

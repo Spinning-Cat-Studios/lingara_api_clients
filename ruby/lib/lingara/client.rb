@@ -177,6 +177,25 @@ module Lingara
       no_content("deleteEmbedPlayer", [player_ref])
     end
 
+    # Links a player to the Lingara account that granted your app access
+    # (scope embed:play; ADR 22.10.26t). Call it on a client whose
+    # token_source: returns the player's delegated token, from that account's
+    # own consent: a client-credentials client is refused 403
+    # embed_link_needs_grant. The library does not obtain that token yet. A
+    # repeat answers "existing" and moves what could not move before, so a
+    # retry is safe: call again while kept["lesson_plans"] is non-zero.
+    # Returns a Response whose value is an EmbedPlayerLink.
+    def link_embed_player(player_ref)
+      json("linkEmbedPlayer", [player_ref])
+    end
+
+    # Ends a player's link (scope embed:mint, on your ordinary client). No
+    # live link is 404 embed_link_not_found, which after a retried success
+    # means it was already unlinked. Returns a Response whose value is nil.
+    def unlink_embed_player(player_ref)
+      no_content("unlinkEmbedPlayer", [player_ref])
+    end
+
     # Streams an NPC's reply to one line (scope embed:play, from an embed
     # token or a metered client's own token): delta and notice events, ending
     # on done. Each turn spends the player's NPC cells and the payer's, so it

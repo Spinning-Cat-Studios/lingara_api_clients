@@ -9,11 +9,11 @@ namespace Lingara;
 final class Version
 {
     /** This library's released version, SemVer, sent in every User-Agent (K6). */
-    public const VERSION = '0.2.0-alpha.1';
+    public const VERSION = '0.2.0-alpha.3';
 
     /**
      * The /v1 version this library's models were generated from. A response
      * served under another version logs one warning per version id.
      */
-    public const GENERATED_FOR_VERSION = '2026-10-golden-remora';
+    public const GENERATED_FOR_VERSION = '2026-10-virile-dragon';
 }

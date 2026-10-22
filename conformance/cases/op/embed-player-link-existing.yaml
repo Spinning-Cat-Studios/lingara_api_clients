@@ -1,0 +1,24 @@
+id: op.embed-player-link-existing
+title: A repeated link answering existing is a success, and empty carried and kept maps stay present and empty
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: linkEmbedPlayer
+      params: { player_ref: p-1001 }
+    expect:
+      outcome: completed
+      status: 200
+      body: { status: existing, subject: lgr_sub_conformance9c41d07be2a35f68, previous_subject: lgr_sub_conformance2be0f15a8c7d3e96, linked_at: "2026-11-02T18:04:11Z", scopes: ["embed:play", "events:read"], carried: {}, kept: {} }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_oplinkexisting, token_type: Bearer, expires_in: 3600, scope: "embed:play" } }
+    - request:
+        method: PUT
+        path: /v1/embed/players/p-1001/link
+        headers: { authorization: { equals: Bearer lgr_at_oplinkexisting }, content-type: { absent: true } }
+      response:
+        status: 200
+        json: { status: existing, subject: lgr_sub_conformance9c41d07be2a35f68, previous_subject: lgr_sub_conformance2be0f15a8c7d3e96, linked_at: "2026-11-02T18:04:11Z", scopes: ["embed:play", "events:read"], carried: {}, kept: {} }

@@ -1,4 +1,4 @@
-// The client: the sixteen operations, the event helpers and the request
+// The client: the eighteen operations, the event helpers and the request
 // pipeline (CONTRACT.md K1–K6, K5a). Its options live in options.ts.
 
 import { mintedToken, type MintedToken } from "./embed.js";
@@ -7,11 +7,11 @@ import { EventFeed, eventsQuery, type EventsParams, type ListEventsParams } from
 import { sendEventRequest, type SendEventOptions } from "./events/send.js";
 import { EventTail } from "./events/tail.js";
 import type { InboundEvent } from "./generated/events.js";
-import type { operations } from "./generated/schema.js";
 import { STREAMS, type StreamOperation } from "./generated/streams.js";
 import type {
   CreateLessonPlanEvent,
   DialogueTurnRequest,
+  EmbedPlayerLink,
   EmbedTokenRequest,
   GenerateVocabularyEvent,
   InboundEventAccepted,
@@ -24,6 +24,7 @@ import type {
   VocabRequest,
 } from "./models.js";
 import { checkOptions, credentialsFrom, retryPolicy, type CallOptions, type LingaraOptions } from "./options.js";
+import type { JsonOk, NoContent, Send, StreamInput } from "./request.js";
 import { parseRetryAfter, withRetries, withTokenRetry, type RetryPolicy } from "./retry.js";
 import { EventStream, type OpenedStream } from "./stream.js";
 import { ClientCredentials, type TokenSource } from "./token.js";
@@ -36,33 +37,7 @@ export type { CallOptions, LingaraOptions } from "./options.js";
 /** A JSON result, with the `Lingara-Version` echo beside it (non-enumerable). */
 export type WithServedVersion<T> = T & { readonly servedVersion?: string };
 
-type JsonOk<Op extends keyof operations> = operations[Op]["responses"] extends { 200: { content: { "application/json": infer T } } } ? T : never;
-
 export const DEFAULT_BASE_URL = "https://api.getlingara.com";
-
-/** A bodiless answer's result: only the `Lingara-Version` echo. */
-type NoContent = { readonly servedVersion?: string };
-
-interface Send {
-  method: "GET" | "POST" | "DELETE";
-  path: string;
-  body?: unknown;
-  accept: string;
-  needsToken: boolean;
-  headers?: Record<string, string> | undefined;
-  /** `false` bypasses K4's attempt loop: the tail counts its own (K5a). */
-  retries?: boolean;
-  signal?: AbortSignal | undefined;
-}
-
-/** A stream request's parts beyond its route. */
-interface StreamInput {
-  body?: unknown;
-  id?: string;
-  query?: string;
-  headers?: Record<string, string>;
-  retries?: boolean;
-}
 
 /** The Lingara API. Server-side only: Node, Deno and Bun. */
 export class Lingara {
@@ -167,6 +142,21 @@ export class Lingara {
    */
   deleteEmbedPlayer(params: { playerRef: string }, options: CallOptions = {}): Promise<NoContent> {
     return this.#noContent("DELETE", `/v1/embed/players/${encodeSegment(params.playerRef)}`, options);
+  }
+
+  /**
+   * Links a player to the Lingara account that granted your app access (`embed:play`). Call it on a
+   * client whose token source returns the player's *delegated* token from that account's consent: a
+   * client-credentials token is refused `403 embed_link_needs_grant`. A repeat answers `existing` and
+   * moves what could not move before, so K4's retries are safe; call again while `kept.lesson_plans`.
+   */
+  linkEmbedPlayer(params: { playerRef: string }, options: CallOptions = {}): Promise<WithServedVersion<EmbedPlayerLink>> {
+    return this.#json(`/v1/embed/players/${encodeSegment(params.playerRef)}/link`, true, options, { method: "PUT" });
+  }
+
+  /** Ends a player's link (`embed:mint`). After a retried success it may answer `404 embed_link_not_found`: already unlinked. */
+  unlinkEmbedPlayer(params: { playerRef: string }, options: CallOptions = {}): Promise<NoContent> {
+    return this.#noContent("DELETE", `/v1/embed/players/${encodeSegment(params.playerRef)}/link`, options);
   }
 
   /**

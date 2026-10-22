@@ -137,10 +137,19 @@ func invokeWithInput(ctx context.Context, c *lingara.Client, operation string, c
 	case "createEmbedToken":
 		return minted(c.CreateEmbedToken(ctx, body[lingara.EmbedTokenRequest](call)))
 	case "deleteEmbedPlayer":
-		ref, _ := params["player_ref"].(string)
-		return noContent(c.DeleteEmbedPlayer(ctx, ref))
+		return noContent(c.DeleteEmbedPlayer(ctx, playerRef(params)))
+	case "linkEmbedPlayer":
+		return result(c.LinkEmbedPlayer(ctx, playerRef(params)))
+	case "unlinkEmbedPlayer":
+		return noContent(c.UnlinkEmbedPlayer(ctx, playerRef(params)))
 	}
 	return observed{outcome: "harness: no operation " + operation}
+}
+
+// playerRef is a call's player_ref path parameter.
+func playerRef(params map[string]any) string {
+	ref, _ := params["player_ref"].(string)
+	return ref
 }
 
 // body decodes a call's body into the operation's generated request type.

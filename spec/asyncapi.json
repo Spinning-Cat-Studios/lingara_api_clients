@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara events",
     "x-i18n": "asyncapi.info",
-    "version": "2026-10-virile-dragon",
+    "version": "2026-10-simple-tarpon",
     "description": "The events Lingara sends about your account, to a webhook endpoint you register or through the event feed and stream, and the events your game or integration can send to Lingara. Every outbound event is the same envelope on every transport."
   },
   "servers": {
@@ -2393,7 +2393,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },
@@ -2416,7 +2418,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },
@@ -2439,7 +2443,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },
@@ -2461,7 +2467,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },
@@ -2483,7 +2491,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },
@@ -2506,7 +2516,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },
@@ -2529,7 +2541,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         },

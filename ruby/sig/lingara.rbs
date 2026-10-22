@@ -71,6 +71,9 @@ module Lingara
     # ADR 1.10.26w: embedding. create_embed_token's Response holds a MintedToken.
     def create_embed_token: (**untyped body) -> Response
     def delete_embed_player: (String player_ref) -> Response
+    # ADR 22.10.26t: link_embed_player's Response holds an EmbedPlayerLink.
+    def link_embed_player: (String player_ref) -> Response
+    def unlink_embed_player: (String player_ref) -> Response
     def send_dialogue_turn: (**untyped body) { (event) -> void } -> StreamResult
   end
 

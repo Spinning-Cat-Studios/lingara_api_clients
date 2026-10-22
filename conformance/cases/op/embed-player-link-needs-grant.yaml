@@ -1,0 +1,22 @@
+id: op.embed-player-link-needs-grant
+title: A 403 embed_link_needs_grant on a link raises ApiError with that code after one request
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: linkEmbedPlayer
+      params: { player_ref: p-1001 }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 403, code: embed_link_needs_grant, message: Link with the token the player's account granted., retry_after: null } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_oplinkgrant, token_type: Bearer, expires_in: 3600, scope: "embed:mint" } }
+    - request:
+        method: PUT
+        path: /v1/embed/players/p-1001/link
+        headers: { authorization: { equals: Bearer lgr_at_oplinkgrant } }
+      response: { status: 403, json: { code: embed_link_needs_grant, error: Link with the token the player's account granted. } }

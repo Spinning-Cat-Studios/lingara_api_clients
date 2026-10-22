@@ -72,3 +72,8 @@ export type DialogueTurnRequest = Schemas["DialogueTurnRequest"];
 export type DialogueEntry = Schemas["DialogueEntry"];
 export type Speaker = Schemas["Speaker"];
 export type SendDialogueTurnEvent = Schemas["SendDialogueTurnEvent"];
+
+// A player's link to a Lingara account (ADR 22.10.26t): linkEmbedPlayer's
+// answer, returned as generated since it carries no secret
+export type EmbedPlayerLink = Schemas["EmbedPlayerLink"];
+export type LinkStatus = Schemas["LinkStatus"];

@@ -10,6 +10,7 @@ use Lingara\Client;
 use Lingara\EventStream;
 use Lingara\Exception\ApiException;
 use Lingara\Internal\Operations;
+use Lingara\Model\EmbedPlayerLink;
 use Lingara\Model\EmbedToken;
 use Lingara\Model\EventPage;
 use Lingara\Model\InboundEventAccepted;
@@ -28,11 +29,13 @@ final class ClientTest extends TestCase
     private const VERSION = '2026-09-knowing-tenpounder';
 
     /**
-     * 29.9.26u AC22: the sixteen client methods and Operations' keys name
-     * the same operations, both ways, and the four path-parameter methods
-     * take one string; each JSON method's model is its operation's success
-     * schema (`202` for sendEvent, ADR 30.9.26aa D8). deleteEmbedPlayer's
-     * null is unused: it calls noContent() by name (ADR 1.10.26w D4).
+     * 29.9.26u AC22, 22.10.26t AC22: the eighteen client methods and
+     * Operations' keys name the same operations, both ways, and the
+     * path-parameter methods take one string; each JSON method's model is
+     * its operation's success schema (`202` for sendEvent, ADR 30.9.26aa D8;
+     * EmbedPlayerLink for linkEmbedPlayer). deleteEmbedPlayer's and
+     * unlinkEmbedPlayer's null is unused: each calls noContent() by name (ADR
+     * 1.10.26w D4).
      */
     public function testOperationMethodsMatchGeneratedOperations(): void
     {
@@ -56,8 +59,8 @@ final class ClientTest extends TestCase
         }
         self::assertSame([
             'createEmbedToken' => EmbedToken::class, 'deleteEmbedPlayer' => null, 'getApiVersion' => VersionDetail::class, 'getAsyncApiDocument' => null, 'getLessonPlan' => LessonPlan::class,
-            'getOpenApiDocument' => null, 'getUsage' => Usage::class, 'listApiVersions' => VersionList::class,
-            'listEvents' => EventPage::class, 'sendEvent' => InboundEventAccepted::class,
+            'getOpenApiDocument' => null, 'getUsage' => Usage::class, 'linkEmbedPlayer' => EmbedPlayerLink::class, 'listApiVersions' => VersionList::class,
+            'listEvents' => EventPage::class, 'sendEvent' => InboundEventAccepted::class, 'unlinkEmbedPlayer' => null,
         ], array_map(
             static fn(array $o): ?string => $o['response'],
             array_filter(Operations::OPERATIONS, static fn(array $o): bool => $o['stream'] === null),

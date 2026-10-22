@@ -51,15 +51,16 @@ const usage = await client.getUsage();
 console.log(usage.servedVersion, usage.allowance);
 ```
 
-Sixteen methods, each named after its `operationId`: `generateVocabulary`,
+Eighteen methods, each named after its `operationId`: `generateVocabulary`,
 `createLessonPlan`, `streamLessonPlan`, `sendTutorMessage`,
 `sendDialogueTurn` and `streamEvents` return an `EventStream`;
 `getLessonPlan`, `getUsage`, `listEvents`, `sendEvent`, `createEmbedToken`,
-`deleteEmbedPlayer`, `getOpenApiDocument`, `getAsyncApiDocument`,
-`listApiVersions` and `getApiVersion` return a promise. The last four need
-no credentials. Every method takes `{ signal?: AbortSignal }` last. The
-`events` and `tailEvents` helpers are under *Webhooks and events* below, and
-the three embedding calls under *Embedding Lingara*.
+`deleteEmbedPlayer`, `linkEmbedPlayer`, `unlinkEmbedPlayer`,
+`getOpenApiDocument`, `getAsyncApiDocument`, `listApiVersions` and
+`getApiVersion` return a promise. The last four need no credentials. Every
+method takes `{ signal?: AbortSignal }` last. The `events` and `tailEvents`
+helpers are under *Webhooks and events* below, and the five embedding calls
+under *Embedding Lingara*.
 
 - `break` out of a `for await`, or `stream.close()`, closes the connection.
 - A stream's `error` event is thrown as an `ApiError` with `status: 200`;
@@ -181,6 +182,20 @@ const minted = await client.createEmbedToken({ player_ref: "player-1001" });
   success, so it is idempotent, and it keeps working while embedding is
   switched off for your client. The answer has no body: the result carries
   only `servedVersion`.
+- `linkEmbedPlayer({ playerRef })` links a player to the Lingara account
+  that granted your app access (`embed:play`), and returns the
+  `EmbedPlayerLink`. Call it on a client whose `tokenSource` returns the
+  **player's delegated token** — the one your server received from that
+  account's own consent — never on your client-credentials client, which
+  gets `403 embed_link_needs_grant`. The library does not obtain that token
+  yet; the `linkEmbedPlayer` snippet builds the client in a few lines. A
+  fixed token is retried once on a `401`, so a revoked grant surfaces as an
+  `ApiError` with `status: 401`. `status: "existing"` is a success too, and a
+  repeat moves what could not move before: call again while
+  `kept.lesson_plans` is non-zero.
+- `unlinkEmbedPlayer({ playerRef })` ends that link (`embed:mint`, your
+  ordinary client); the answer has no body. A `404 embed_link_not_found`
+  after a retried call means it was already unlinked.
 - `sendDialogueTurn` streams an NPC's reply, `delta` by `delta`. The window
   is yours: at most 12 `history` entries, `line` and each entry at most 500
   characters, and no total cap. Send each NPC reply back cut to its first

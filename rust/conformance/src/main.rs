@@ -202,6 +202,8 @@ async fn invoke(rig: &Rig, call: &Value) -> Result<Observed, String> {
         }
         "createEmbedToken" => minted_result(c.create_embed_token(&input(call, "body")?).await),
         "deleteEmbedPlayer" => empty_result(c.delete_embed_player(&param(call, "player_ref")?).await),
+        "linkEmbedPlayer" => json_result(c.link_embed_player(&param(call, "player_ref")?).await),
+        "unlinkEmbedPlayer" => empty_result(c.unlink_embed_player(&param(call, "player_ref")?).await),
         "sendDialogueTurn" => stream(c.send_dialogue_turn(&input(call, "body")?).await, cancel).await,
         other => return Err(format!("no operation {other}")),
     })

@@ -19,6 +19,7 @@ import com.getlingara.client.internal.Streams;
 import com.getlingara.client.internal.UserAgent;
 import com.getlingara.client.model.CreateLessonPlanEvent;
 import com.getlingara.client.model.DialogueTurnRequest;
+import com.getlingara.client.model.EmbedPlayerLink;
 import com.getlingara.client.model.EmbedTokenRequest;
 import com.getlingara.client.model.EventPage;
 import com.getlingara.client.model.GenerateVocabularyEvent;
@@ -249,6 +250,36 @@ public final class LingaraClient {
    */
   public ApiResponse<Void> deleteEmbedPlayer(String playerRef) {
     String path = "/v1/embed/players/" + encodeSegment(playerRef);
+    Pipeline.Answer<Void> answer =
+        pipeline.empty(new Call("DELETE", path, null, "application/json", true));
+    return new ApiResponse<>(null, answer.served());
+  }
+
+  /**
+   * Links a player to the Lingara account that granted your app access (scope {@code embed:play};
+   * ADR 22.10.26t). Call it on a client whose token source returns the player's delegated token,
+   * from that account's own consent ({@code Builder.tokenSource}): a client-credentials client is
+   * refused {@code 403 embed_link_needs_grant}. The library does not obtain that token yet. A
+   * repeat answers {@code existing} and moves what could not move before, so K4 retries it safely:
+   * call again while {@code kept} has {@code lesson_plans}.
+   *
+   * @param playerRef your reference for the player, sent as one encoded path segment
+   * @return the link, and the served version
+   */
+  public ApiResponse<EmbedPlayerLink> linkEmbedPlayer(String playerRef) {
+    String path = "/v1/embed/players/" + encodeSegment(playerRef) + "/link";
+    return json(new Call("PUT", path, null, "application/json", true), EmbedPlayerLink.class);
+  }
+
+  /**
+   * Ends a player's link (scope {@code embed:mint}, on your ordinary client). No live link is
+   * {@code 404 embed_link_not_found}, which after a retried success means it was already unlinked.
+   *
+   * @param playerRef your reference for the player, sent as one encoded path segment
+   * @return no body, and the served version
+   */
+  public ApiResponse<Void> unlinkEmbedPlayer(String playerRef) {
+    String path = "/v1/embed/players/" + encodeSegment(playerRef) + "/link";
     Pipeline.Answer<Void> answer =
         pipeline.empty(new Call("DELETE", path, null, "application/json", true));
     return new ApiResponse<>(null, answer.served());

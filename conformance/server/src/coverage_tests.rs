@@ -213,5 +213,18 @@ fn a_delete_request_parses_and_patch_is_refused() {
     };
     assert!(case::parse(&with("DELETE"), Path::new("op/x.yaml")).is_ok());
     let refused = case::parse(&with("PATCH"), Path::new("op/x.yaml")).unwrap_err();
-    assert!(refused.contains("`PATCH` is not GET, POST or DELETE"), "{refused}");
+    assert!(refused.contains("`PATCH` is not GET, POST, PUT or DELETE"), "{refused}");
+}
+
+/// 22.10.26t AC8: a `PUT` request parses; `PATCH` is still refused.
+#[test]
+fn a_put_request_parses_and_patch_is_refused() {
+    let with = |method: &str| {
+        format!(
+            "id: op.x\ntitle: t\nbehaviours: [K1]\nsteps:\n  - call: {{ operation: linkEmbedPlayer, params: {{ player_ref: p-1 }} }}\n    expect: {{ outcome: completed }}\nexchanges:\n  items:\n    - request: {{ method: {method}, path: /v1/embed/players/p-1/link }}\n      response: {{ status: 200, json: {{ status: linked }} }}\n"
+        )
+    };
+    assert!(case::parse(&with("PUT"), Path::new("op/x.yaml")).is_ok());
+    let refused = case::parse(&with("PATCH"), Path::new("op/x.yaml")).unwrap_err();
+    assert!(refused.contains("`PATCH` is not GET, POST, PUT or DELETE"), "{refused}");
 }

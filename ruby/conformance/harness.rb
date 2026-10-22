@@ -27,7 +27,14 @@ module Harness
   }.freeze
   # The embed operations (ADR 1.10.26w): the mint takes the case's body,
   # the delete its params.player_ref and answers 204.
-  EMBED_CALLS = %w[createEmbedToken deleteEmbedPlayer].freeze
+  EMBED_CALLS = %w[createEmbedToken deleteEmbedPlayer linkEmbedPlayer unlinkEmbedPlayer].freeze
+  # The embed calls whose one argument is the player_ref path parameter: the
+  # method and its success status (ADR 22.10.26t D7).
+  PLAYER_REF_CALLS = {
+    "deleteEmbedPlayer" => [:delete_embed_player, 204],
+    "linkEmbedPlayer" => [:link_embed_player, 200],
+    "unlinkEmbedPlayer" => [:unlink_embed_player, 204]
+  }.freeze
   JSON_CALLS = {
     "getUsage" => :get_usage, "getOpenApiDocument" => :get_open_api_document, "listApiVersions" => :list_api_versions,
     "getAsyncApiDocument" => :get_async_api_document
@@ -132,11 +139,11 @@ module Harness
   end
 
   def invoke_embed(client, call)
-    if call["operation"] == "deleteEmbedPlayer"
-      result(204) { client.delete_embed_player((call["params"] || {})["player_ref"]) }
-    else
-      result { client.create_embed_token(**body_of(call)) }
-    end
+    by_player = PLAYER_REF_CALLS[call["operation"]]
+    return result { client.create_embed_token(**body_of(call)) } unless by_player
+
+    method, status = by_player
+    result(status) { client.public_send(method, (call["params"] || {})["player_ref"]) }
   end
 
   # A MintedToken in wire form, read through the exposing accessor:

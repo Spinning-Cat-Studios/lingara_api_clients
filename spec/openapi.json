@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara API",
     "x-i18n": "info",
-    "version": "2026-10-virile-dragon",
+    "version": "2026-10-simple-tarpon",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage."
   },
   "servers": [
@@ -37,6 +37,11 @@
       "name": "embed",
       "x-i18n": "tags.embed",
       "description": "Vouch for your game's or site's players, and remove them."
+    },
+    {
+      "name": "canvases",
+      "x-i18n": "tags.canvases",
+      "description": "Author canvases, dry-run their plans, and record what an apply made."
     },
     {
       "name": "account",
@@ -103,6 +108,15 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "Lingara-Api-Allowance-Limit": {
+                "$ref": "#/components/headers/ApiAllowanceLimit"
+              },
+              "Lingara-Api-Allowance-Remaining": {
+                "$ref": "#/components/headers/ApiAllowanceRemaining"
+              },
+              "Lingara-Api-Allowance-Reset": {
+                "$ref": "#/components/headers/ApiAllowanceReset"
               }
             },
             "content": {
@@ -267,6 +281,15 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "Lingara-Api-Allowance-Limit": {
+                "$ref": "#/components/headers/ApiAllowanceLimit"
+              },
+              "Lingara-Api-Allowance-Remaining": {
+                "$ref": "#/components/headers/ApiAllowanceRemaining"
+              },
+              "Lingara-Api-Allowance-Reset": {
+                "$ref": "#/components/headers/ApiAllowanceReset"
               }
             },
             "content": {
@@ -716,6 +739,15 @@
               },
               "Link": {
                 "$ref": "#/components/headers/Link"
+              },
+              "Lingara-Api-Allowance-Limit": {
+                "$ref": "#/components/headers/ApiAllowanceLimit"
+              },
+              "Lingara-Api-Allowance-Remaining": {
+                "$ref": "#/components/headers/ApiAllowanceRemaining"
+              },
+              "Lingara-Api-Allowance-Reset": {
+                "$ref": "#/components/headers/ApiAllowanceReset"
               }
             },
             "content": {
@@ -1756,6 +1788,827 @@
         }
       }
     },
+    "/v1/canvases": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "listCanvases",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvases_list",
+        "summary": "List your canvases",
+        "description": "Pages through your canvases, newest first, with each one's recipe, the kinds and scopes it uses, and the objects an apply made. Filter by `name`, `status`, `recipes`, `kinds` or `scopes`; pass `next_cursor` back as `cursor` for the next page.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "live",
+                "changed",
+                "unapplied"
+              ]
+            }
+          },
+          {
+            "name": "recipes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "kinds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopes",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.canvases_list.ok",
+            "description": "A page of canvases",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanvasPage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                      "name": "Tell my server when a lesson plan is ready",
+                      "recipe": "lesson_plan_ready",
+                      "created_at": "2026-10-16T09:12:03Z",
+                      "updated_at": "2026-10-16T09:40:51Z",
+                      "has_draft": false,
+                      "active_revision": 2,
+                      "node_count": 3,
+                      "node_kinds": [
+                        "client",
+                        "secret",
+                        "webhook"
+                      ],
+                      "scopes": [
+                        "events:read"
+                      ],
+                      "objects": [
+                        {
+                          "handle": "n1",
+                          "kind": "client",
+                          "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                        }
+                      ]
+                    }
+                  ],
+                  "total": 1,
+                  "next_cursor": null,
+                  "has_more": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCanvas",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvases_create",
+        "summary": "Create a canvas",
+        "description": "Saves a new canvas as a draft. A draft creates nothing: no client, secret, endpoint or app exists until you apply it. An account has at most 20 canvases.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCanvasRequest"
+              },
+              "example": {
+                "name": "Tell my server when a lesson plan is ready",
+                "recipe": "lesson_plan_ready",
+                "definition": {
+                  "schema": 2,
+                  "nodes": [
+                    {
+                      "id": "n1",
+                      "kind": "client",
+                      "position": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "id": "n2",
+                      "kind": "webhook",
+                      "position": [
+                        1,
+                        0
+                      ]
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "n1",
+                      "to": "n2"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "x-i18n": "ops.canvases_create.created",
+            "description": "The new canvas",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Canvas"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/canvases/dry-run": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "post": {
+        "operationId": "dryRunCanvasPlan",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvas_dry_run",
+        "summary": "Dry-run a plan",
+        "description": "Judges a plan with the same rules the create routes use and writes nothing. Each op answers `would_create`, `would_update` or `refused` with its `code`.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:read"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CanvasPlan"
+              },
+              "example": {
+                "ops": [
+                  {
+                    "handle": "c1",
+                    "kind": "client",
+                    "op": "create",
+                    "body": {
+                      "name": "Lesson server",
+                      "scopes": [
+                        "events:read"
+                      ]
+                    }
+                  },
+                  {
+                    "handle": "w1",
+                    "kind": "webhook",
+                    "op": "create",
+                    "client": {
+                      "handle": "c1"
+                    },
+                    "body": {
+                      "url": "https://hooks.example.com/lingara",
+                      "event_types": [
+                        "lesson_plan.ready"
+                      ]
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.canvas_dry_run.ok",
+            "description": "One verdict per op",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CanvasDryRun"
+                },
+                "example": {
+                  "ok": true,
+                  "verdicts": [
+                    {
+                      "handle": "c1",
+                      "kind": "client",
+                      "op": "create",
+                      "verdict": "would_create"
+                    },
+                    {
+                      "handle": "w1",
+                      "kind": "webhook",
+                      "op": "create",
+                      "verdict": "would_create"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/canvases/{canvas_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/CanvasId"
+        }
+      ],
+      "get": {
+        "operationId": "getCanvas",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvas_get",
+        "summary": "Read a canvas",
+        "description": "Returns one canvas with its draft and its active revision, each `null` when absent.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:read"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.canvas_get.ok",
+            "description": "The canvas",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Canvas"
+                },
+                "example": {
+                  "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                  "name": "Tell my server when a lesson plan is ready",
+                  "created_at": "2026-10-16T09:12:03Z",
+                  "updated_at": "2026-10-16T09:12:03Z",
+                  "draft": {
+                    "revision": 1,
+                    "draft_version": 1,
+                    "definition": {
+                      "schema": 2,
+                      "nodes": [
+                        {
+                          "id": "n1",
+                          "kind": "client",
+                          "position": [
+                            0,
+                            0
+                          ]
+                        }
+                      ],
+                      "edges": []
+                    },
+                    "objects": {}
+                  },
+                  "active": null
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "renameCanvas",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvas_rename",
+        "summary": "Rename a canvas",
+        "description": "Changes a canvas's name and nothing else.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameCanvasRequest"
+              },
+              "example": {
+                "name": "Lesson plan webhook"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.canvas_rename.ok",
+            "description": "The renamed canvas",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Canvas"
+                },
+                "example": {
+                  "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                  "name": "Lesson plan webhook",
+                  "created_at": "2026-10-16T09:12:03Z",
+                  "updated_at": "2026-10-16T09:30:00Z",
+                  "draft": null,
+                  "active": {
+                    "revision": 2,
+                    "definition": {
+                      "schema": 2,
+                      "nodes": [
+                        {
+                          "id": "n1",
+                          "kind": "client",
+                          "position": [
+                            0,
+                            0
+                          ]
+                        }
+                      ],
+                      "edges": []
+                    },
+                    "objects": {
+                      "n1": {
+                        "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                      }
+                    },
+                    "activated_at": "2026-10-16T09:20:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/canvases/{canvas_id}/draft": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/CanvasId"
+        }
+      ],
+      "put": {
+        "operationId": "saveCanvasDraft",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvas_draft",
+        "summary": "Save a canvas's draft",
+        "description": "Replaces the draft. Send the `draft_version` you last read, or 0 when the canvas has no draft; a stale one is `409 canvas_conflict`.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCanvasDraftRequest"
+              },
+              "example": {
+                "definition": {
+                  "schema": 2,
+                  "nodes": [
+                    {
+                      "id": "n1",
+                      "kind": "client",
+                      "position": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "id": "n2",
+                      "kind": "secret",
+                      "position": [
+                        0,
+                        1
+                      ]
+                    }
+                  ],
+                  "edges": [
+                    {
+                      "from": "n1",
+                      "to": "n2"
+                    }
+                  ]
+                },
+                "draft_version": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.canvas_draft.ok",
+            "description": "The saved canvas",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Canvas"
+                },
+                "example": {
+                  "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                  "name": "Tell my server when a lesson plan is ready",
+                  "created_at": "2026-10-16T09:12:03Z",
+                  "updated_at": "2026-10-16T09:14:40Z",
+                  "draft": {
+                    "revision": 1,
+                    "draft_version": 2,
+                    "definition": {
+                      "schema": 2,
+                      "nodes": [
+                        {
+                          "id": "n1",
+                          "kind": "client",
+                          "position": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "id": "n2",
+                          "kind": "secret",
+                          "position": [
+                            0,
+                            1
+                          ]
+                        }
+                      ],
+                      "edges": [
+                        {
+                          "from": "n1",
+                          "to": "n2"
+                        }
+                      ]
+                    },
+                    "objects": {}
+                  },
+                  "active": null
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/canvases/{canvas_id}/activate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/CanvasId"
+        }
+      ],
+      "post": {
+        "operationId": "activateCanvas",
+        "tags": [
+          "canvases"
+        ],
+        "x-i18n": "ops.canvas_activate",
+        "summary": "Record an apply",
+        "description": "Records the objects an apply made, by the `id` each create answered. `complete` makes the draft the active revision; `partial` keeps it a draft so the next apply resumes. Every id must be one of your own live objects.",
+        "security": [
+          {
+            "oauth2": [
+              "canvas:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateCanvasRequest"
+              },
+              "example": {
+                "draft_version": 2,
+                "outcome": "complete",
+                "objects": {
+                  "n1": {
+                    "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.canvas_activate.ok",
+            "description": "The canvas after the apply",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Canvas"
+                },
+                "example": {
+                  "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                  "name": "Tell my server when a lesson plan is ready",
+                  "created_at": "2026-10-16T09:12:03Z",
+                  "updated_at": "2026-10-16T09:20:00Z",
+                  "draft": null,
+                  "active": {
+                    "revision": 1,
+                    "definition": {
+                      "schema": 2,
+                      "nodes": [
+                        {
+                          "id": "n1",
+                          "kind": "client",
+                          "position": [
+                            0,
+                            0
+                          ]
+                        }
+                      ],
+                      "edges": []
+                    },
+                    "objects": {
+                      "n1": {
+                        "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                      }
+                    },
+                    "activated_at": "2026-10-16T09:20:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/openapi.json": {
       "parameters": [
         {
@@ -2040,6 +2893,19 @@
         "x-i18n": "security.oauth2",
         "description": "An OAuth 2.0 access token, sent as `Authorization: Bearer <token>`. A server acting as itself exchanges its client's id and secret at the token URL (`client_credentials`). An app acting for a Lingara user who consents uses the authorization code (`authorization_code`) and then refreshes. A token lasts one hour. Each operation needs one scope.",
         "oauth2MetadataUrl": "https://api.getlingara.com/.well-known/oauth-authorization-server",
+        "x-lingara-credits": {
+          "vocab:generate": 3,
+          "lesson_plans:read": 0,
+          "lesson_plans:write": 10,
+          "tutor:converse": 1,
+          "usage:read": 0,
+          "events:read": 0,
+          "events:write": 0,
+          "embed:mint": 0,
+          "embed:play": 1,
+          "canvas:read": 0,
+          "canvas:write": 0
+        },
         "flows": {
           "clientCredentials": {
             "tokenUrl": "https://api.getlingara.com/oauth/token",
@@ -2052,7 +2918,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           },
           "authorizationCode": {
@@ -2068,7 +2936,9 @@
               "events:read": "Read events about your account, and register endpoints that receive them.",
               "events:write": "Send events from your game or integration to Lingara.",
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
-              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them."
+              "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
+              "canvas:read": "Read your canvases and dry-run their plans.",
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
             }
           }
         }
@@ -2191,6 +3061,15 @@
           "minLength": 1,
           "maxLength": 128
         }
+      },
+      "CanvasId": {
+        "name": "canvas_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
       }
     },
     "headers": {
@@ -2220,6 +3099,27 @@
         "description": "A link, with relation `deprecation`, to this API version's details. Present only on a deprecated version.",
         "schema": {
           "type": "string"
+        }
+      },
+      "ApiAllowanceLimit": {
+        "x-i18n": "headers.api_allowance_limit",
+        "description": "The account's daily API allowance, in credits. Present only on a response to an allowance client's client-credentials token from a spending scope; absent on an unlimited allowance or a call that spends no credits.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "ApiAllowanceRemaining": {
+        "x-i18n": "headers.api_allowance_remaining",
+        "description": "Credits left in the account's daily API allowance after this call. Present only on a response to an allowance client's client-credentials token from a spending scope; absent on an unlimited allowance or a call that spends no credits.",
+        "schema": {
+          "type": "integer"
+        }
+      },
+      "ApiAllowanceReset": {
+        "x-i18n": "headers.api_allowance_reset",
+        "description": "When the daily API allowance resets: the next UTC midnight, in Unix seconds. Present only on a response to an allowance client's client-credentials token from a spending scope; absent on an unlimited allowance or a call that spends no credits.",
+        "schema": {
+          "type": "integer"
         }
       }
     },
@@ -3030,7 +3930,7 @@
           "code": {
             "type": "string",
             "x-i18n": "schemas.error.code",
-            "description": "Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`)."
+            "description": "Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`), `api_allowance_exhausted` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`)."
           },
           "error": {
             "type": "string"
@@ -3885,6 +4785,568 @@
         "enum": [
           "player",
           "npc"
+        ]
+      },
+      "CreateCanvasRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "recipe": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanvasRecipe"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "definition": {
+            "$ref": "#/components/schemas/CanvasDefinition"
+          }
+        },
+        "required": [
+          "definition"
+        ]
+      },
+      "RenameCanvasRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SaveCanvasDraftRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "definition": {
+            "$ref": "#/components/schemas/CanvasDefinition"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "definition",
+          "draft_version"
+        ]
+      },
+      "ActivateCanvasRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "draft_version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/CanvasActivationOutcome"
+          },
+          "objects": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CanvasObjectRef"
+            }
+          }
+        },
+        "required": [
+          "draft_version",
+          "outcome",
+          "objects"
+        ]
+      },
+      "CanvasActivationOutcome": {
+        "type": "string",
+        "enum": [
+          "complete",
+          "partial"
+        ]
+      },
+      "CanvasObjectRef": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "CanvasPlan": {
+        "type": "object",
+        "properties": {
+          "ops": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "maxItems": 32
+          }
+        },
+        "required": [
+          "ops"
+        ]
+      },
+      "CanvasRecipe": {
+        "type": "string",
+        "enum": [
+          "blank",
+          "call_lingara",
+          "lesson_plan_ready",
+          "show_card"
+        ]
+      },
+      "CanvasNodeKind": {
+        "type": "string",
+        "enum": [
+          "client",
+          "secret",
+          "webhook",
+          "app"
+        ]
+      },
+      "CanvasDefinition": {
+        "x-i18n": "schemas.canvas.definition",
+        "description": "A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content.",
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "integer",
+            "format": "int16",
+            "minimum": 1,
+            "maximum": 32767
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanvasNode"
+            },
+            "maxItems": 32
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanvasEdge"
+            },
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "schema",
+          "nodes"
+        ]
+      },
+      "CanvasNode": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CanvasNodeKind"
+          },
+          "position": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "format": "double"
+            },
+            "minItems": 2,
+            "maxItems": 2
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "script": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 8192
+          },
+          "custom": {
+            "type": "boolean"
+          },
+          "script_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CanvasParam"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "position"
+        ]
+      },
+      "CanvasParam": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "number",
+            "format": "double"
+          },
+          {
+            "type": "string"
+          }
+        ]
+      },
+      "CanvasEdge": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      },
+      "Canvas": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanvasDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanvasActive"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at",
+          "draft",
+          "active"
+        ]
+      },
+      "CanvasDraft": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/CanvasDefinition"
+          },
+          "objects": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CanvasObjectRef"
+            }
+          }
+        },
+        "required": [
+          "revision",
+          "draft_version",
+          "definition",
+          "objects"
+        ]
+      },
+      "CanvasActive": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/CanvasDefinition"
+          },
+          "objects": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CanvasObjectRef"
+            }
+          },
+          "activated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revision",
+          "definition",
+          "objects",
+          "activated_at"
+        ]
+      },
+      "CanvasPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanvasSummary"
+            }
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "next_cursor",
+          "has_more"
+        ]
+      },
+      "CanvasSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "recipe": {
+            "$ref": "#/components/schemas/CanvasRecipe"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "has_draft": {
+            "type": "boolean"
+          },
+          "active_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "node_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "node_kinds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanvasNodeKind"
+            }
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "objects": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanvasMadeObject"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "recipe",
+          "created_at",
+          "updated_at",
+          "has_draft",
+          "active_revision",
+          "node_count",
+          "node_kinds",
+          "scopes",
+          "objects"
+        ]
+      },
+      "CanvasMadeObject": {
+        "type": "object",
+        "properties": {
+          "handle": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CanvasNodeKind"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "handle",
+          "kind",
+          "id"
+        ]
+      },
+      "CanvasDryRun": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean"
+          },
+          "verdicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CanvasVerdict"
+            }
+          }
+        },
+        "required": [
+          "ok",
+          "verdicts"
+        ]
+      },
+      "CanvasVerdict": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "handle": {
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/CanvasNodeKind"
+          },
+          "op": {
+            "type": "string"
+          },
+          "verdict": {
+            "$ref": "#/components/schemas/CanvasVerdictKind"
+          },
+          "code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "changes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "depends_on": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "handle",
+          "kind",
+          "op",
+          "verdict"
+        ]
+      },
+      "CanvasVerdictKind": {
+        "x-i18n": "schemas.canvas.verdict_kind",
+        "description": "No `would_replace`: a changed webhook endpoint becomes a new version, so it is `would_update`.",
+        "type": "string",
+        "enum": [
+          "would_create",
+          "would_update",
+          "refused"
         ]
       }
     }

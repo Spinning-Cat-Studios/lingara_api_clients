@@ -94,9 +94,10 @@ func goName(operationID string) string {
 	return strings.NewReplacer("Api", "API", "Id", "ID").Replace(name)
 }
 
-// TestOperationMethodsMatchGeneratedRoutes: 29.9.26q AC23. The sixteen
-// client methods and routes_gen.go's keys name the same operations under
-// D3's naming rule, both ways (1.10.26w added the three embed operations).
+// TestOperationMethodsMatchGeneratedRoutes: 29.9.26q AC23, 22.10.26t AC20.
+// The eighteen client methods and routes_gen.go's keys name the same
+// operations under D3's naming rule, both ways (1.10.26w added the three
+// embed operations, 22.10.26t link and unlink).
 // Events and TailEvents are 30.9.26aa's helpers, not operations.
 func TestOperationMethodsMatchGeneratedRoutes(t *testing.T) {
 	notOperations := map[string]bool{"Format": true, "LogValue": true, "Events": true, "TailEvents": true}
@@ -121,8 +122,8 @@ func TestOperationMethodsMatchGeneratedRoutes(t *testing.T) {
 			t.Errorf("*Client has %s, which is no operation in routes", name)
 		}
 	}
-	if len(routes) != 16 || len(methods) != 16 {
-		t.Errorf("%d routes and %d methods, want sixteen of each", len(routes), len(methods))
+	if len(routes) != 18 || len(methods) != 18 {
+		t.Errorf("%d routes and %d methods, want eighteen of each", len(routes), len(methods))
 	}
 }
 

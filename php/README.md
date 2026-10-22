@@ -196,6 +196,20 @@ $minted = $client->createEmbedToken(new EmbedTokenRequest(['player_ref' => 'play
   body: the `ApiResponse`'s `value` is an empty `\stdClass`, and
   `servedVersion` is set as usual. Any `player_ref` is sent as one path
   segment, `/` included.
+- `linkEmbedPlayer($playerRef)` links a player to the Lingara account that
+  granted your app access (`embed:play`); its `value` is an
+  `EmbedPlayerLink`. Call it on a client whose `tokenSource` returns the
+  **player's delegated token** — the one your server received from that
+  account's own consent — never on your client-credentials client, which gets
+  `403 embed_link_needs_grant`. The library does not obtain that token yet;
+  the `linkEmbedPlayer` snippet's `delegatedClient()` builds the client in a
+  few lines. A fixed token is retried once on a `401`, so a revoked grant
+  surfaces as an `ApiException` with status 401. `existing` is a success too,
+  and a repeat moves what could not move before: call again while `kept` has
+  `lesson_plans`.
+- `unlinkEmbedPlayer($playerRef)` ends that link (`embed:mint`, your ordinary
+  client); its `value` is an empty `\stdClass`. A `404 embed_link_not_found`
+  after a retried call means it was already unlinked.
 - `sendDialogueTurn()` streams an NPC's reply, `delta` by `delta`. The window
   is yours: at most 12 `history` entries, `line` and each entry at most 500
   characters, and no total cap; the library neither checks nor trims it. Send

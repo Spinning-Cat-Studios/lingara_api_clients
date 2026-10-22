@@ -68,8 +68,8 @@ carries `served_version()`. The last three need no credentials, so
 `Client::builder().build()?` is enough for them. The events methods
 (`list_events`, `events`, `stream_events`, `tail_events`, `send_event` and
 `get_async_api_document`) are under [Webhooks and events](#webhooks-and-events),
-and the embed methods (`create_embed_token`, `delete_embed_player` and
-`send_dialogue_turn`) under [Embedding Lingara](#embedding-lingara).
+and the embed methods (`create_embed_token`, `delete_embed_player`,
+`link_embed_player`, `unlink_embed_player` and `send_dialogue_turn`) under [Embedding Lingara](#embedding-lingara).
 
 - `EventStream` implements `futures_core::Stream`, and also has its own
   `next()`, so the quick start needs no `futures` import.
@@ -263,6 +263,20 @@ let minted = client.create_embed_token(&EmbedTokenRequest { player_ref: "player-
   idempotent, and it keeps working while embedding is switched off for your
   client. The answer has no body: the `ApiResponse<()>` carries only
   `served_version()`.
+- `link_embed_player(player_ref)` links a player to the Lingara account that
+  granted your app access (`embed:play`), and returns an
+  `ApiResponse<EmbedPlayerLink>`. Call it on a client whose `token_source`
+  returns the **player's delegated token** — the one your server received
+  from that account's own consent — never on your client-credentials client,
+  which gets `403 embed_link_needs_grant`. The library does not obtain that
+  token yet; the `link_embed_player` snippet builds the client in a few lines.
+  A fixed token is retried once on a `401`, so a revoked grant surfaces as
+  `Error::Api` with `status: 401`. `LinkStatus::Existing` is a success too,
+  and a repeat moves what could not move before: call again while
+  `kept["lesson_plans"]` is non-zero.
+- `unlink_embed_player(player_ref)` ends that link (`embed:mint`, your
+  ordinary client); the answer has no body. A `404 embed_link_not_found`
+  after a retried call means it was already unlinked.
 - `send_dialogue_turn` streams an NPC's reply, `Delta` by `Delta`. The
   window is yours: at most 12 `history` entries, `line` and each entry at
   most 500 characters, and no total cap. Send each NPC reply back cut to its

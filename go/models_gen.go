@@ -182,6 +182,24 @@ func (e GenerateVocabularyEventStartedEvent) Valid() bool {
 	}
 }
 
+// Defines values for LinkStatus.
+const (
+	LinkStatusExisting LinkStatus = "existing"
+	LinkStatusLinked   LinkStatus = "linked"
+)
+
+// Valid indicates whether the value is a known member of the LinkStatus enum.
+func (e LinkStatus) Valid() bool {
+	switch e {
+	case LinkStatusExisting:
+		return true
+	case LinkStatusLinked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PlanFailReason.
 const (
 	PlanFailReasonGenerationFailed PlanFailReason = "generation_failed"
@@ -767,6 +785,30 @@ type DialogueTurnRequest struct {
 // Done defines model for Done.
 type Done = map[string]interface{}
 
+// EmbedPlayerLink defines model for EmbedPlayerLink.
+type EmbedPlayerLink struct {
+	// Carried Rows this call moved to the account, per table. Only tables with a count appear.
+	Carried map[string]int64 `json:"carried"`
+
+	// Kept Rows this call left with the guest, per table: a plan still being written, or a row the account already had. Call again once `lesson_plans` here has a plan that has finished.
+	Kept map[string]int64 `json:"kept"`
+
+	// LinkedAt When the link was made. On an `existing` answer, the first call's time.
+	LinkedAt time.Time `json:"linked_at"`
+
+	// PreviousSubject The guest's `lgr_sub_`: what the player's earlier events keep. Route both to the same `player_ref`.
+	PreviousSubject string `json:"previous_subject"`
+
+	// Scopes The most a token for this player can now hold: what the account granted, of the scopes a player's token can carry.
+	Scopes []string `json:"scopes"`
+
+	// Status `linked`: this call made the link. `existing`: it was already live for this account, and the counts are only what this call moved.
+	Status LinkStatus `json:"status"`
+
+	// Subject The account's `lgr_sub_`: what this player's events carry from now on.
+	Subject string `json:"subject"`
+}
+
 // EmbedToken defines model for EmbedToken.
 type EmbedToken struct {
 	AccountLinked bool      `json:"account_linked"`
@@ -904,6 +946,9 @@ type LessonPlanReadyData struct {
 	TargetLang string          `json:"target_lang"`
 	Title      *string         `json:"title"`
 }
+
+// LinkStatus `linked`: this call made the link. `existing`: it was already live for this account, and the counts are only what this call moved.
+type LinkStatus string
 
 // Notice defines model for Notice.
 type Notice struct {
@@ -1378,6 +1423,18 @@ type GetAsyncAPIDocumentParams struct {
 
 // DeleteEmbedPlayerParams defines parameters for DeleteEmbedPlayer.
 type DeleteEmbedPlayerParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// UnlinkEmbedPlayerParams defines parameters for UnlinkEmbedPlayer.
+type UnlinkEmbedPlayerParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// LinkEmbedPlayerParams defines parameters for LinkEmbedPlayer.
+type LinkEmbedPlayerParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
 	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
 }

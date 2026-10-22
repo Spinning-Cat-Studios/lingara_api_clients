@@ -87,6 +87,15 @@ module Lingara
       response: "Usage",
       stream: nil
     }.freeze,
+    "linkEmbedPlayer" => {
+      method: "PUT",
+      path: "/v1/embed/players/{player_ref}/link",
+      path_params: ["player_ref"].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "EmbedPlayerLink",
+      stream: nil
+    }.freeze,
     "listApiVersions" => {
       method: "GET",
       path: "/v1/versions",
@@ -149,6 +158,15 @@ module Lingara
       request_body: nil,
       response: nil,
       stream: {union: "StreamLessonPlanEvent", events: {"started" => "StreamLessonPlanEventStarted", "phase" => "StreamLessonPlanEventPhase", "result" => "StreamLessonPlanEventResult", "pending" => "StreamLessonPlanEventPending", "error" => "StreamLessonPlanEventError"}.freeze, ends: {"result" => :yield, "pending" => :yield, "error" => :raise}.freeze}.freeze
+    }.freeze,
+    "unlinkEmbedPlayer" => {
+      method: "DELETE",
+      path: "/v1/embed/players/{player_ref}/link",
+      path_params: ["player_ref"].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: nil,
+      stream: nil
     }.freeze
   }.freeze
 end

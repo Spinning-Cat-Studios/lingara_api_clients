@@ -56,12 +56,13 @@ if err != nil {
 fmt.Println(usage.Value.Allowance, usage.ServedVersion)
 ```
 
-Sixteen methods, each the `operationId` with its first letter upper-cased and
+Eighteen methods, each the `operationId` with its first letter upper-cased and
 Go's initialisms applied. Every one takes a `context.Context` first. The
 events operations (`ListEvents`, `StreamEvents`, `SendEvent`) and their
 helpers are under [Webhooks and events](#webhooks-and-events), and the embed
-operations (`CreateEmbedToken`, `DeleteEmbedPlayer`, `SendDialogueTurn`)
-under [Embedding Lingara](#embedding-lingara).
+operations (`CreateEmbedToken`, `DeleteEmbedPlayer`, `LinkEmbedPlayer`,
+`UnlinkEmbedPlayer`, `SendDialogueTurn`) under
+[Embedding Lingara](#embedding-lingara).
 
 - `GenerateVocabulary`, `CreateLessonPlan`, `StreamLessonPlan` and
   `SendTutorMessage` send their request at once and return a
@@ -259,6 +260,20 @@ minted, err := client.CreateEmbedToken(ctx, lingara.EmbedTokenRequest{PlayerRef:
   tokens. An unknown player is still a success, so it is idempotent, and it
   keeps working while embedding is switched off for your client. The answer
   has no body: the `Result` carries only `ServedVersion`.
+- `LinkEmbedPlayer(ctx, playerRef)` links a player to the Lingara account
+  that granted your app access (`embed:play`), and returns a
+  `*Result[EmbedPlayerLink]`. Call it on a client whose `WithTokenSource`
+  returns the **player's delegated token** — the one your server received
+  from that account's own consent — never on your client-credentials client,
+  which gets `403 embed_link_needs_grant`. The library does not obtain that
+  token yet; the `linkEmbedPlayer` snippet builds the client in a few lines.
+  A fixed token is retried once on a `401`, so a revoked grant surfaces as an
+  `*APIError` with `Status` 401. `LinkStatusExisting` is a success too, and a
+  repeat moves what could not move before: call again while
+  `Kept["lesson_plans"]` is non-zero.
+- `UnlinkEmbedPlayer(ctx, playerRef)` ends that link (`embed:mint`, your
+  ordinary client); the answer has no body. A `404 embed_link_not_found`
+  after a retried call means it was already unlinked.
 - `SendDialogueTurn` streams an NPC's reply, `delta` by `delta`. The window is
   yours: at most 12 `History` entries, `Line` and each entry at most 500
   characters, and no total cap. Send each NPC reply back cut to its first 500

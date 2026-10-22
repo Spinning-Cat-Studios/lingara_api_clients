@@ -37,7 +37,7 @@ GO_HARNESS := target/go-conformance
 # the linters run on the stable leg only.
 OAPI_CODEGEN := $(GO) run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.6.0
 REVIVE := $(GO) run github.com/mgechev/revive@v1.17.0
-STATICCHECK := $(GO) run honnef.co/go/tools/cmd/staticcheck@v0.8.1
+STATICCHECK := $(GO) run honnef.co/go/tools/cmd/staticcheck@v0.8.2
 
 CONFORMANCE_CMD_go = $(GO_HARNESS)
 

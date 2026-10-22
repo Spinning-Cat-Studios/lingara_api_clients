@@ -10,11 +10,12 @@ import com.getlingara.kotlin.internal.LingaraJson
 import com.getlingara.kotlin.internal.Streams
 import com.getlingara.kotlin.internal.encodeSegment
 import com.getlingara.kotlin.model.DialogueTurnRequest
+import com.getlingara.kotlin.model.EmbedPlayerLink
 import com.getlingara.kotlin.model.EmbedTokenRequest
 import com.getlingara.kotlin.model.SendDialogueTurnEvent
 import kotlinx.serialization.json.JsonObject
 
-// The three embedding operations (ADR 1.10.26w) are extensions rather than members because
+// The embedding operations (ADR 1.10.26w, 22.10.26t) are extensions rather than members because
 // `LingaraClient.kt` is at its function budget, as the event helpers are (ADR 30.9.26aa); import
 // them from `com.getlingara.kotlin.embed`.
 
@@ -46,6 +47,27 @@ public suspend fun LingaraClient.createEmbedToken(body: EmbedTokenRequest): ApiR
  */
 public suspend fun LingaraClient.deleteEmbedPlayer(playerRef: String): ApiResponse<Unit> =
     requests.empty(Call("DELETE", "/v1/embed/players/" + encodeSegment(playerRef), null, "application/json", true))
+
+/**
+ * Links a player to the Lingara account that granted your app access (scope `embed:play`; ADR
+ * 22.10.26t), [playerRef] sent as one encoded path segment. Call it on a client whose token source
+ * returns the player's delegated token, from that account's own consent
+ * (`LingaraClientBuilder.tokenSource`): a client-credentials client is refused
+ * `403 embed_link_needs_grant`. The library does not obtain that token yet. A repeat answers
+ * `existing` and moves what could not move before, so K4 retries it safely: call again while `kept`
+ * has `lesson_plans`.
+ */
+public suspend fun LingaraClient.linkEmbedPlayer(playerRef: String): ApiResponse<EmbedPlayerLink> =
+    requests.json(Call("PUT", linkPath(playerRef), null, "application/json", true), EmbedPlayerLink.serializer())
+
+/**
+ * Ends a player's link (scope `embed:mint`, on your ordinary client). No live link is
+ * `404 embed_link_not_found`, which after a retried success means it was already unlinked.
+ */
+public suspend fun LingaraClient.unlinkEmbedPlayer(playerRef: String): ApiResponse<Unit> =
+    requests.empty(Call("DELETE", linkPath(playerRef), null, "application/json", true))
+
+private fun linkPath(playerRef: String): String = "/v1/embed/players/" + encodeSegment(playerRef) + "/link"
 
 /**
  * Streams an NPC's reply to one line (scope `embed:play`, from a player's embed token or a metered

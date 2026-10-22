@@ -12,10 +12,13 @@ pub fn langs(release: &Release) -> String {
 }
 
 /// `(built, uploaded)` for `tag`: `{semver}` is `VERSION`, `{version}` the
-/// tag with its `v`, as `verify.assets` substitutes it.
+/// tag with its `v`, as `verify.assets` substitutes it. ADR 22.10.26r W8: a
+/// listed `uploaded` is its names, each substituted, joined by single spaces
+/// in file order, so one name reads exactly as before.
 pub fn resolve(release: &Release, lang: &Language, tag: &str) -> Option<(String, String)> {
     let names = lang.artefact.as_ref()?;
-    Some((names.built.replace("{semver}", &release.version), names.uploaded.replace("{version}", tag)))
+    let uploaded: Vec<String> = names.uploaded().iter().map(|n| n.replace("{version}", tag)).collect();
+    Some((names.built.replace("{semver}", &release.version), uploaded.join(" ")))
 }
 
 pub fn artefact(release: &Release, id: &str, tag: &str) -> Result<Option<(String, String)>, Fail> {

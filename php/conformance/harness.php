@@ -149,6 +149,8 @@ function invoke(Client $client, int $step): array
             'sendDialogueTurn' => consume($client->sendDialogueTurn(dialogueTurn($body)), $operation, $call['cancel_after_events'] ?? null),
             'createEmbedToken' => completed($client->createEmbedToken(new EmbedTokenRequest($body))),
             'deleteEmbedPlayer' => completed($client->deleteEmbedPlayer((string) ($call['params']['player_ref'] ?? '')), 204),
+            'linkEmbedPlayer' => completed($client->linkEmbedPlayer((string) ($call['params']['player_ref'] ?? ''))),
+            'unlinkEmbedPlayer' => completed($client->unlinkEmbedPlayer((string) ($call['params']['player_ref'] ?? '')), 204),
             'getLessonPlan' => completed($client->getLessonPlan($id)),
             'getApiVersion' => completed($client->getApiVersion($id)),
             'getUsage' => completed($client->getUsage()),
@@ -181,7 +183,8 @@ function dialogueTurn(array $body): DialogueTurnRequest
 
 /**
  * $status is the operation's success status: ApiResponse holds the body,
- * and every 2xx but sendEvent's 202 and deleteEmbedPlayer's 204 is a 200.
+ * and every 2xx but sendEvent's 202 and deleteEmbedPlayer's and
+ * unlinkEmbedPlayer's 204 is a 200.
  * The result's renderings join the `redacted` scan (ADR 1.10.26w D7).
  *
  * @param ApiResponse<object> $response

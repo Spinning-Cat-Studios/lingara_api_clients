@@ -18,14 +18,17 @@ source*, *call*, *stream*.
 
 These are properties of the Lingara API that the rules below depend on.
 
-- **Operations.** Sixteen. Twelve need an access token: `generateVocabulary`
+- **Operations.** Eighteen. Fourteen need an access token: `generateVocabulary`
   (scope `vocab:generate`), `createLessonPlan` (`lesson_plans:write`),
   `getLessonPlan` and `streamLessonPlan` (`lesson_plans:read`),
   `sendTutorMessage` (`tutor:converse`), `getUsage` (`usage:read`),
   `listEvents` and `streamEvents` (`events:read`), `sendEvent`
   (`events:write`, plus `lesson_plans:write` when it asks for generation),
   `createEmbedToken` and `deleteEmbedPlayer` (`embed:mint`, a metered client
-  only), and `sendDialogueTurn` (`embed:play`) (ADR 1.10.26w).
+  only), and `sendDialogueTurn` (`embed:play`) (ADR 1.10.26w);
+  `linkEmbedPlayer` (`embed:play`, on the player's *delegated* token from
+  the account's own consent, never the client's) and `unlinkEmbedPlayer`
+  (`embed:mint`) (ADR 22.10.26t).
   Four need none (`security: []`): `getOpenApiDocument`,
   `getAsyncApiDocument`, `listApiVersions` and `getApiVersion`.
 - **Events** (ADR 30.9.26aa). Every door carries one envelope, `{id, type,
@@ -69,7 +72,9 @@ These are properties of the Lingara API that the rules below depend on.
   `guild%2F42%20%28%C3%A9%29%2A`.
 - **Empty answers.** A `204` has no body; the result carries only
   `served_version`. `deleteEmbedPlayer` answers `204`, an unknown
-  `player_ref` included. A `DELETE` sends no body and no `Content-Type`.
+  `player_ref` included; `unlinkEmbedPlayer` answers `204` too. A `DELETE`,
+  and a `PUT` with no body (`linkEmbedPlayer`, ADR 22.10.26t), send no body
+  and no `Content-Type`.
 - **`Retry-After`** is delta-seconds, rounded up, never `0`. Not every 429 or
   503 carries one: some rate-limit refusals do not, and neither does the
   maintenance response.

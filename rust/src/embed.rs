@@ -1,5 +1,5 @@
 //! Embedding Lingara (ADR 1.10.26w): the mint, the player delete and the
-//! NPC turn. The operations are as thin as `client.rs`'s; what is
+//! NPC turn; the account link and unlink (ADR 22.10.26t). The operations are as thin as `client.rs`'s; what is
 //! hand-written here is what a generator cannot know, that a minted token is
 //! a credential (D3).
 
@@ -10,7 +10,7 @@ use reqwest::Method;
 use crate::client::{ApiResponse, Client};
 use crate::error::{Error, TransportKind};
 use crate::generated::streams::SEND_DIALOGUE_TURN;
-use crate::models::{DialogueTurnRequest, EmbedToken, EmbedTokenRequest, SendDialogueTurnEvent};
+use crate::models::{DialogueTurnRequest, EmbedPlayerLink, EmbedToken, EmbedTokenRequest, SendDialogueTurnEvent};
 use crate::pipeline::{Req, encode_segment};
 use crate::stream::EventStream;
 use crate::token::AccessToken;
@@ -82,6 +82,33 @@ impl Client {
     /// has no body: the result carries only `served_version()`.
     pub async fn delete_embed_player(&self, player_ref: &str) -> Result<ApiResponse<()>, Error> {
         let url = self.url(&format!("/v1/embed/players/{}", encode_segment(player_ref)));
+        let req = Req { method: Method::DELETE, url: &url, body: None::<&()>, accept: "application/json", needs_token: true, headers: &[], retries: true };
+        self.empty_req(&req).await
+    }
+
+    /// Links a player to the Lingara account that granted your app access
+    /// (`PUT /v1/embed/players/{player_ref}/link`; scope `embed:play`).
+    ///
+    /// Call it on a client whose token source returns the player's
+    /// *delegated* token, from that account's own consent, never on a
+    /// client-credentials client: that one is refused `403
+    /// embed_link_needs_grant`. The library does not obtain the delegated
+    /// token yet; supply it through [`crate::ClientBuilder::token_source`]. A
+    /// repeat answers `existing` and moves what could not move before, so
+    /// K4's retries are safe: call again while `kept["lesson_plans"]` is
+    /// non-zero.
+    pub async fn link_embed_player(&self, player_ref: &str) -> Result<ApiResponse<EmbedPlayerLink>, Error> {
+        let url = self.url(&format!("/v1/embed/players/{}/link", encode_segment(player_ref)));
+        let req = Req { method: Method::PUT, url: &url, body: None::<&()>, accept: "application/json", needs_token: true, headers: &[], retries: true };
+        self.json_req(&req).await
+    }
+
+    /// Ends a player's link (`DELETE /v1/embed/players/{player_ref}/link`;
+    /// scope `embed:mint`, on your ordinary client). The answer has no body.
+    /// No live link is `404 embed_link_not_found`, which after a retried
+    /// success means it was already unlinked.
+    pub async fn unlink_embed_player(&self, player_ref: &str) -> Result<ApiResponse<()>, Error> {
+        let url = self.url(&format!("/v1/embed/players/{}/link", encode_segment(player_ref)));
         let req = Req { method: Method::DELETE, url: &url, body: None::<&()>, accept: "application/json", needs_token: true, headers: &[], retries: true };
         self.empty_req(&req).await
     }

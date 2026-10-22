@@ -111,8 +111,23 @@ at = "2026-10-08T20:12:18Z"
 [[version]]
 id = "2026-10-virile-dragon"
 minted_at = "2026-10-08T20:12:18Z"
-state = "development"
+state = "supported"
+spec_sha256 = "21a885698970009c807a4ba3365b857a5f0b7f4022890b7753e633cee458dc44"
+asyncapi_sha256 = "3e53ab074109d8a158e75182637a5cab9d3b1cc3eae87783da722a2aed2053bb"
 
 [[version.history]]
 state = "development"
 at = "2026-10-08T20:12:18Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-10-13T04:04:05Z"
+
+[[version]]
+id = "2026-10-simple-tarpon"
+minted_at = "2026-10-13T04:04:05Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-10-13T04:04:05Z"

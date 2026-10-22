@@ -65,7 +65,7 @@ exchanges:
     - times: <n>                 # default 1
       group: <n>                 # consecutive items sharing a group match in any order
       request:
-        method: GET | POST | DELETE
+        method: GET | POST | PUT | DELETE
         path: <path>             # exact; the query goes in `query` (absent = no query)
         query: {…}
         headers: { <lowercase name>: { equals | prefix | contains | pattern: <str> } | { absent: true } | { basic: [id, secret] } | { same_as: { request: <n>, header: <name> } } }
@@ -173,7 +173,9 @@ Comparison rules:
   call's result (ADR 1.10.26w D7: a minted embed token is a result);
 - a `response` with none of `json`, `text` or `sse` is an empty body with
   no `content-type`; a `204` carries no `content-length` either (RFC 9110
-  §8.6), and a `DELETE` request sends no body.
+  §8.6), and a `DELETE` or bodiless `PUT` request sends no body. A case
+  never matches on a request's `content-length`: a bodiless `PUT` may carry
+  `content-length: 0` or none, and either is correct.
 
 ## Vectors
 

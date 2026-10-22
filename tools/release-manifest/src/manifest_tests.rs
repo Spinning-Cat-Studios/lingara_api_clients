@@ -29,7 +29,8 @@ artefact = { built = "target/package/lingara-{semver}.crate", uploaded = "lingar
 since = "0.1.0-alpha.1"
 "#;
 
-pub const WORKFLOW: &str = "jobs:\n  publish-npm:\n  publish-crates:\n  publish-rubygems:\n  publish-maven:\n  publish-go:\n  publish-packagist:\n";
+/// 9.10.26l: `publish-npm` installs a pinned npm major, as both trios' workflows do.
+pub const WORKFLOW: &str = "jobs:\n  publish-npm:\n      - run: npm install -g 'npm@^11.5.1' && npm --version\n  publish-crates:\n  publish-rubygems:\n  publish-maven:\n  publish-go:\n  publish-packagist:\n";
 
 const SNAPSHOT: &str = r#"[[manifest]]
 kind = "cargo"
@@ -299,4 +300,132 @@ fn extra_assets_join_the_verify_set() {
         findings,
         vec!["publish/snapshot.toml: verify.assets has other.zip, which no entry uploads".to_string()]
     );
+}
+
+/// The fixture's workflow with its npm install line rewritten to `spec`.
+fn npm_install(root: &Path, spec: &str) {
+    write(root, ".github/workflows/release.yml", &WORKFLOW.replace("'npm@^11.5.1'", spec));
+}
+
+// 9.10.26l AC1
+#[test]
+fn an_unpinned_npm_is_refused() {
+    let dir = fixture();
+    let root = dir.path();
+    for pinned in ["'npm@^11.5.1'", "npm@11.5.1", "\"npm@^12\""] {
+        npm_install(root, pinned);
+        assert_eq!(check(&load(&dir)), Vec::<String>::new(), "{pinned}");
+    }
+    let refused = [
+        ("'npm@>=11.5.1'", "installs 'npm@>=11.5.1', an open range; pin the major as 'npm@^11.5.1'"),
+        ("npm@latest", "installs 'npm@latest', an open range; pin the major as 'npm@^11.5.1'"),
+        ("npm", "installs 'npm', an open range; pin the major as 'npm@^11.5.1'"),
+        ("'npm@*'", "installs 'npm@*'"),
+        ("'npm@>11'", "pin the major as 'npm@^11'"),
+    ];
+    for (spec, message) in refused {
+        npm_install(root, spec);
+        let findings = check(&load(&dir));
+        assert_eq!(findings.len(), 1, "{spec}: {findings:?}");
+        assert!(findings[0].starts_with(".github/workflows/release.yml:3: "), "the line is named: {findings:?}");
+        assert!(has(&findings, message), "{spec}: {findings:?}");
+    }
+}
+
+// 9.10.26l AC2
+#[test]
+fn npm_pin_is_checked_only_for_npm_trios() {
+    let dir = fixture();
+    let root = dir.path();
+    let rust_only = &LANGUAGES[LANGUAGES.find("\n[[language]]\nid = \"rust\"").unwrap() + 1..];
+    write(root, "languages.toml", rust_only);
+    npm_install(root, "'npm@>=11.5.1'");
+    assert_eq!(check(&load(&dir)), Vec::<String>::new());
+
+    write(root, "languages.toml", LANGUAGES);
+    assert!(has(&check(&load(&dir)), "installs 'npm@>=11.5.1'"));
+}
+
+/// The fixture with `rust`'s one-string `uploaded` replaced by `list` (TOML array body).
+fn rust_uploads(root: &Path, list: &str) {
+    let text = LANGUAGES.replace("uploaded = \"lingara-rust-{version}.crate\"", &format!("uploaded = [{list}]"));
+    write(root, "languages.toml", &text);
+}
+
+// 22.10.26r AC3
+#[test]
+fn check_refuses_an_empty_or_spaced_upload_list() {
+    let dir = fixture();
+    let root = dir.path();
+    rust_uploads(root, "\"lingara-rust-{version}.crate\", \"checksums.txt\"");
+    assert_eq!(check(&load(&dir)), Vec::<String>::new(), "a list naming checksums.txt is not refused");
+
+    rust_uploads(root, "");
+    assert_eq!(check(&load(&dir)), vec!["languages.toml: rust: artefact.uploaded is an empty list".to_string()]);
+
+    rust_uploads(root, "\"lingara-rust-{version}.crate\", \"two words.zip\"");
+    assert_eq!(
+        check(&load(&dir)),
+        vec!["languages.toml: rust: artefact.uploaded name \"two words.zip\" contains a space".to_string()]
+    );
+
+    let text = LANGUAGES.replace("uploaded = \"lingara-rust-{version}.crate\"", "uploaded = 3");
+    write(root, "languages.toml", &text);
+    let fail = Release::load(root).unwrap_err();
+    assert!(fail.message.contains("a string or an array of strings"), "{}", fail.message);
+}
+
+// 22.10.26r AC4
+#[test]
+fn each_listed_upload_is_held_to_version() {
+    let dir = fixture();
+    rust_uploads(dir.path(), "\"lingara-rust-{version}.crate\", \"lingara_{semver}_linux.tar.gz\"");
+    assert_eq!(
+        check(&load(&dir)),
+        vec!["languages.toml: rust: artefact.uploaded uses {semver}; only {version} is allowed there".to_string()]
+    );
+}
+
+// 22.10.26r AC5
+#[test]
+fn check_refuses_a_malformed_binary() {
+    let dir = fixture();
+    let root = dir.path();
+    let with_binary = |b: &str| LANGUAGES.replacen("since = \"0.1.0-alpha.1\"\n", &format!("since = \"0.1.0-alpha.1\"\nbinary = \"{b}\"\n"), 1);
+    for good in ["lingara", "lingara-cli2"] {
+        write(root, "languages.toml", &with_binary(good));
+        assert_eq!(check(&load(&dir)), Vec::<String>::new(), "{good}");
+    }
+    for bad in ["Lingara", "2lingara", "lin_gara", ""] {
+        write(root, "languages.toml", &with_binary(bad));
+        assert_eq!(
+            check(&load(&dir)),
+            vec![format!("languages.toml: typescript: binary \"{bad}\" is not [a-z][a-z0-9-]*")],
+            "{bad}"
+        );
+    }
+}
+
+// 22.10.26r AC8
+#[test]
+fn a_string_upload_keeps_its_findings() {
+    let dir = fixture();
+    write(dir.path(), "languages.toml", &LANGUAGES.replace("rust-{version}", "rust-{tag}"));
+    assert_eq!(
+        check(&load(&dir)),
+        vec!["languages.toml: rust: artefact.uploaded uses {tag}; only {version} is allowed there".to_string()]
+    );
+}
+
+// 22.10.26r AC13
+#[test]
+fn check_publish_expects_each_listed_upload() {
+    let dir = fixture();
+    let root = dir.path();
+    rust_uploads(root, "\"lingara-rust-{version}.crate\", \"SHA256SUMS\"");
+    let missing = check_publish(&load(&dir)).unwrap();
+    assert_eq!(missing, vec!["publish/snapshot.toml: verify.assets lacks SHA256SUMS".to_string()]);
+
+    write(root, "publish/snapshot.toml", &SNAPSHOT.replace("\"checksums.txt\"", "\"SHA256SUMS\", \"checksums.txt\""));
+    assert_eq!(check_publish(&load(&dir)).unwrap(), Vec::<String>::new());
 }

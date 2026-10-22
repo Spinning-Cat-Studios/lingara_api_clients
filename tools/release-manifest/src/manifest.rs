@@ -5,13 +5,19 @@
 //! from a clients tag rather than forking it. Every widening is opt-in: a
 //! file that sets none of `registries`, `extra_assets`, `dir`, `snippets` or
 //! `prefix` reads, checks and fails exactly as before.
+//!
+//! ADR 22.10.26r continues the numbering for the CLI, under the same rule:
+//! a list-valued `uploaded` (W8), `binary` (W9) and `kind = "line"` (W10).
+//! The per-entry findings live in `manifest/entry.rs`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-use crate::{Fail, install, version};
+use crate::{Fail, version};
+
+mod entry;
 
 pub const LANGUAGES: &str = "languages.toml";
 pub const RELEASE_WORKFLOW: &str = ".github/workflows/release.yml";
@@ -76,6 +82,9 @@ pub struct Language {
     #[serde(default)]
     pub artefact: Option<Artefact>,
     pub since: String,
+    /// W9: the command the package installs, which `matrix` hands an install proof.
+    #[serde(default)]
+    pub binary: Option<String>,
 }
 
 impl Language {
@@ -100,6 +109,8 @@ impl Language {
 pub enum Kind {
     Json,
     Toml,
+    /// W10: each key is a line prefix ending in the value's opening quote.
+    Line,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -113,12 +124,29 @@ pub struct VersionFile {
     pub prefix: Option<String>,
 }
 
-
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Artefact {
     pub built: String,
-    pub uploaded: String,
+    uploaded: Uploaded,
+}
+
+/// W8: one uploaded name, or several (the CLI's archives and `SHA256SUMS`).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(untagged, expecting = "a string or an array of strings")]
+enum Uploaded {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl Artefact {
+    /// The uploaded name templates, in file order.
+    pub fn uploaded(&self) -> &[String] {
+        match &self.uploaded {
+            Uploaded::One(name) => std::slice::from_ref(name),
+            Uploaded::Many(names) => names,
+        }
+    }
 }
 
 /// `languages.toml` and `VERSION`, as read from one root.
@@ -179,9 +207,10 @@ pub fn check(release: &Release) -> Vec<String> {
     let mut findings = id_lines(release);
     findings.extend(registries_findings(release));
     for lang in &release.languages {
-        findings.extend(entry_findings(release, lang, &workflow));
+        findings.extend(entry::entry_findings(release, lang, &workflow));
         findings.extend(licence_finding(&release.root, lang, licence.as_deref()));
     }
+    findings.extend(version::npm_pin_findings(release, &workflow));
     findings.extend(version::version_findings(release));
     findings
 }
@@ -215,49 +244,6 @@ fn registries_findings(release: &Release) -> Vec<String> {
         .filter(|n| !known.contains(&n.as_str()))
         .map(|n| format!("{LANGUAGES}: registries names \"{n}\", which is not one of {}", known.join(", ")))
         .collect()
-}
-
-fn entry_findings(release: &Release, lang: &Language, workflow: &str) -> Vec<String> {
-    let id = &lang.id;
-    let dir = lang.directory();
-    let mut findings = Vec::new();
-    if !release.root.join(dir).is_dir() {
-        findings.push(format!("{dir}/: the directory does not exist"));
-    }
-    let admitted = release.admitted();
-    match REGISTRIES.iter().find(|(r, _)| *r == lang.registry && admitted.contains(r)) {
-        None => findings.push(format!("{LANGUAGES}: {id}: registry \"{}\" is not one of {}", lang.registry, admitted.join(", "))),
-        Some((_, job)) if !has_job(workflow, job) => {
-            findings.push(format!("{RELEASE_WORKFLOW}: no `{job}` job publishes {id}'s registry {}", lang.registry))
-        }
-        Some(_) => {}
-    }
-    if let Some(a) = &lang.artefact {
-        findings.extend(template_finding(id, "built", &a.built, "semver"));
-        findings.extend(template_finding(id, "uploaded", &a.uploaded, "version"));
-    }
-    // W4: a store's listing is a person's job, so it proves no install line.
-    let snippets = lang.snippets_dir();
-    let installs = install::install_files(&release.root, &snippets);
-    if !lang.is_store() && installs.len() != 1 {
-        findings.push(format!("{snippets}/: {} install.* files, exactly one expected", installs.len()));
-    }
-    findings
-}
-
-/// A job key is a two-space-indented `<job>:` line under `jobs:`.
-fn has_job(workflow: &str, job: &str) -> bool {
-    let key = format!("  {job}:");
-    workflow.lines().any(|l| l.trim_end() == key)
-}
-
-/// `built` may use only `{semver}`, `uploaded` only `{version}` (D1).
-fn template_finding(id: &str, field: &str, template: &str, allowed: &str) -> Option<String> {
-    let placeholders = template.split('{').skip(1).filter_map(|s| s.split_once('}').map(|(p, _)| p));
-    let bad: Vec<&str> = placeholders.filter(|p| *p != allowed).collect();
-    (!bad.is_empty()).then(|| {
-        format!("{LANGUAGES}: {id}: artefact.{field} uses {{{}}}; only {{{allowed}}} is allowed there", bad.join("}, {"))
-    })
 }
 
 /// A directory-packaged registry ships `<dir>/LICENSE`, byte-equal to the root

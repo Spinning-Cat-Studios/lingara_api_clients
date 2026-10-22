@@ -29,7 +29,7 @@ const UNIONS: [&str; 6] = [
     "StreamEventsEvent",
     "SendDialogueTurnEvent",
 ];
-const REMAINING: [&str; 10] = [
+const REMAINING: [&str; 12] = [
     "getLessonPlan",
     "getUsage",
     "getOpenApiDocument",
@@ -40,6 +40,8 @@ const REMAINING: [&str; 10] = [
     "sendEvent",
     "createEmbedToken",
     "deleteEmbedPlayer",
+    "linkEmbedPlayer",
+    "unlinkEmbedPlayer",
 ];
 
 fn operation_ids(doc: &Value) -> Vec<&str> {
@@ -86,9 +88,10 @@ fn the_vendored_spec_names_how_each_stream_ends() {
     }
 }
 
-// 29.9.26m AC8; 1.10.26w adds the embed mint's stream and two operations
+// 29.9.26m AC8; 1.10.26w adds the embed mint's stream and two operations;
+// 22.10.26t AC9 adds linkEmbedPlayer and unlinkEmbedPlayer
 #[test]
-fn the_vendored_spec_yields_six_streams_and_ten_operations() {
+fn the_vendored_spec_yields_six_streams_and_twelve_operations() {
     let (spec, catalogue) = vendored_pair();
     let source = fs::read_to_string(spec_dir().join("SOURCE")).unwrap();
     let first = build_view(&spec, catalogue.as_ref(), source.trim()).unwrap();

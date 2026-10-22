@@ -46,8 +46,13 @@ class SnippetsTest < Minitest::Test
   MINTED = {token: "lgr_et_unit0000000000000000000000000000000000000", expires_at: "2026-10-01T09:27:44Z", expires_in: 900,
             subject: "lgr_sub_unit", scopes: ["embed:play", "events:write"], account_linked: false}.freeze
 
-  # The answer to each embed route a snippet calls (ADR 1.10.26w).
+  LINK = {status: "linked", subject: "lgr_sub_account", previous_subject: "lgr_sub_unit", linked_at: "2026-11-02T18:04:11Z",
+          scopes: ["embed:play"], carried: {}, kept: {}}.freeze
+
+  # The answer to each embed route a snippet calls (ADR 1.10.26w; the link,
+  # ADR 22.10.26t: a PUT answers the link, a DELETE ends it with a 204).
   def answer_embed(request, conn)
+    return ((request.method == "PUT") ? conn.json(200, LINK) : conn.text(204, "")) if request.path.end_with?("/link")
     case request.path
     when "/v1/embed/tokens" then conn.json(200, MINTED)
     when "/v1/embed/dialogue/turns"
@@ -111,14 +116,19 @@ class SnippetsTest < Minitest::Test
       assert_equal 204, LingaraSnippets.verify_webhook(WEBHOOK_SECRET, signed_env).first
       assert_equal MINTED[:token], LingaraSnippets.create_embed_token(client)[:token]
       LingaraSnippets.delete_embed_player(client)
+      LingaraSnippets.link_embed_player(LingaraSnippets.delegated_client("lgr_at_delegated", base_url: server.url))
+      LingaraSnippets.unlink_embed_player(client)
       assert_equal "十块钱，一盘。", LingaraSnippets.send_dialogue_turn(client).last[:text]
     end
-    %w[你好 ready still 好的 vocab 3.2.0 current supported c1 lgr_evt_unit2 on\ its\ way lgr_sub_unit deleted 十块钱].each do |text|
+    %w[你好 ready still 好的 vocab 3.2.0 current supported c1 lgr_evt_unit2 on\ its\ way lgr_sub_unit deleted 十块钱
+      linked\ as\ lgr_sub_account unlinked].each do |text|
       assert_includes out, text
     end
     assert_includes server.requests.map(&:path), "/v1/embed/players/guild-42%2Fplayer-1001"
+    link = server.requests.find { |r| r.method == "PUT" }
+    assert_equal "Bearer lgr_at_delegated", link.headers["authorization"]
     snippet_methods = LingaraSnippets.singleton_methods.sort
-    assert_equal 18, snippet_methods.size
+    assert_equal 21, snippet_methods.size
   ensure
     server&.close
   end

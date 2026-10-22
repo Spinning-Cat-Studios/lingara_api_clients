@@ -330,7 +330,9 @@ jobs:
         with:
           node-version: lts/*
           registry-url: https://registry.npmjs.org
-      - run: npm install -g 'npm@>=11.5.1' && npm --version
+      # The major is pinned: a new npm major is a reviewed bump, not a side effect
+      # of the release date (ADR 9.10.26l; release-manifest check refuses `>=`).
+      - run: npm install -g 'npm@^11.5.1' && npm --version
       - id: probe
         run: echo "state=$(sh tools/release-manifest/probe.sh typescript "$TAG")" >> "$GITHUB_OUTPUT"
       # The Release's own asset: the bytes that passed conformance.

@@ -16,6 +16,7 @@ var routes = map[string]route{
 	"getLessonPlan":       {method: "GET", path: "/v1/lesson-plans/{id}", needsToken: true},
 	"getOpenApiDocument":  {method: "GET", path: "/v1/openapi.json", needsToken: false},
 	"getUsage":            {method: "GET", path: "/v1/usage", needsToken: true},
+	"linkEmbedPlayer":     {method: "PUT", path: "/v1/embed/players/{player_ref}/link", needsToken: true},
 	"listApiVersions":     {method: "GET", path: "/v1/versions", needsToken: false},
 	"listEvents":          {method: "GET", path: "/v1/events", needsToken: true},
 	"sendDialogueTurn": {method: "POST", path: "/v1/embed/dialogue/turns", needsToken: true,
@@ -27,4 +28,5 @@ var routes = map[string]route{
 		stream: &streamRoute{requestBody: "", events: []string{"event", "done", "error"}, ends: map[string]ending{"done": endQuiet, "error": endRaise}}},
 	"streamLessonPlan": {method: "GET", path: "/v1/lesson-plans/{id}/stream", needsToken: true,
 		stream: &streamRoute{requestBody: "", events: []string{"started", "phase", "result", "pending", "error"}, ends: map[string]ending{"result": endYield, "pending": endYield, "error": endRaise}}},
+	"unlinkEmbedPlayer": {method: "DELETE", path: "/v1/embed/players/{player_ref}/link", needsToken: true},
 }

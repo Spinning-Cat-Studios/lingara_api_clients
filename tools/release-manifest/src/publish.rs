@@ -87,10 +87,11 @@ fn manifest_finding(lang: &Language, manifests: &[(String, String)]) -> Option<S
 }
 
 /// `verify.assets` is the entries' `uploaded` names, the file's
-/// `extra_assets` (1.10.26ag W7) and `checksums.txt`.
+/// `extra_assets` (1.10.26ag W7) and `checksums.txt`. A listed `uploaded`
+/// (22.10.26r W8) expects each of its names on its own.
 fn asset_findings(release: &Release, snapshot: &toml::Value) -> Vec<String> {
     let mut expected: Vec<String> =
-        release.languages.iter().filter_map(|l| l.artefact.as_ref().map(|a| a.uploaded.clone())).collect();
+        release.languages.iter().filter_map(|l| l.artefact.as_ref()).flat_map(|a| a.uploaded().iter().cloned()).collect();
     expected.extend(release.extra_assets.iter().cloned());
     expected.push("checksums.txt".to_string());
     let actual: Vec<String> = snapshot

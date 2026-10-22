@@ -123,6 +123,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/embed/players/{player_ref}/link": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Link a player to their Lingara account
+         * @description Links one of your players to the Lingara account that just granted your app access. Call it with the delegated token your server received for that account, never with your client's own token. From then on the player's tokens act as the account, as far as the grant allows: ask for `events:read` or you hear nothing about the player after the link. Settled plans move to the account; a plan still being written stays until you call again. Safe to repeat: a repeat answers `existing` and moves what could not move before. Linking costs you nothing.
+         */
+        put: operations["linkEmbedPlayer"];
+        post?: never;
+        /**
+         * Unlink a player from their Lingara account
+         * @description Ends a player's link. The player plays as your guest again from the next call. Nothing moves back: what the link carried stays in the learner's account. A player with no live link, or one already unlinked, answers `404 embed_link_not_found`.
+         */
+        delete: operations["unlinkEmbedPlayer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/openapi.json": {
         parameters: {
             query?: never;
@@ -569,6 +596,33 @@ export interface components {
             scopes: string[];
             account_linked: boolean;
         };
+        EmbedPlayerLink: {
+            status: components["schemas"]["LinkStatus"];
+            /** @description The account's `lgr_sub_`: what this player's events carry from now on. */
+            subject: string;
+            /** @description The guest's `lgr_sub_`: what the player's earlier events keep. Route both to the same `player_ref`. */
+            previous_subject: string;
+            /**
+             * Format: date-time
+             * @description When the link was made. On an `existing` answer, the first call's time.
+             */
+            linked_at: string;
+            /** @description The most a token for this player can now hold: what the account granted, of the scopes a player's token can carry. */
+            scopes: string[];
+            /** @description Rows this call moved to the account, per table. Only tables with a count appear. */
+            carried: {
+                [key: string]: number;
+            };
+            /** @description Rows this call left with the guest, per table: a plan still being written, or a row the account already had. Call again once `lesson_plans` here has a plan that has finished. */
+            kept: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * @description `linked`: this call made the link. `existing`: it was already live for this account, and the counts are only what this call moved.
+         * @enum {string}
+         */
+        LinkStatus: "linked" | "existing";
         DialogueTurnRequest: {
             npc: components["schemas"]["Npc"];
             scene?: string | null;
@@ -1188,6 +1242,94 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description The player is gone */
+            204: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    linkEmbedPlayer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                /** @description The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`. */
+                player_ref: components["parameters"]["PlayerRef"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The player's link */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "status": "linked",
+                     *       "subject": "lgr_sub_9c41d07be2a35f6810c4e9d2b7a3f650",
+                     *       "previous_subject": "lgr_sub_2be0f15a8c7d3e9604b1a2c5d8e7f903",
+                     *       "linked_at": "2026-11-02T18:04:11Z",
+                     *       "scopes": [
+                     *         "embed:play",
+                     *         "events:read",
+                     *         "events:write",
+                     *         "lesson_plans:read",
+                     *         "lesson_plans:write"
+                     *       ],
+                     *       "carried": {
+                     *         "lesson_plans": 4
+                     *       },
+                     *       "kept": {
+                     *         "lesson_plans": 1
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["EmbedPlayerLink"];
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    unlinkEmbedPlayer: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                /** @description The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`. */
+                player_ref: components["parameters"]["PlayerRef"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The link has ended */
             204: {
                 headers: {
                     "Lingara-Version": components["headers"]["LingaraVersion"];

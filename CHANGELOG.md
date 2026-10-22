@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.2.0-alpha.3 — 2026-10-22
+
+
+Generated from Lingara API 2026-10-simple-tarpon (development) at spec backend@130ed5271f3b75399ca22466c8414e23073c2d04.
+
+### Added
+
+- `linkEmbedPlayer` in all seven libraries (`link_embed_player` in Rust and Ruby, `LinkEmbedPlayer` in Go): `PUT /v1/embed/players/{player_ref}/link` links a player to the Lingara account that granted your app access, and returns the generated `EmbedPlayerLink` (ADR 22.10.26t). Call it on a client whose token source returns the player's delegated token from that account's consent; a client-credentials client gets `403 embed_link_needs_grant`. The library does not obtain that token yet, and each library's `linkEmbedPlayer` snippet shows the token source in a few lines.
+- `unlinkEmbedPlayer` in all seven libraries: `DELETE` on the same path ends the link (`embed:mint`), completing on an empty `204`.
+- The `EmbedPlayerLink` and `LinkStatus` models, and the conformance case format's `PUT` verb.
+
+### Changed
+
+- Every library is generated for API version `2026-10-virile-dragon`, the API's current version; it was `2026-10-golden-remora`.
+
+- `release-manifest` reads three more opt-in `languages.toml` shapes, so the CLI installs it rather than forking it (ADR 22.10.26r): `artefact.uploaded` may be a list of names (space-joined in `matrix` and `artefact`, each expected on its own by `check-publish`), an entry may set `binary` (emitted as its `matrix` row's last key), and a version file may be `kind = "line"` (a line prefix ending in the value's opening quote). A file that uses none of them produces the same output and findings as before.
+
+### Fixed
+
+- The Go lint lane pins staticcheck v0.8.2: Go 1.27.3 writes export data that v0.8.1 cannot read, so `make lint-go` failed on the stable leg. Tooling only; no library changes.
+
+### Removed
+
 ## v0.2.0-alpha.1 — 2026-10-09
 
 

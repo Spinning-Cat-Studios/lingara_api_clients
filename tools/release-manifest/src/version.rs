@@ -1,5 +1,7 @@
 //! One version (ADR 29.9.26v D1–D3): the hand-kept files that carry it,
-//! `bump`, `check-tag` and the RubyGems spelling.
+//! `bump`, `check-tag` and the RubyGems spelling — and the npm major a
+//! release job installs (ADR 9.10.26l). A `kind = "line"` file
+//! (ADR 22.10.26r W10) is read and rewritten by `version/line.rs`.
 
 use std::fs;
 use std::path::Path;
@@ -8,7 +10,9 @@ use serde_json::Value as Json;
 use toml_edit::{DocumentMut, Item, Value};
 
 use crate::Fail;
-use crate::manifest::{self, Kind, LANGUAGES, Release, VersionFile};
+
+mod line;
+use crate::manifest::{self, Kind, LANGUAGES, RELEASE_WORKFLOW, Release, VersionFile};
 
 /// `X.Y.Z` with an optional `-<pre-release>`: the major and the suffix.
 pub fn parse(version: &str) -> Option<(u64, Option<&str>)> {
@@ -64,6 +68,38 @@ pub fn gem_version(semver: &str) -> String {
 /// it sets one (1.10.26ag W6, `"="` for an exact Cargo pin).
 fn expected(file: &VersionFile, version: &str) -> String {
     format!("{}{version}", file.prefix.as_deref().unwrap_or_default())
+}
+
+/// ADR 9.10.26l D2: when a language publishes to npm, every
+/// `npm install -g npm…` line in the workflow pins the major (`^N…` or an
+/// exact `X.Y.Z`). An open range (`>=`, `>`, `*`, `latest`, or none) runs
+/// whatever npm is newest on the day the tag is pushed, so a new major would
+/// reach `publish-npm` unreviewed.
+pub fn npm_pin_findings(release: &Release, workflow: &str) -> Vec<String> {
+    if !release.languages.iter().any(|l| l.registry == "npm") {
+        return Vec::new();
+    }
+    let pinned = |r: &str| r.strip_prefix('^').is_some_and(|v| v.starts_with(|c: char| c.is_ascii_digit())) || parse(r).is_some();
+    let specs = workflow.lines().enumerate().filter_map(|(i, line)| Some((i + 1, npm_spec(line)?)));
+    specs
+        .filter(|(_, range)| !pinned(range))
+        .map(|(n, range)| {
+            // Suggest the version an open range already names, else the
+            // trusted-publishing floor (OIDC first shipped in npm 11.5.1).
+            let named = range.trim_start_matches(['>', '=', '~']);
+            let floor = if named.starts_with(|c: char| c.is_ascii_digit()) { named } else { "11.5.1" };
+            let shown = if range.is_empty() { "npm".to_string() } else { format!("npm@{range}") };
+            format!("{RELEASE_WORKFLOW}:{n}: installs '{shown}', an open range; pin the major as 'npm@^{floor}'")
+        })
+        .collect()
+}
+
+/// The range of a global npm self-install on this line (empty for a bare
+/// `npm`), or `None` when the line installs no npm.
+fn npm_spec(line: &str) -> Option<&str> {
+    let (_, args) = line.split_once("npm install -g ")?;
+    let package = args.split_whitespace().next()?.trim_matches(|c| c == '\'' || c == '"');
+    if package == "npm" { Some("") } else { package.strip_prefix("npm@") }
 }
 
 /// Every `version_files` key that does not read `VERSION` (behind its
@@ -143,6 +179,7 @@ fn read_keys(root: &Path, file: &VersionFile) -> Result<Vec<Option<String>>, Str
             let doc: DocumentMut = text.parse().map_err(|e| format!("{}: {e}", file.path))?;
             Ok(file.keys.iter().map(|k| toml_item(doc.as_item(), k).and_then(Item::as_str).map(str::to_string)).collect())
         }
+        Kind::Line => line::read_keys(&text, file),
     }
 }
 
@@ -151,7 +188,8 @@ fn toml_item<'a>(item: &'a Item, dotted: &str) -> Option<&'a Item> {
 }
 
 /// JSON is rewritten whole at npm's own format (two-space indent, trailing
-/// newline, key order kept); TOML is edited in place. Each key gets the file's
+/// newline, key order kept); TOML and a `line` file (22.10.26r W10) are
+/// edited in place. Each key gets the file's
 /// `prefix` before the version. A file listed twice is read afresh each time,
 /// so both entries' keys survive.
 fn write_keys(root: &Path, file: &VersionFile, to: &str) -> Result<(), Fail> {
@@ -175,6 +213,7 @@ fn write_keys(root: &Path, file: &VersionFile, to: &str) -> Result<(), Fail> {
             }
             doc.to_string()
         }
+        Kind::Line => line::rewrite(&text, file, to).map_err(Fail::input)?,
     };
     write(root, &file.path, &out)
 }

@@ -30,6 +30,59 @@ fn matrix_lists_only_shipped_languages() {
     assert_eq!(registries, json!(["npm", "crates.io", "maven-central"]));
 }
 
+/// The `include` rows of `matrix`'s output.
+fn rows(out: &str) -> Vec<Value> {
+    let parsed: Value = serde_json::from_str(out.lines().next().unwrap().strip_prefix("matrix=").unwrap()).unwrap();
+    parsed["include"].as_array().unwrap().clone()
+}
+
+/// The CLI's `go` entry shape: a list `uploaded` and a `binary`.
+const GO: &str = r#"
+[[language]]
+id = "go"
+registry = "go"
+package = "m"
+artefact = { built = "dist", uploaded = ["lingara_{version}_darwin_amd64.tar.gz", "lingara_{version}_linux_arm64.tar.gz", "SHA256SUMS"] }
+since = "next"
+binary = "lingara"
+"#;
+
+// 22.10.26r AC1
+#[test]
+fn a_listed_upload_is_one_space_joined_string() {
+    let dir = fixture();
+    let text = std::fs::read_to_string(dir.path().join("languages.toml")).unwrap();
+    write(dir.path(), "languages.toml", &format!("{text}{GO}"));
+    let rows = rows(&matrix(&load(&dir), "v0.1.0-alpha.1"));
+    assert_eq!(
+        rows[2]["uploaded"],
+        "lingara_v0.1.0-alpha.1_darwin_amd64.tar.gz lingara_v0.1.0-alpha.1_linux_arm64.tar.gz SHA256SUMS"
+    );
+    assert_eq!(rows[2]["built"], "dist");
+}
+
+// 22.10.26r AC2
+#[test]
+fn a_file_without_the_widenings_keeps_its_rows() {
+    let dir = fixture();
+    // Captured from the tool before 22.10.26r, on the same fixture and tag.
+    let before = "matrix={\"include\":[{\"id\":\"typescript\",\"registry\":\"npm\",\"package\":\"@lingara/api\",\"built\":\"typescript/lingara-api-0.1.0-alpha.1.tgz\",\"uploaded\":\"lingara-typescript-v0.1.0-alpha.1.tgz\",\"dir\":\"typescript\",\"manual\":false},{\"id\":\"rust\",\"registry\":\"crates.io\",\"package\":\"lingara\",\"built\":\"target/package/lingara-0.1.0-alpha.1.crate\",\"uploaded\":\"lingara-rust-v0.1.0-alpha.1.crate\",\"dir\":\"rust\",\"manual\":false}]}\nregistries=[\"npm\",\"crates.io\"]\n";
+    assert_eq!(matrix(&load(&dir), "v0.1.0-alpha.1"), before);
+}
+
+// 22.10.26r AC11
+#[test]
+fn binary_is_in_the_row_only_when_set() {
+    let dir = fixture();
+    let text = std::fs::read_to_string(dir.path().join("languages.toml")).unwrap();
+    write(dir.path(), "languages.toml", &format!("{text}{GO}"));
+    let rows = rows(&matrix(&load(&dir), "v0.1.0-alpha.1"));
+    let keys: Vec<&String> = rows[2].as_object().unwrap().keys().collect();
+    assert_eq!(keys.last().unwrap().as_str(), "binary", "{keys:?}");
+    assert_eq!(rows[2]["binary"], "lingara");
+    assert!(rows[0].get("binary").is_none(), "{}", rows[0]);
+}
+
 // 1.10.26ag AC6
 #[test]
 fn store_entries_are_marked_manual() {

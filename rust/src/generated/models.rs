@@ -316,6 +316,23 @@ for Done {
         Self(value)
     }
 }
+///`EmbedPlayerLink`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+pub struct EmbedPlayerLink {
+    ///Rows this call moved to the account, per table. Only tables with a count appear.
+    pub carried: ::std::collections::HashMap<::std::string::String, i64>,
+    ///Rows this call left with the guest, per table: a plan still being written, or a row the account already had. Call again once `lesson_plans` here has a plan that has finished.
+    pub kept: ::std::collections::HashMap<::std::string::String, i64>,
+    ///When the link was made. On an `existing` answer, the first call's time.
+    pub linked_at: ::std::string::String,
+    ///The guest's `lgr_sub_`: what the player's earlier events keep. Route both to the same `player_ref`.
+    pub previous_subject: ::std::string::String,
+    ///The most a token for this player can now hold: what the account granted, of the scopes a player's token can carry.
+    pub scopes: ::std::vec::Vec<::std::string::String>,
+    pub status: LinkStatus,
+    ///The account's `lgr_sub_`: what this player's events carry from now on.
+    pub subject: ::std::string::String,
+}
 ///`EmbedToken`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct EmbedToken {
@@ -601,6 +618,61 @@ pub struct LessonPlanReadyData {
     pub target_lang: ::std::string::String,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub title: ::std::option::Option<::std::string::String>,
+}
+///`linked`: this call made the link. `existing`: it was already live for this account, and the counts are only what this call moved.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum LinkStatus {
+    #[serde(rename = "linked")]
+    Linked,
+    #[serde(rename = "existing")]
+    Existing,
+}
+impl ::std::fmt::Display for LinkStatus {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Linked => f.write_str("linked"),
+            Self::Existing => f.write_str("existing"),
+        }
+    }
+}
+impl ::std::str::FromStr for LinkStatus {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "linked" => Ok(Self::Linked),
+            "existing" => Ok(Self::Existing),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for LinkStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for LinkStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///`Notice`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]

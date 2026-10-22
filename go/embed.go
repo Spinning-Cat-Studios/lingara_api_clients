@@ -11,7 +11,7 @@ import (
 )
 
 // Embedding Lingara (ADR 1.10.26w): the mint, the player delete and the NPC
-// turn. The operations themselves are thin, as in operations.go; what is
+// turn; the account link and unlink (ADR 22.10.26t). The operations themselves are thin, as in operations.go; what is
 // hand-written here is what a generator cannot know, that a minted token is
 // a credential (D3).
 
@@ -102,6 +102,28 @@ func (c *Client) CreateEmbedToken(ctx context.Context, body EmbedTokenRequest) (
 // client. The answer has no body: the Result carries only ServedVersion.
 func (c *Client) DeleteEmbedPlayer(ctx context.Context, playerRef string) (*Result[struct{}], error) {
 	rt := routes["deleteEmbedPlayer"]
+	return sendNoContent(ctx, c, request{method: rt.method, url: c.url(rt.path, playerRef), accept: "application/json", needsToken: rt.needsToken})
+}
+
+// LinkEmbedPlayer links a player to the Lingara account that granted your
+// app access (scope embed:play; ADR 22.10.26t). Call it on a client whose
+// TokenSource returns the player's delegated token, from that account's own
+// consent (WithTokenSource): a client-credentials client is refused 403
+// embed_link_needs_grant. The library does not obtain that token yet. A
+// repeat answers LinkStatusExisting and moves what could not move before, so
+// K4's retries are safe: call again while Kept["lesson_plans"] is non-zero.
+// It sends no body.
+func (c *Client) LinkEmbedPlayer(ctx context.Context, playerRef string) (*Result[EmbedPlayerLink], error) {
+	rt := routes["linkEmbedPlayer"]
+	return sendJSON[EmbedPlayerLink](ctx, c, request{method: rt.method, url: c.url(rt.path, playerRef), accept: "application/json", needsToken: rt.needsToken})
+}
+
+// UnlinkEmbedPlayer ends a player's link (scope embed:mint, on your ordinary
+// client). The answer has no body. No live link is 404
+// embed_link_not_found, which after a retried success means it was already
+// unlinked.
+func (c *Client) UnlinkEmbedPlayer(ctx context.Context, playerRef string) (*Result[struct{}], error) {
+	rt := routes["unlinkEmbedPlayer"]
 	return sendNoContent(ctx, c, request{method: rt.method, url: c.url(rt.path, playerRef), accept: "application/json", needsToken: rt.needsToken})
 }
 
