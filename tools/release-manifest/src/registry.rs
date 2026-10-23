@@ -16,7 +16,7 @@ pub fn probe(release: &Release, id: &str, tag: &str) -> Result<Option<Vec<String
         "rubygems" => {
             format!("https://rubygems.org/api/v2/rubygems/{package}/versions/{}.json", version::gem_version(semver))
         }
-        "maven-central" => maven_url(package, semver)?,
+        "maven" => maven_url(package, semver)?,
         "go" => format!("https://proxy.golang.org/{}/@v/{tag}.info", case_encode(package)),
         // W5: NuGet's flat container, which lowercases both the id and the version.
         "nuget" => {
@@ -29,12 +29,14 @@ pub fn probe(release: &Release, id: &str, tag: &str) -> Result<Option<Vec<String
     Ok(Some(vec![url]))
 }
 
-/// `group:artifact` → the version's POM on `repo1.maven.org`.
+/// `group:artifact` → the version's POM on the repository we host (Generator
+/// ADR 23.10.26a §4). Read through the edge, which never caches a 4xx, so a
+/// 404 is R2's own answer.
 fn maven_url(package: &str, semver: &str) -> Result<String, Fail> {
     let (group, artifact) =
         package.split_once(':').ok_or_else(|| Fail::input(format!("probe: \"{package}\" is not group:artifact")))?;
     let group = group.replace('.', "/");
-    Ok(format!("https://repo1.maven.org/maven2/{group}/{artifact}/{semver}/{artifact}-{semver}.pom"))
+    Ok(format!("https://maven.getlingara.com/{group}/{artifact}/{semver}/{artifact}-{semver}.pom"))
 }
 
 /// The module proxy's case encoding: each capital becomes `!` + its lowercase.

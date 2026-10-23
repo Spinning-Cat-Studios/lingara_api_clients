@@ -14,8 +14,14 @@ pluginManagement {
     }
 }
 
+// com.getlingara resolves from the repository we host and nothing else
+// (Generator ADR 23.10.26a §6); pluginManagement above keeps Central.
 dependencyResolutionManagement {
     repositories {
+        exclusiveContent {
+            forRepository { maven("https://maven.getlingara.com") }
+            filter { includeGroup("com.getlingara") }
+        }
         mavenCentral()
     }
 }

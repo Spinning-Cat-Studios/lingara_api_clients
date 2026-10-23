@@ -29,7 +29,7 @@ pub const REGISTRIES: [(&str, &str); 9] = [
     ("npm", "publish-npm"),
     ("crates.io", "publish-crates"),
     ("rubygems", "publish-rubygems"),
-    ("maven-central", "publish-maven"),
+    ("maven", "publish-maven"),
     ("go", "publish-go"),
     ("packagist", "publish-packagist"),
     ("nuget", "publish-nuget"),

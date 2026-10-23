@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.2.0-alpha.4 — 2026-10-23
+
+
+Generated from Lingara API 2026-10-simple-tarpon (development) at spec backend@130ed5271f3b75399ca22466c8414e23073c2d04.
+
+### Changed
+
+- `lingara-java` and `lingara-kotlin` are published to Lingara's own Maven repository, `https://maven.getlingara.com`, from this version on, not to Maven Central. Add that repository to your build beside the dependency: a `<repository>` in Maven, or an `exclusiveContent` block for the `com.getlingara` group in Gradle, as each library's README shows. Every earlier version is on both, so pinning an older version keeps working either way.
+
 ## v0.2.0-alpha.3 — 2026-10-22
 
 

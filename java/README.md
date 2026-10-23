@@ -10,9 +10,18 @@ It keeps the [client contract](../conformance/CONTRACT.md) every Lingara library
 
 ## Install
 
+The library is published to Lingara's own Maven repository, `https://maven.getlingara.com`, so your build names it beside the dependency. The versions published before the move stay on Maven Central too; new ones are only here.
+
 Maven:
 
 ```xml
+<repositories>
+  <repository>
+    <id>lingara</id>
+    <url>https://maven.getlingara.com</url>
+  </repository>
+</repositories>
+
 <dependency>
   <groupId>com.getlingara</groupId>
   <artifactId>lingara-java</artifactId>
@@ -23,7 +32,17 @@ Maven:
 Gradle:
 
 ```kotlin
-implementation("com.getlingara:lingara-java:VERSION")
+repositories {
+    exclusiveContent {
+        forRepository { maven("https://maven.getlingara.com") }
+        filter { includeGroup("com.getlingara") }
+    }
+    mavenCentral()
+}
+
+dependencies {
+    implementation("com.getlingara:lingara-java:VERSION")
+}
 ```
 
 The library is a named module, `com.getlingara.client`, and works on the class path too.

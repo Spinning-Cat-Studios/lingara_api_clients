@@ -36,23 +36,24 @@ registry = "go"
 package = "github.com/Spinning-Cat-Studios/lingara_api_clients/go"
 since = "0.1.0-alpha.1"
 
-# One artifact on Maven Central, versioned from VERSION by the shared Gradle
-# root, so no version_files; Central serves the signed bundle, so no artefact.
-# Gradle has no settings file inside java/, so `manifest` names the root one
-# publish/snapshot.toml reads (ADR 29.9.26r D12).
+# One artifact on maven.getlingara.com (Generator ADR 23.10.26a), versioned
+# from VERSION by the shared Gradle root, so no version_files; the repository
+# serves the signed files, so no artefact. Gradle has no settings file inside
+# java/, so `manifest` names the root one publish/snapshot.toml reads (ADR
+# 29.9.26r D12).
 [[language]]
 id = "java"
-registry = "maven-central"
+registry = "maven"
 package = "com.getlingara:lingara-java"
 manifest = "settings.gradle.kts"
 since = "0.1.0-alpha.1"
 
 # The Kotlin library shares Java's Gradle root, registry and manifest: one
-# artifact on Maven Central, versioned from VERSION, with Java's `gradle`
-# [[manifest]] yielding kotlin/ from its include (ADR 29.9.26s D13).
+# artifact on maven.getlingara.com, versioned from VERSION, with Java's
+# `gradle` [[manifest]] yielding kotlin/ from its include (ADR 29.9.26s D13).
 [[language]]
 id = "kotlin"
-registry = "maven-central"
+registry = "maven"
 package = "com.getlingara:lingara-kotlin"
 manifest = "settings.gradle.kts"
 since = "0.1.0-alpha.1"

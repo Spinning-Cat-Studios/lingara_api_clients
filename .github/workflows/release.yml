@@ -8,7 +8,8 @@ name: Release
 #
 # No registry credential exists outside the public repository's `release`
 # environment. npm, crates.io and RubyGems mint a short-lived token through
-# OIDC; Maven Central and the PHP mirror read the environment's secrets.
+# OIDC; maven.getlingara.com's R2 bucket and the PHP mirror read the
+# environment's secrets.
 
 on:
   push:
@@ -221,13 +222,14 @@ jobs:
           git cat-file -e "$split:composer.json" || { echo "✗ the split has no root composer.json"; exit 1; }
 
       # D6a: sign with a key made here, publish to the file repository, and
-      # check what Central requires. The real key never leaves `release`.
-      - if: matrix.registry == 'maven-central'
+      # check the files a Maven repository serves. The real key never leaves
+      # `release`.
+      - if: matrix.registry == 'maven'
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - if: matrix.registry == 'maven-central'
+      - if: matrix.registry == 'maven'
         name: Sign with an ephemeral key and check the file repository
         run: |
           export GNUPGHOME="$(mktemp -d)"
@@ -407,7 +409,7 @@ jobs:
 
   publish-maven:
     needs: [manifest, github-release]
-    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'maven-central')
+    if: github.repository == 'Spinning-Cat-Studios/lingara_api_clients' && contains(fromJSON(needs.manifest.outputs.registries), 'maven')
     runs-on: ubuntu-latest
     environment: release
     # Above the sum of the proofs' deadlines: 60m for Java, then 60m for Kotlin.
@@ -423,20 +425,24 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      # Signs and uploads only the projects whose probe is 404. Central
-      # rejects a duplicate version, so a probe that races its propagation
-      # fails loudly and never publishes twice.
-      - name: Sign and upload to the Central Portal
+      # Signs and uploads only the projects whose probe is 404 (Generator ADR
+      # 23.10.26a §2). Unlike Central, R2 accepts an overwrite, so "written
+      # once" rests on this probe: it reads maven.getlingara.com through an
+      # edge that never caches a 4xx, and R2 reads are strongly consistent, so
+      # `absent` is never stale and a re-run after a publish reads `present`.
+      - name: Sign and upload to maven.getlingara.com
         env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_TOKEN_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_TOKEN_PASSWORD }}
+          R2_MAVEN_ACCESS_KEY_ID: ${{ secrets.R2_MAVEN_ACCESS_KEY_ID }}
+          R2_MAVEN_SECRET_ACCESS_KEY: ${{ secrets.R2_MAVEN_SECRET_ACCESS_KEY }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
           ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.MAVEN_GPG_PRIVATE_KEY }}
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.MAVEN_GPG_PASSPHRASE }}
         run: |
           for id in $(release-manifest langs); do
             case "$id" in java|kotlin) ;; *) continue ;; esac
             if [ "$(sh tools/release-manifest/probe.sh "$id" "$TAG")" = absent ]; then
-              ./gradlew ":$id:publishAndReleaseToMavenCentral"
+              ./gradlew ":$id:publishAllPublicationsToLingaraRepository" \
+                -Dorg.gradle.s3.endpoint="https://$R2_ACCOUNT_ID.r2.cloudflarestorage.com"
             fi
           done
       - name: Prove the install lines

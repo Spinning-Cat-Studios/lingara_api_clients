@@ -12,8 +12,6 @@ fn each_probe_names_its_package_and_version() {
     };
     let extra = [
         entry("go", "go", "github.com/Spinning-Cat-Studios/lingara_api_clients/go"),
-        entry("java", "maven-central", "com.getlingara:lingara-java"),
-        entry("kotlin", "maven-central", "com.getlingara:lingara-kotlin"),
         entry("ruby", "rubygems", "lingara"),
         entry("php", "packagist", "spinningcatstudios/lingara"),
     ];
@@ -26,18 +24,33 @@ fn each_probe_names_its_package_and_version() {
     assert_eq!(url("rust"), ["https://crates.io/api/v1/crates/lingara/0.1.0-alpha.1"]);
     assert_eq!(url("ruby"), ["https://rubygems.org/api/v2/rubygems/lingara/versions/0.1.0.pre.alpha.1.json"]);
     assert_eq!(
-        url("java"),
-        ["https://repo1.maven.org/maven2/com/getlingara/lingara-java/0.1.0-alpha.1/lingara-java-0.1.0-alpha.1.pom"]
-    );
-    assert_eq!(
-        url("kotlin"),
-        ["https://repo1.maven.org/maven2/com/getlingara/lingara-kotlin/0.1.0-alpha.1/lingara-kotlin-0.1.0-alpha.1.pom"]
-    );
-    assert_eq!(
         url("go"),
         ["https://proxy.golang.org/github.com/!spinning-!cat-!studios/lingara_api_clients/go/@v/v0.1.0-alpha.1.info"]
     );
     assert_eq!(probe(&release, "php", TAG), Ok(None), "packagist has no per-version URL: main exits 3");
+}
+
+// Generator 23.10.26a AC4 — a `maven` entry probes the POM on the host we
+// serve, never `repo1.maven.org`.
+#[test]
+fn maven_probe_reads_our_host() {
+    let dir = fixture();
+    let jvm = |id: &str| {
+        format!("\n[[language]]\nid = \"{id}\"\nregistry = \"maven\"\npackage = \"com.getlingara:lingara-{id}\"\nsince = \"next\"\n")
+    };
+    let text = std::fs::read_to_string(dir.path().join("languages.toml")).unwrap();
+    write(dir.path(), "languages.toml", &format!("{text}{}{}", jvm("java"), jvm("kotlin")));
+    let release = load(&dir);
+    let url = |id: &str| probe(&release, id, TAG).unwrap().unwrap();
+
+    assert_eq!(
+        url("java"),
+        ["https://maven.getlingara.com/com/getlingara/lingara-java/0.1.0-alpha.1/lingara-java-0.1.0-alpha.1.pom"]
+    );
+    assert_eq!(
+        url("kotlin"),
+        ["https://maven.getlingara.com/com/getlingara/lingara-kotlin/0.1.0-alpha.1/lingara-kotlin-0.1.0-alpha.1.pom"]
+    );
 }
 
 #[test]

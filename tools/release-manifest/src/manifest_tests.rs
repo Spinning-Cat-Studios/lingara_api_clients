@@ -150,7 +150,7 @@ fn check_refuses_a_malformed_entry() {
 fn an_entry_is_answered_by_exactly_one_manifest() {
     let dir = fixture();
     let root = dir.path();
-    let jvm = |id: &str| format!("\n[[language]]\nid = \"{id}\"\nregistry = \"maven-central\"\npackage = \"com.getlingara:lingara-{id}\"\nmanifest = \"settings.gradle.kts\"\nsince = \"next\"\n");
+    let jvm = |id: &str| format!("\n[[language]]\nid = \"{id}\"\nregistry = \"maven\"\npackage = \"com.getlingara:lingara-{id}\"\nmanifest = \"settings.gradle.kts\"\nsince = \"next\"\n");
     write(root, "languages.toml", &format!("{LANGUAGES}{}{}", jvm("java"), jvm("kotlin")));
     for id in ["java", "kotlin"] {
         write(root, &format!("{id}/README.md"), "");
@@ -194,7 +194,7 @@ fn a_file_admits_only_the_registries_it_declares() {
     write(root, "languages.toml", &format!("{LANGUAGES}{unity}"));
     let findings = check(&load(&dir));
     assert!(
-        findings.contains(&"languages.toml: unity: registry \"nuget\" is not one of npm, crates.io, rubygems, maven-central, go, packagist".to_string()),
+        findings.contains(&"languages.toml: unity: registry \"nuget\" is not one of npm, crates.io, rubygems, maven, go, packagist".to_string()),
         "{findings:?}"
     );
 
@@ -208,6 +208,27 @@ fn a_file_admits_only_the_registries_it_declares() {
     assert!(has(&findings, "rust: registry \"crates.io\" is not one of npm, nuget"), "{findings:?}");
     assert!(has(&findings, "registries names \"pypi\", which is not one of npm, crates.io"), "{findings:?}");
     assert!(!has(&findings, "unity: registry"), "{findings:?}");
+}
+
+// Generator 23.10.26a AC5 — the hard cut: the old spelling is refused, and the
+// refusal names `maven`, so a stale `languages.toml` fails loudly instead of
+// probing the wrong host.
+#[test]
+fn maven_central_is_refused() {
+    let dir = fixture();
+    let root = dir.path();
+    write(root, "java/README.md", "");
+    write(root, "snippets/java/install.kts", "");
+    let java = "\n[[language]]\nid = \"java\"\nregistry = \"maven-central\"\npackage = \"com.getlingara:lingara-java\"\nsince = \"next\"\n";
+    write(root, "languages.toml", &format!("{LANGUAGES}{java}"));
+    let findings = check(&load(&dir));
+    assert!(
+        findings.contains(&"languages.toml: java: registry \"maven-central\" is not one of npm, crates.io, rubygems, maven, go, packagist".to_string()),
+        "{findings:?}"
+    );
+
+    write(root, "languages.toml", &format!("{LANGUAGES}{}", java.replace("maven-central", "maven")));
+    assert_eq!(check(&load(&dir)), Vec::<String>::new(), "`maven` passes");
 }
 
 // 1.10.26ag AC2

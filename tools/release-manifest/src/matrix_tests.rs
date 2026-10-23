@@ -8,7 +8,7 @@ use crate::matrix::matrix;
 fn matrix_lists_only_shipped_languages() {
     let dir = fixture();
     let jvm = |id: &str| {
-        format!("\n[[language]]\nid = \"{id}\"\nregistry = \"maven-central\"\npackage = \"com.getlingara:lingara-{id}\"\nsince = \"next\"\n")
+        format!("\n[[language]]\nid = \"{id}\"\nregistry = \"maven\"\npackage = \"com.getlingara:lingara-{id}\"\nsince = \"next\"\n")
     };
     let text = std::fs::read_to_string(dir.path().join("languages.toml")).unwrap();
     write(dir.path(), "languages.toml", &format!("{text}{}{}", jvm("java"), jvm("kotlin")));
@@ -27,7 +27,7 @@ fn matrix_lists_only_shipped_languages() {
     );
     assert_eq!(parsed["include"][2]["uploaded"], "", "an entry without an artefact uploads nothing");
     let registries: Value = serde_json::from_str(lines[1].strip_prefix("registries=").unwrap()).unwrap();
-    assert_eq!(registries, json!(["npm", "crates.io", "maven-central"]));
+    assert_eq!(registries, json!(["npm", "crates.io", "maven"]));
 }
 
 /// The `include` rows of `matrix`'s output.

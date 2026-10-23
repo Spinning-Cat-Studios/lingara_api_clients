@@ -18,7 +18,7 @@ Integrations page of your Lingara account.
 
 ## Release signing
 
-The Maven Central artefacts `com.getlingara:lingara-java` and
+The Maven artefacts at `maven.getlingara.com`, `com.getlingara:lingara-java` and
 `com.getlingara:lingara-kotlin` are signed with the Lingara release key,
 `Lingara Release Signing <support@getlingara.com>`, whose fingerprint is:
 
