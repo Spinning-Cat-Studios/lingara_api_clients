@@ -1,6 +1,9 @@
 // The client: the eighteen operations, the event helpers and the request
-// pipeline (CONTRACT.md K1–K6, K5a). Its options live in options.ts.
+// pipeline (CONTRACT.md K1–K6, K5a); the canvas and dialogue groups are
+// canvas.ts's and dialogue.ts's. Its options live in options.ts.
 
+import { Canvases } from "./canvas.js";
+import { Dialogues } from "./dialogue.js";
 import { mintedToken, type MintedToken } from "./embed.js";
 import { INSPECT, LingaraError, REDACTED, TransportError, errorFromResponse, mediaType } from "./errors.js";
 import { EventFeed, eventsQuery, type EventsParams, type ListEventsParams } from "./events/feed.js";
@@ -51,6 +54,13 @@ export class Lingara {
   readonly #tailMaxFailures: number;
   readonly #userAgent: string;
   readonly #fetch: FetchLike;
+  /** The canvas operations (ADR 16.10.26ak), over this client's request path. */
+  readonly canvases = new Canvases((path, options, extra) => this.#json(path, true, options, extra));
+  /** The dialogue operations (ADR 29.10.26c); the export reads its own response, a `304` included. */
+  readonly dialogues = new Dialogues(
+    (path, options, extra) => this.#json(path, true, options, extra),
+    (req) => this.#send(req).then((response) => ({ response, servedVersion: this.#versions.observe(response, this.#baseUrl + req.path) })),
+  );
 
   constructor(options: LingaraOptions = {}) {
     checkOptions(options);
@@ -269,7 +279,7 @@ export class Lingara {
     if (!req.needsToken) res = await attempt();
     else if (this.#tokens) res = await withTokenRetry(this.#tokens, req.signal, attempt);
     else throw new LingaraError("this operation needs credentials: construct the client with clientId and clientSecret");
-    if (res.ok) return res;
+    if (res.ok || res.status === req.allow) return res;
     const retryAfter = parseRetryAfter(res.headers.get("retry-after"), this.#policy.clock);
     const servedVersion = res.headers.get("lingara-version") ?? undefined;
     throw await errorFromResponse(res, { endpoint: "v1", retryAfter, servedVersion });

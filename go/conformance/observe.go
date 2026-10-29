@@ -143,7 +143,80 @@ func invokeWithInput(ctx context.Context, c *lingara.Client, operation string, c
 	case "unlinkEmbedPlayer":
 		return noContent(c.UnlinkEmbedPlayer(ctx, playerRef(params)))
 	}
+	return invokeCanvas(ctx, c, operation, call)
+}
+
+// invokeCanvas runs the seven canvas operations on client.Canvases() (ADR
+// 16.10.26ak); params.canvas_id is the path id.
+func invokeCanvas(ctx context.Context, c *lingara.Client, operation string, call map[string]any) observed {
+	params, _ := call["params"].(map[string]any)
+	id, _ := params["canvas_id"].(string)
+	canvases := c.Canvases()
+	switch operation {
+	case "listCanvases":
+		cursor, _ := params["cursor"].(string)
+		return result(canvases.ListCanvases(ctx, lingara.ListCanvasesOptions{Cursor: cursor, Filters: canvasFilters(params)}))
+	case "createCanvas":
+		return result(canvases.CreateCanvas(ctx, body[lingara.CreateCanvasRequest](call)))
+	case "getCanvas":
+		return result(canvases.GetCanvas(ctx, id))
+	case "renameCanvas":
+		return result(canvases.RenameCanvas(ctx, id, body[lingara.RenameCanvasRequest](call)))
+	case "saveCanvasDraft":
+		return result(canvases.SaveCanvasDraft(ctx, id, body[lingara.SaveCanvasDraftRequest](call)))
+	case "activateCanvas":
+		return result(canvases.ActivateCanvas(ctx, id, body[lingara.ActivateCanvasRequest](call)))
+	case "dryRunCanvasPlan":
+		return result(canvases.DryRunCanvasPlan(ctx, body[lingara.CanvasPlan](call)))
+	}
+	return invokeDialogue(ctx, c, operation, call)
+}
+
+// invokeDialogue runs the seven dialogue operations on client.Dialogues()
+// (ADR 29.10.26c); params.dialogue_id is the path id.
+func invokeDialogue(ctx context.Context, c *lingara.Client, operation string, call map[string]any) observed {
+	params, _ := call["params"].(map[string]any)
+	id, _ := params["dialogue_id"].(string)
+	dialogues := c.Dialogues()
+	switch operation {
+	case "listDialogues":
+		cursor, _ := params["cursor"].(string)
+		return result(dialogues.ListDialogues(ctx, lingara.ListDialoguesOptions{Cursor: cursor, Filters: dialogueFilters(params)}))
+	case "createDialogue":
+		return result(dialogues.CreateDialogue(ctx, body[lingara.CreateDialogueRequest](call)))
+	case "getDialogue":
+		return result(dialogues.GetDialogue(ctx, id))
+	case "renameDialogue":
+		return result(dialogues.RenameDialogue(ctx, id, body[lingara.RenameDialogueRequest](call)))
+	case "saveDialogueDraft":
+		return result(dialogues.SaveDialogueDraft(ctx, id, body[lingara.SaveDialogueDraftRequest](call)))
+	case "activateDialogue":
+		return result(dialogues.ActivateDialogue(ctx, id, body[lingara.ActivateDialogueRequest](call)))
+	case "exportDialogue":
+		revision, _ := params["revision"].(string)
+		layout, _ := params["layout"].(string)
+		ifNoneMatch, _ := params["if_none_match"].(string)
+		return exported(dialogues.ExportDialogue(ctx, id, lingara.ExportDialogueOptions{
+			Revision: lingara.ExportDialogueParamsRevision(revision), Layout: lingara.ExportDialogueParamsLayout(layout), IfNoneMatch: ifNoneMatch,
+		}))
+	}
 	return observed{outcome: "harness: no operation " + operation}
+}
+
+// exported reports an export as D7's object under `body`: {revision, etag,
+// ir_json} for a 200, or {not_modified: true, revision, etag} for a 304.
+func exported(res *lingara.Result[lingara.ExportedDialogue], err error) observed {
+	if err != nil {
+		return failed(err, nil, nil)
+	}
+	seen := observed{outcome: "completed", servedVersion: orNil(res.ServedVersion), renderings: rendered(res)}
+	switch v := res.Value.(type) {
+	case lingara.ExportedDialogueBody:
+		seen.status, seen.body = 200, map[string]any{"revision": v.Revision, "etag": v.ETag, "ir_json": v.IRJSON}
+	case lingara.ExportedDialogueNotModified:
+		seen.status, seen.body = 304, map[string]any{"not_modified": true, "revision": v.Revision, "etag": v.ETag}
+	}
+	return seen
 }
 
 // playerRef is a call's player_ref path parameter.

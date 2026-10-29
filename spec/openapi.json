@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara API",
     "x-i18n": "info",
-    "version": "2026-10-simple-tarpon",
+    "version": "2026-10-expensive-sauger",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage."
   },
   "servers": [
@@ -42,6 +42,11 @@
       "name": "canvases",
       "x-i18n": "tags.canvases",
       "description": "Author canvases, dry-run their plans, and record what an apply made."
+    },
+    {
+      "name": "dialogues",
+      "x-i18n": "tags.dialogues",
+      "description": "Save dialogue graphs, activate a revision, and export it for a game to load."
     },
     {
       "name": "account",
@@ -1623,7 +1628,7 @@
         ],
         "x-i18n": "ops.dialogue_turn",
         "summary": "Send a line to an NPC",
-        "description": "Sends the player's `line` to a character and streams the character's reply as `delta` events, ending with `done`. The character speaks only `target_lang`, at the player's `level`. Nothing is stored: send the conversation so far in `history`. Each turn is billed to a `metered` client; any other caller gets `403 embed_needs_metered`.",
+        "description": "Sends the player's `line` to a character and streams the character's reply as `delta` events, ending with `done`. Give the character its own fluency in `npc.languages`, and choose with `pedagogy` whether it accommodates the learner. Nothing is stored: send the conversation so far in `history`. Send a `checkpoint` with its open `edges` and the `facts` it may reveal, and the stream adds a `transition` event before `done` when the conversation crosses an edge. Each turn is billed to a `metered` client; any other caller gets `403 embed_needs_metered`.",
         "security": [
           {
             "oauth2": [
@@ -1641,7 +1646,19 @@
               "example": {
                 "npc": {
                   "name": "Auntie Lin",
-                  "persona": "a street-food vendor who likes to haggle"
+                  "persona": "a street-food vendor who likes to haggle",
+                  "languages": [
+                    {
+                      "code": "zh",
+                      "speaking": 9,
+                      "comprehension": 9
+                    },
+                    {
+                      "code": "en",
+                      "speaking": 2,
+                      "comprehension": 3
+                    }
+                  ]
                 },
                 "scene": "A night market in Taipei, just after rain",
                 "source_lang": "en",
@@ -1716,6 +1733,24 @@
                           "contentMediaType": "application/json",
                           "contentSchema": {
                             "$ref": "#/components/schemas/Notice"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "required": [
+                        "event",
+                        "data"
+                      ],
+                      "properties": {
+                        "event": {
+                          "const": "transition"
+                        },
+                        "data": {
+                          "contentMediaType": "application/json",
+                          "contentSchema": {
+                            "$ref": "#/components/schemas/DialogueTransition"
                           }
                         }
                       }
@@ -2609,6 +2644,833 @@
         }
       }
     },
+    "/v1/dialogues": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "get": {
+        "operationId": "listDialogues",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogues_list",
+        "summary": "List your dialogues",
+        "description": "Pages through your dialogues, newest first. Filter by `name`; pass `next_cursor` back as `cursor` for the next page.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.dialogues_list.ok",
+            "description": "A page of dialogues",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DialoguePage"
+                },
+                "example": {
+                  "items": [
+                    {
+                      "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                      "name": "The night-market lantern",
+                      "ir_id": "night_market_keepers",
+                      "created_at": "2026-10-28T09:12:03Z",
+                      "updated_at": "2026-10-28T09:40:51Z",
+                      "has_draft": true,
+                      "active_revision": 2,
+                      "npc_count": 2,
+                      "checkpoint_count": 7
+                    }
+                  ],
+                  "next_cursor": null,
+                  "has_more": false
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDialogue",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogues_create",
+        "summary": "Create a dialogue",
+        "description": "Saves a new dialogue graph as a draft, checked against `dialogue.v1` and its graph rules. An account has at most 20 dialogues.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDialogueRequest"
+              },
+              "example": {
+                "definition": {
+                  "schema": "dialogue.v1",
+                  "id": "night_market_keepers",
+                  "title": "The night-market lantern",
+                  "npcs": [
+                    {
+                      "id": "old_wei",
+                      "name": "Old Wei"
+                    }
+                  ],
+                  "start": "greet",
+                  "checkpoints": [
+                    {
+                      "id": "greet",
+                      "goal": "Greet the stranger",
+                      "edges": [
+                        {
+                          "id": "thanked",
+                          "to": "success",
+                          "when": "the player says thank you"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "x-i18n": "ops.dialogues_create.created",
+            "description": "The new dialogue",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dialogue"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/dialogues/{dialogue_id}": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/DialogueId"
+        }
+      ],
+      "get": {
+        "operationId": "getDialogue",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogue_get",
+        "summary": "Read a dialogue",
+        "description": "Returns one dialogue with its draft and active revision, each `null` when absent, and its warnings.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:read"
+            ]
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.dialogue_get.ok",
+            "description": "The dialogue",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dialogue"
+                },
+                "example": {
+                  "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                  "name": "The night-market lantern",
+                  "created_at": "2026-10-28T09:12:03Z",
+                  "updated_at": "2026-10-28T09:12:03Z",
+                  "draft": {
+                    "revision": 1,
+                    "draft_version": 1,
+                    "definition": {
+                      "schema": "dialogue.v1",
+                      "id": "night_market_keepers",
+                      "pedagogy": "subtle",
+                      "npcs": [
+                        {
+                          "id": "old_wei",
+                          "name": "Old Wei"
+                        }
+                      ],
+                      "facts": [],
+                      "start": "greet",
+                      "checkpoints": [
+                        {
+                          "id": "greet",
+                          "goal": "Greet the stranger",
+                          "may_disclose": [],
+                          "edges": []
+                        }
+                      ]
+                    }
+                  },
+                  "active": null,
+                  "warnings": [
+                    {
+                      "code": "outcome_unreachable",
+                      "path": "/start"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      },
+      "patch": {
+        "operationId": "renameDialogue",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogue_rename",
+        "summary": "Rename a dialogue",
+        "description": "Changes a dialogue's name and nothing else.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameDialogueRequest"
+              },
+              "example": {
+                "name": "Lantern keepers"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.dialogue_get.ok",
+            "description": "The dialogue",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dialogue"
+                },
+                "example": {
+                  "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                  "name": "Lantern keepers",
+                  "created_at": "2026-10-28T09:12:03Z",
+                  "updated_at": "2026-10-28T09:30:00Z",
+                  "draft": null,
+                  "active": {
+                    "revision": 2,
+                    "definition": {
+                      "schema": "dialogue.v1",
+                      "id": "night_market_keepers",
+                      "pedagogy": "subtle",
+                      "npcs": [
+                        {
+                          "id": "old_wei",
+                          "name": "Old Wei"
+                        }
+                      ],
+                      "facts": [],
+                      "start": "greet",
+                      "checkpoints": [
+                        {
+                          "id": "greet",
+                          "goal": "Greet the stranger",
+                          "may_disclose": [],
+                          "edges": [
+                            {
+                              "id": "thanked",
+                              "to": "success",
+                              "when": "the player says thank you"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "activated_at": "2026-10-28T09:20:00Z"
+                  },
+                  "warnings": []
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/dialogues/{dialogue_id}/draft": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/DialogueId"
+        }
+      ],
+      "put": {
+        "operationId": "saveDialogueDraft",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogue_draft",
+        "summary": "Save a dialogue's draft",
+        "description": "Replaces the draft, checked against `dialogue.v1` and its graph rules. Send the `draft_version` you last read, or 0 when there is no draft; a stale one is `409 dialogue_conflict`.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveDialogueDraftRequest"
+              },
+              "example": {
+                "definition": {
+                  "schema": "dialogue.v1",
+                  "id": "night_market_keepers",
+                  "npcs": [
+                    {
+                      "id": "old_wei",
+                      "name": "Old Wei"
+                    }
+                  ],
+                  "start": "greet",
+                  "checkpoints": [
+                    {
+                      "id": "greet",
+                      "goal": "Greet the stranger",
+                      "edges": [
+                        {
+                          "id": "thanked",
+                          "to": "success",
+                          "when": "the player says thank you"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                "draft_version": 1
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.dialogue_get.ok",
+            "description": "The dialogue",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dialogue"
+                },
+                "example": {
+                  "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                  "name": "The night-market lantern",
+                  "created_at": "2026-10-28T09:12:03Z",
+                  "updated_at": "2026-10-28T09:14:00Z",
+                  "draft": {
+                    "revision": 1,
+                    "draft_version": 2,
+                    "definition": {
+                      "schema": "dialogue.v1",
+                      "id": "night_market_keepers",
+                      "pedagogy": "subtle",
+                      "npcs": [
+                        {
+                          "id": "old_wei",
+                          "name": "Old Wei"
+                        }
+                      ],
+                      "facts": [],
+                      "start": "greet",
+                      "checkpoints": [
+                        {
+                          "id": "greet",
+                          "goal": "Greet the stranger",
+                          "may_disclose": [],
+                          "edges": [
+                            {
+                              "id": "thanked",
+                              "to": "success",
+                              "when": "the player says thank you"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "active": null,
+                  "warnings": []
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/dialogues/{dialogue_id}/activate": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/DialogueId"
+        }
+      ],
+      "post": {
+        "operationId": "activateDialogue",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogue_activate",
+        "summary": "Activate a dialogue's draft",
+        "description": "Makes the draft the active revision, the one a game loads. Send the draft's `draft_version`; a stale one is `409 dialogue_conflict`.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:write"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActivateDialogueRequest"
+              },
+              "example": {
+                "draft_version": 2
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "x-i18n": "ops.dialogue_get.ok",
+            "description": "The dialogue",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dialogue"
+                },
+                "example": {
+                  "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                  "name": "The night-market lantern",
+                  "created_at": "2026-10-28T09:12:03Z",
+                  "updated_at": "2026-10-28T09:20:00Z",
+                  "draft": null,
+                  "active": {
+                    "revision": 1,
+                    "definition": {
+                      "schema": "dialogue.v1",
+                      "id": "night_market_keepers",
+                      "pedagogy": "subtle",
+                      "npcs": [
+                        {
+                          "id": "old_wei",
+                          "name": "Old Wei"
+                        }
+                      ],
+                      "facts": [],
+                      "start": "greet",
+                      "checkpoints": [
+                        {
+                          "id": "greet",
+                          "goal": "Greet the stranger",
+                          "may_disclose": [],
+                          "edges": [
+                            {
+                              "id": "thanked",
+                              "to": "success",
+                              "when": "the player says thank you"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    "activated_at": "2026-10-28T09:20:00Z"
+                  },
+                  "warnings": []
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/dialogues/{dialogue_id}/export": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        },
+        {
+          "$ref": "#/components/parameters/DialogueId"
+        }
+      ],
+      "get": {
+        "operationId": "exportDialogue",
+        "tags": [
+          "dialogues"
+        ],
+        "x-i18n": "ops.dialogue_export",
+        "summary": "Export a dialogue",
+        "description": "Answers the `dialogue.v1` document in its canonical bytes: the active revision, or the draft with `revision=draft`; `layout=omit` drops every `x-` member. Send the `ETag` back as `If-None-Match` and an unchanged revision is `304`.",
+        "security": [
+          {
+            "oauth2": [
+              "dialogues:read"
+            ]
+          }
+        ],
+        "parameters": [
+          {
+            "name": "revision",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "draft"
+              ]
+            }
+          },
+          {
+            "name": "layout",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "keep",
+                "omit"
+              ]
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "x-i18n": "ops.dialogue_export.ok",
+            "description": "The dialogue.v1 document",
+            "headers": {
+              "ETag": {
+                "x-i18n": "headers.etag",
+                "description": "The SHA-256 of the body, quoted.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Lingara-Dialogue-Revision": {
+                "x-i18n": "headers.dialogue_revision",
+                "description": "The revision the body holds.",
+                "schema": {
+                  "type": "integer"
+                }
+              },
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DialogueDefinition"
+                },
+                "example": {
+                  "checkpoints": [
+                    {
+                      "edges": [
+                        {
+                          "id": "thanked",
+                          "to": "success",
+                          "when": "the player says thank you"
+                        }
+                      ],
+                      "goal": "Greet the stranger",
+                      "id": "greet",
+                      "may_disclose": []
+                    }
+                  ],
+                  "facts": [],
+                  "id": "night_market_keepers",
+                  "npcs": [
+                    {
+                      "id": "old_wei",
+                      "name": "Old Wei"
+                    }
+                  ],
+                  "pedagogy": "subtle",
+                  "schema": "dialogue.v1",
+                  "start": "greet"
+                }
+              }
+            }
+          },
+          "304": {
+            "x-i18n": "ops.dialogue_export.not_modified",
+            "description": "Unchanged since the ETag you sent",
+            "headers": {
+              "ETag": {
+                "x-i18n": "headers.etag",
+                "description": "The SHA-256 of the body, quoted.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Lingara-Dialogue-Revision": {
+                "x-i18n": "headers.dialogue_revision",
+                "description": "The revision the body holds.",
+                "schema": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/openapi.json": {
       "parameters": [
         {
@@ -2904,7 +3766,9 @@
           "embed:mint": 0,
           "embed:play": 1,
           "canvas:read": 0,
-          "canvas:write": 0
+          "canvas:write": 0,
+          "dialogues:read": 0,
+          "dialogues:write": 0
         },
         "flows": {
           "clientCredentials": {
@@ -2920,7 +3784,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           },
           "authorizationCode": {
@@ -2938,7 +3804,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         }
@@ -3064,6 +3932,15 @@
       },
       "CanvasId": {
         "name": "canvas_id",
+        "in": "path",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "DialogueId": {
+        "name": "dialogue_id",
         "in": "path",
         "required": true,
         "schema": {
@@ -4717,7 +5594,13 @@
         "type": "object",
         "properties": {
           "npc": {
-            "$ref": "#/components/schemas/Npc"
+            "$ref": "#/components/schemas/DialogueNpc"
+          },
+          "pedagogy": {
+            "x-i18n": "schemas.dialogue.pedagogy",
+            "description": "`subtle` (the default) keeps the character's `target_lang` at or below the learner's `level`. `none` lets the character speak at its own level, as a native speaker when it has no `languages`, and ignores `level`.",
+            "$ref": "#/components/schemas/Pedagogy",
+            "default": "subtle"
           },
           "scene": {
             "type": [
@@ -4753,6 +5636,34 @@
             },
             "maxItems": 12,
             "default": []
+          },
+          "checkpoint": {
+            "x-i18n": "schemas.dialogue.checkpoint",
+            "description": "Where the story stands: a goal the character steers toward, and the facts it may reveal. Needs `enable_npc_dialogue_graphs`.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GraphCheckpoint"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "edges": {
+            "x-i18n": "schemas.dialogue.edges",
+            "description": "The ways out of this checkpoint whose game conditions already hold, each with a plain-language condition. After the reply, at most one is chosen and sent as a `transition` event before `done`. Edges your game decides on its own are never sent.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphEdge"
+            },
+            "maxItems": 8
+          },
+          "facts": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/FactValue"
+            },
+            "maxProperties": 16
           }
         },
         "required": [
@@ -4785,6 +5696,156 @@
         "enum": [
           "player",
           "npc"
+        ]
+      },
+      "DialogueNpc": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "persona": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1,
+            "maxLength": 120
+          },
+          "languages": {
+            "x-i18n": "schemas.dialogue.npc_languages",
+            "description": "The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`.",
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/NpcLanguage"
+            },
+            "minItems": 1,
+            "maxItems": 8
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "NpcLanguage": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 16,
+            "pattern": "^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$"
+          },
+          "speaking": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 9
+          },
+          "comprehension": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 1,
+            "maximum": 9
+          }
+        },
+        "required": [
+          "code",
+          "speaking",
+          "comprehension"
+        ]
+      },
+      "Pedagogy": {
+        "type": "string",
+        "enum": [
+          "subtle",
+          "none"
+        ]
+      },
+      "GraphCheckpoint": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "goal": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "may_disclose": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,47}$"
+            },
+            "maxItems": 16,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "id",
+          "goal"
+        ]
+      },
+      "GraphEdge": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,47}$"
+          },
+          "when": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "required": [
+          "id",
+          "to",
+          "when"
+        ]
+      },
+      "FactValue": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        ]
+      },
+      "DialogueTransition": {
+        "x-i18n": "schemas.dialogue.transition",
+        "description": "The edge the conversation just crossed. Move your story to `to`. If no edge was crossed, no `transition` is sent; a `transition_unavailable` notice means the check could not run this turn.",
+        "type": "object",
+        "properties": {
+          "edge": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "edge",
+          "to"
         ]
       },
       "CreateCanvasRequest": {
@@ -5280,6 +6341,300 @@
         "required": [
           "ok",
           "verdicts"
+        ]
+      },
+      "DialogueDefinition": {
+        "type": "object",
+        "x-i18n": "schemas.dialogues.definition",
+        "description": "A dialogue.v1 document.",
+        "externalDocs": {
+          "url": "https://getlingara.com/schemas/dialogue.v1.schema.json"
+        }
+      },
+      "CreateDialogueRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DialogueDefinition"
+          }
+        },
+        "required": [
+          "definition"
+        ]
+      },
+      "RenameDialogueRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "SaveDialogueDraftRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DialogueDefinition"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "definition",
+          "draft_version"
+        ]
+      },
+      "ActivateDialogueRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "draft_version": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "draft_version"
+        ]
+      },
+      "DialogueWarningCode": {
+        "type": "string",
+        "enum": [
+          "checkpoint_unreachable",
+          "outcome_unreachable",
+          "predicate_unchecked"
+        ]
+      },
+      "DialogueWarning": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/DialogueWarningCode"
+          },
+          "path": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "path"
+        ]
+      },
+      "DialogueRule": {
+        "type": "string",
+        "x-i18n": "schemas.dialogues.rule",
+        "description": "Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.",
+        "enum": [
+          "missing_member",
+          "unknown_member",
+          "id_pattern",
+          "bound",
+          "number_range",
+          "duplicate_id",
+          "unknown_target",
+          "outcome_name",
+          "undeclared_fact",
+          "predicate_unparsed",
+          "predicate_type",
+          "default_type",
+          "when_less_cycle",
+          "text_blank",
+          "text_multiline",
+          "text_char"
+        ]
+      },
+      "DialogueDraft": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "draft_version": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DialogueDefinition"
+          }
+        },
+        "required": [
+          "revision",
+          "draft_version",
+          "definition"
+        ]
+      },
+      "DialogueActive": {
+        "type": "object",
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "definition": {
+            "$ref": "#/components/schemas/DialogueDefinition"
+          },
+          "activated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "revision",
+          "definition",
+          "activated_at"
+        ]
+      },
+      "Dialogue": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DialogueDraft"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DialogueActive"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DialogueWarning"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "created_at",
+          "updated_at",
+          "draft",
+          "active",
+          "warnings"
+        ]
+      },
+      "DialogueSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ir_id": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "has_draft": {
+            "type": "boolean"
+          },
+          "active_revision": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "npc_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checkpoint_count": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "ir_id",
+          "created_at",
+          "updated_at",
+          "has_draft",
+          "active_revision",
+          "npc_count",
+          "checkpoint_count"
+        ]
+      },
+      "DialoguePage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DialogueSummary"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "next_cursor",
+          "has_more"
         ]
       },
       "CanvasVerdict": {

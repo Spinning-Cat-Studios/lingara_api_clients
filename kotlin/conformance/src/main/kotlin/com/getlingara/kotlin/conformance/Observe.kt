@@ -108,7 +108,10 @@ internal object Observe {
             "streamLessonPlan" -> consume(cancelAfter) { c.streamLessonPlan(id) }
             "sendTutorMessage" -> consume(cancelAfter) { c.sendTutorMessage(body(call, TutorTurnRequest.serializer())) }
             "sendDialogueTurn" -> consume(cancelAfter) { c.sendDialogueTurn(body(call, DialogueTurnRequest.serializer())) }
-            "streamEvents" -> Query(call["params"] as? JsonObject).let { q -> consume(cancelAfter) { c.streamEvents(q.cursor, q.start, q.types) } }
+            "streamEvents" ->
+                Query(call["params"] as? JsonObject).let { q ->
+                    consume(cancelAfter) { c.streamEvents(q.cursor, q.start, q.types) }
+                }
             else -> invokeJson(c, call, id)
         }
     }
@@ -127,7 +130,9 @@ internal object Observe {
             "getApiVersion" -> result(VersionDetail.serializer()) { c.getApiVersion(id) }
             "getAsyncApiDocument" -> result(JsonObject.serializer()) { c.getAsyncApiDocument() }
             "listEvents" ->
-                Query(call["params"] as? JsonObject).let { q -> result(EventPage.serializer()) { c.listEvents(q.cursor, q.start, q.types, q.limit) } }
+                Query(call["params"] as? JsonObject).let { q ->
+                    result(EventPage.serializer()) { c.listEvents(q.cursor, q.start, q.types, q.limit) }
+                }
             // sendEvent's success is a 202, and ApiResponse carries no status.
             "sendEvent" -> result(InboundEventAccepted.serializer()) { EventSteps.send(c, call) }.apply { status = status?.let { 202 } }
             else -> EmbedSteps.call(c, call, operation)
@@ -139,7 +144,7 @@ internal object Observe {
         type: DeserializationStrategy<T>,
     ): T = HarnessJson.decodeFromJsonElement(type, call["body"] ?: JsonObject(emptyMap()))
 
-    private suspend fun <T> result(
+    suspend fun <T> result(
         type: KSerializer<T>,
         call: suspend () -> ApiResponse<T>,
     ): Seen {

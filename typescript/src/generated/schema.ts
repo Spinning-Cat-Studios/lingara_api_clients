@@ -150,6 +150,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/canvases": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your canvases
+         * @description Pages through your canvases, newest first, with each one's recipe, the kinds and scopes it uses, and the objects an apply made. Filter by `name`, `status`, `recipes`, `kinds` or `scopes`; pass `next_cursor` back as `cursor` for the next page.
+         */
+        get: operations["listCanvases"];
+        put?: never;
+        /**
+         * Create a canvas
+         * @description Saves a new canvas as a draft. A draft creates nothing: no client, secret, endpoint or app exists until you apply it. An account has at most 20 canvases.
+         */
+        post: operations["createCanvas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/canvases/dry-run": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dry-run a plan
+         * @description Judges a plan with the same rules the create routes use and writes nothing. Each op answers `would_create`, `would_update` or `refused` with its `code`.
+         */
+        post: operations["dryRunCanvasPlan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/canvases/{canvas_id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a canvas
+         * @description Returns one canvas with its draft and its active revision, each `null` when absent.
+         */
+        get: operations["getCanvas"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a canvas
+         * @description Changes a canvas's name and nothing else.
+         */
+        patch: operations["renameCanvas"];
+        trace?: never;
+    };
+    "/v1/canvases/{canvas_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a canvas's draft
+         * @description Replaces the draft. Send the `draft_version` you last read, or 0 when the canvas has no draft; a stale one is `409 canvas_conflict`.
+         */
+        put: operations["saveCanvasDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/canvases/{canvas_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record an apply
+         * @description Records the objects an apply made, by the `id` each create answered. `complete` makes the draft the active revision; `partial` keeps it a draft so the next apply resumes. Every id must be one of your own live objects.
+         */
+        post: operations["activateCanvas"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dialogues": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List your dialogues
+         * @description Pages through your dialogues, newest first. Filter by `name`; pass `next_cursor` back as `cursor` for the next page.
+         */
+        get: operations["listDialogues"];
+        put?: never;
+        /**
+         * Create a dialogue
+         * @description Saves a new dialogue graph as a draft, checked against `dialogue.v1` and its graph rules. An account has at most 20 dialogues.
+         */
+        post: operations["createDialogue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dialogues/{dialogue_id}": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a dialogue
+         * @description Returns one dialogue with its draft and active revision, each `null` when absent, and its warnings.
+         */
+        get: operations["getDialogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename a dialogue
+         * @description Changes a dialogue's name and nothing else.
+         */
+        patch: operations["renameDialogue"];
+        trace?: never;
+    };
+    "/v1/dialogues/{dialogue_id}/draft": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save a dialogue's draft
+         * @description Replaces the draft, checked against `dialogue.v1` and its graph rules. Send the `draft_version` you last read, or 0 when there is no draft; a stale one is `409 dialogue_conflict`.
+         */
+        put: operations["saveDialogueDraft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dialogues/{dialogue_id}/activate": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Activate a dialogue's draft
+         * @description Makes the draft the active revision, the one a game loads. Send the draft's `draft_version`; a stale one is `409 dialogue_conflict`.
+         */
+        post: operations["activateDialogue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/dialogues/{dialogue_id}/export": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Export a dialogue
+         * @description Answers the `dialogue.v1` document in its canonical bytes: the active revision, or the draft with `revision=draft`; `layout=omit` drops every `x-` member. Send the `ETag` back as `If-None-Match` and an unchanged revision is `304`.
+         */
+        get: operations["exportDialogue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/openapi.json": {
         parameters: {
             query?: never;
@@ -430,7 +690,7 @@ export interface components {
             sha256: string | null;
         };
         Error: {
-            /** @description Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`). */
+            /** @description Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`), `api_allowance_exhausted` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`). */
             code: string;
             error: string;
         };
@@ -624,7 +884,12 @@ export interface components {
          */
         LinkStatus: "linked" | "existing";
         DialogueTurnRequest: {
-            npc: components["schemas"]["Npc"];
+            npc: components["schemas"]["DialogueNpc"];
+            /**
+             * @description `subtle` (the default) keeps the character's `target_lang` at or below the learner's `level`. `none` lets the character speak at its own level, as a native speaker when it has no `languages`, and ignores `level`.
+             * @default subtle
+             */
+            pedagogy: components["schemas"]["Pedagogy"];
             scene?: string | null;
             source_lang: string;
             target_lang: string;
@@ -636,6 +901,13 @@ export interface components {
              * @default []
              */
             history: components["schemas"]["DialogueEntry"][];
+            /** @description Where the story stands: a goal the character steers toward, and the facts it may reveal. Needs `enable_npc_dialogue_graphs`. */
+            checkpoint?: components["schemas"]["GraphCheckpoint"] | null;
+            /** @description The ways out of this checkpoint whose game conditions already hold, each with a plain-language condition. After the reply, at most one is chosen and sent as a `transition` event before `done`. Edges your game decides on its own are never sent. */
+            edges?: components["schemas"]["GraphEdge"][];
+            facts?: {
+                [key: string]: components["schemas"]["FactValue"];
+            };
         };
         DialogueEntry: {
             speaker: components["schemas"]["Speaker"];
@@ -643,6 +915,260 @@ export interface components {
         };
         /** @enum {string} */
         Speaker: "player" | "npc";
+        DialogueNpc: {
+            name: string;
+            persona?: string | null;
+            /** @description The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`. */
+            languages?: components["schemas"]["NpcLanguage"][] | null;
+        };
+        NpcLanguage: {
+            code: string;
+            /** Format: uint8 */
+            speaking: number;
+            /** Format: uint8 */
+            comprehension: number;
+        };
+        /** @enum {string} */
+        Pedagogy: "subtle" | "none";
+        GraphCheckpoint: {
+            id: string;
+            goal: string;
+            may_disclose?: string[];
+        };
+        GraphEdge: {
+            id: string;
+            to: string;
+            when: string;
+        };
+        FactValue: boolean | number | string;
+        /** @description The edge the conversation just crossed. Move your story to `to`. If no edge was crossed, no `transition` is sent; a `transition_unavailable` notice means the check could not run this turn. */
+        DialogueTransition: {
+            edge: string;
+            to: string;
+        };
+        CreateCanvasRequest: {
+            name?: string | null;
+            recipe?: components["schemas"]["CanvasRecipe"] | null;
+            definition: components["schemas"]["CanvasDefinition"];
+        };
+        RenameCanvasRequest: {
+            name: string;
+        };
+        SaveCanvasDraftRequest: {
+            name?: string | null;
+            definition: components["schemas"]["CanvasDefinition"];
+            /** Format: int32 */
+            draft_version: number;
+        };
+        ActivateCanvasRequest: {
+            /** Format: int32 */
+            draft_version: number;
+            outcome: components["schemas"]["CanvasActivationOutcome"];
+            objects: {
+                [key: string]: components["schemas"]["CanvasObjectRef"];
+            };
+        };
+        /** @enum {string} */
+        CanvasActivationOutcome: "complete" | "partial";
+        CanvasObjectRef: {
+            /** Format: uuid */
+            id: string;
+        };
+        CanvasPlan: {
+            ops: {
+                [key: string]: unknown;
+            }[];
+        };
+        /** @enum {string} */
+        CanvasRecipe: "blank" | "call_lingara" | "lesson_plan_ready" | "show_card";
+        /** @enum {string} */
+        CanvasNodeKind: "client" | "secret" | "webhook" | "app";
+        /** @description A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content. */
+        CanvasDefinition: {
+            /** Format: int16 */
+            schema: number;
+            nodes: components["schemas"]["CanvasNode"][];
+            edges?: components["schemas"]["CanvasEdge"][];
+        };
+        CanvasNode: {
+            id: string;
+            kind: components["schemas"]["CanvasNodeKind"];
+            position: number[];
+            fields?: {
+                [key: string]: unknown;
+            };
+            script?: string | null;
+            custom?: boolean;
+            script_name?: string | null;
+            params?: {
+                [key: string]: components["schemas"]["CanvasParam"];
+            };
+        };
+        CanvasParam: boolean | number | string;
+        CanvasEdge: {
+            from: string;
+            to: string;
+        };
+        Canvas: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            draft: components["schemas"]["CanvasDraft"] | null;
+            active: components["schemas"]["CanvasActive"] | null;
+        };
+        CanvasDraft: {
+            /** Format: int32 */
+            revision: number;
+            /** Format: int32 */
+            draft_version: number;
+            definition: components["schemas"]["CanvasDefinition"];
+            objects: {
+                [key: string]: components["schemas"]["CanvasObjectRef"];
+            };
+        };
+        CanvasActive: {
+            /** Format: int32 */
+            revision: number;
+            definition: components["schemas"]["CanvasDefinition"];
+            objects: {
+                [key: string]: components["schemas"]["CanvasObjectRef"];
+            };
+            /** Format: date-time */
+            activated_at: string;
+        };
+        CanvasPage: {
+            items: components["schemas"]["CanvasSummary"][];
+            /** Format: int64 */
+            total: number | null;
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+        CanvasSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            recipe: components["schemas"]["CanvasRecipe"];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            has_draft: boolean;
+            /** Format: int32 */
+            active_revision: number | null;
+            /** Format: int32 */
+            node_count: number;
+            node_kinds: components["schemas"]["CanvasNodeKind"][];
+            scopes: string[];
+            objects: components["schemas"]["CanvasMadeObject"][];
+        };
+        CanvasMadeObject: {
+            handle: string;
+            kind: components["schemas"]["CanvasNodeKind"];
+            /** Format: uuid */
+            id: string;
+        };
+        CanvasDryRun: {
+            ok: boolean;
+            verdicts: components["schemas"]["CanvasVerdict"][];
+        };
+        /** @description A dialogue.v1 document. */
+        DialogueDefinition: Record<string, never>;
+        CreateDialogueRequest: {
+            name?: string | null;
+            definition: components["schemas"]["DialogueDefinition"];
+        };
+        RenameDialogueRequest: {
+            name: string;
+        };
+        SaveDialogueDraftRequest: {
+            name?: string | null;
+            definition: components["schemas"]["DialogueDefinition"];
+            /** Format: int32 */
+            draft_version: number;
+        };
+        ActivateDialogueRequest: {
+            /** Format: int32 */
+            draft_version: number;
+        };
+        /** @enum {string} */
+        DialogueWarningCode: "checkpoint_unreachable" | "outcome_unreachable" | "predicate_unchecked";
+        DialogueWarning: {
+            code: components["schemas"]["DialogueWarningCode"];
+            path: string;
+        };
+        /**
+         * @description Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.
+         * @enum {string}
+         */
+        DialogueRule: "missing_member" | "unknown_member" | "id_pattern" | "bound" | "number_range" | "duplicate_id" | "unknown_target" | "outcome_name" | "undeclared_fact" | "predicate_unparsed" | "predicate_type" | "default_type" | "when_less_cycle" | "text_blank" | "text_multiline" | "text_char";
+        DialogueDraft: {
+            /** Format: int32 */
+            revision: number;
+            /** Format: int32 */
+            draft_version: number;
+            definition: components["schemas"]["DialogueDefinition"];
+        };
+        DialogueActive: {
+            /** Format: int32 */
+            revision: number;
+            definition: components["schemas"]["DialogueDefinition"];
+            /** Format: date-time */
+            activated_at: string;
+        };
+        Dialogue: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            draft: components["schemas"]["DialogueDraft"] | null;
+            active: components["schemas"]["DialogueActive"] | null;
+            warnings: components["schemas"]["DialogueWarning"][];
+        };
+        DialogueSummary: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            ir_id: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            has_draft: boolean;
+            /** Format: int32 */
+            active_revision: number | null;
+            /** Format: int32 */
+            npc_count: number;
+            /** Format: int32 */
+            checkpoint_count: number;
+        };
+        DialoguePage: {
+            items: components["schemas"]["DialogueSummary"][];
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+        CanvasVerdict: {
+            handle: string;
+            kind: components["schemas"]["CanvasNodeKind"];
+            op: string;
+            verdict: components["schemas"]["CanvasVerdictKind"];
+            code?: string | null;
+            error?: string | null;
+            changes?: string[] | null;
+            note?: string | null;
+            depends_on?: string | null;
+        };
+        /**
+         * @description No `would_replace`: a changed webhook endpoint becomes a new version, so it is `would_update`.
+         * @enum {string}
+         */
+        CanvasVerdictKind: "would_create" | "would_update" | "refused";
         GenerateVocabularyEventStarted: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -824,6 +1350,14 @@ export interface components {
             event: "notice";
             data: components["schemas"]["Notice"];
         };
+        SendDialogueTurnEventTransition: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            event: "transition";
+            data: components["schemas"]["DialogueTransition"];
+        };
         SendDialogueTurnEventDone: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -840,7 +1374,7 @@ export interface components {
             event: "error";
             data: components["schemas"]["StreamError"];
         };
-        SendDialogueTurnEvent: components["schemas"]["SendDialogueTurnEventDelta"] | components["schemas"]["SendDialogueTurnEventNotice"] | components["schemas"]["SendDialogueTurnEventDone"] | components["schemas"]["SendDialogueTurnEventError"];
+        SendDialogueTurnEvent: components["schemas"]["SendDialogueTurnEventDelta"] | components["schemas"]["SendDialogueTurnEventNotice"] | components["schemas"]["SendDialogueTurnEventTransition"] | components["schemas"]["SendDialogueTurnEventDone"] | components["schemas"]["SendDialogueTurnEventError"];
     };
     responses: {
         /** @description The request was refused. `code` says why, and `error` says it in words. */
@@ -909,6 +1443,8 @@ export interface components {
         IdempotencyKey: string;
         /** @description The `player_ref` you minted the player's tokens with, percent-encoded: `guild/42` is `guild%2F42`. */
         PlayerRef: string;
+        CanvasId: string;
+        DialogueId: string;
     };
     requestBodies: never;
     headers: {
@@ -920,6 +1456,12 @@ export interface components {
         Sunset: string;
         /** @description A link, with relation `deprecation`, to this API version's details. Present only on a deprecated version. */
         Link: string;
+        /** @description The account's daily API allowance, in credits. Present only on a response to an allowance client's client-credentials token from a spending scope; absent on an unlimited allowance or a call that spends no credits. */
+        ApiAllowanceLimit: number;
+        /** @description Credits left in the account's daily API allowance after this call. Present only on a response to an allowance client's client-credentials token from a spending scope; absent on an unlimited allowance or a call that spends no credits. */
+        ApiAllowanceRemaining: number;
+        /** @description When the daily API allowance resets: the next UTC midnight, in Unix seconds. Present only on a response to an allowance client's client-credentials token from a spending scope; absent on an unlimited allowance or a call that spends no credits. */
+        ApiAllowanceReset: number;
     };
     pathItems: never;
 }
@@ -1336,6 +1878,1102 @@ export interface operations {
                     Deprecation: components["headers"]["Deprecation"];
                     Sunset: components["headers"]["Sunset"];
                     Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    listCanvases: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                name?: string;
+                status?: "all" | "live" | "changed" | "unapplied";
+                recipes?: string;
+                kinds?: string;
+                scopes?: string;
+            };
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of canvases */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                     *           "name": "Tell my server when a lesson plan is ready",
+                     *           "recipe": "lesson_plan_ready",
+                     *           "created_at": "2026-10-16T09:12:03Z",
+                     *           "updated_at": "2026-10-16T09:40:51Z",
+                     *           "has_draft": false,
+                     *           "active_revision": 2,
+                     *           "node_count": 3,
+                     *           "node_kinds": [
+                     *             "client",
+                     *             "secret",
+                     *             "webhook"
+                     *           ],
+                     *           "scopes": [
+                     *             "events:read"
+                     *           ],
+                     *           "objects": [
+                     *             {
+                     *               "handle": "n1",
+                     *               "kind": "client",
+                     *               "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                     *             }
+                     *           ]
+                     *         }
+                     *       ],
+                     *       "total": 1,
+                     *       "next_cursor": null,
+                     *       "has_more": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CanvasPage"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    createCanvas: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "name": "Tell my server when a lesson plan is ready",
+                 *       "recipe": "lesson_plan_ready",
+                 *       "definition": {
+                 *         "schema": 2,
+                 *         "nodes": [
+                 *           {
+                 *             "id": "n1",
+                 *             "kind": "client",
+                 *             "position": [
+                 *               0,
+                 *               0
+                 *             ]
+                 *           },
+                 *           {
+                 *             "id": "n2",
+                 *             "kind": "webhook",
+                 *             "position": [
+                 *               1,
+                 *               0
+                 *             ]
+                 *           }
+                 *         ],
+                 *         "edges": [
+                 *           {
+                 *             "from": "n1",
+                 *             "to": "n2"
+                 *           }
+                 *         ]
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["CreateCanvasRequest"];
+            };
+        };
+        responses: {
+            /** @description The new canvas */
+            201: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Canvas"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    dryRunCanvasPlan: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "ops": [
+                 *         {
+                 *           "handle": "c1",
+                 *           "kind": "client",
+                 *           "op": "create",
+                 *           "body": {
+                 *             "name": "Lesson server",
+                 *             "scopes": [
+                 *               "events:read"
+                 *             ]
+                 *           }
+                 *         },
+                 *         {
+                 *           "handle": "w1",
+                 *           "kind": "webhook",
+                 *           "op": "create",
+                 *           "client": {
+                 *             "handle": "c1"
+                 *           },
+                 *           "body": {
+                 *             "url": "https://hooks.example.com/lingara",
+                 *             "event_types": [
+                 *               "lesson_plan.ready"
+                 *             ]
+                 *           }
+                 *         }
+                 *       ]
+                 *     }
+                 */
+                "application/json": components["schemas"]["CanvasPlan"];
+            };
+        };
+        responses: {
+            /** @description One verdict per op */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "ok": true,
+                     *       "verdicts": [
+                     *         {
+                     *           "handle": "c1",
+                     *           "kind": "client",
+                     *           "op": "create",
+                     *           "verdict": "would_create"
+                     *         },
+                     *         {
+                     *           "handle": "w1",
+                     *           "kind": "webhook",
+                     *           "op": "create",
+                     *           "verdict": "would_create"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["CanvasDryRun"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    getCanvas: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The canvas */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "Tell my server when a lesson plan is ready",
+                     *       "created_at": "2026-10-16T09:12:03Z",
+                     *       "updated_at": "2026-10-16T09:12:03Z",
+                     *       "draft": {
+                     *         "revision": 1,
+                     *         "draft_version": 1,
+                     *         "definition": {
+                     *           "schema": 2,
+                     *           "nodes": [
+                     *             {
+                     *               "id": "n1",
+                     *               "kind": "client",
+                     *               "position": [
+                     *                 0,
+                     *                 0
+                     *               ]
+                     *             }
+                     *           ],
+                     *           "edges": []
+                     *         },
+                     *         "objects": {}
+                     *       },
+                     *       "active": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Canvas"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    renameCanvas: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "name": "Lesson plan webhook"
+                 *     }
+                 */
+                "application/json": components["schemas"]["RenameCanvasRequest"];
+            };
+        };
+        responses: {
+            /** @description The renamed canvas */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "Lesson plan webhook",
+                     *       "created_at": "2026-10-16T09:12:03Z",
+                     *       "updated_at": "2026-10-16T09:30:00Z",
+                     *       "draft": null,
+                     *       "active": {
+                     *         "revision": 2,
+                     *         "definition": {
+                     *           "schema": 2,
+                     *           "nodes": [
+                     *             {
+                     *               "id": "n1",
+                     *               "kind": "client",
+                     *               "position": [
+                     *                 0,
+                     *                 0
+                     *               ]
+                     *             }
+                     *           ],
+                     *           "edges": []
+                     *         },
+                     *         "objects": {
+                     *           "n1": {
+                     *             "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                     *           }
+                     *         },
+                     *         "activated_at": "2026-10-16T09:20:00Z"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Canvas"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    saveCanvasDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "definition": {
+                 *         "schema": 2,
+                 *         "nodes": [
+                 *           {
+                 *             "id": "n1",
+                 *             "kind": "client",
+                 *             "position": [
+                 *               0,
+                 *               0
+                 *             ]
+                 *           },
+                 *           {
+                 *             "id": "n2",
+                 *             "kind": "secret",
+                 *             "position": [
+                 *               0,
+                 *               1
+                 *             ]
+                 *           }
+                 *         ],
+                 *         "edges": [
+                 *           {
+                 *             "from": "n1",
+                 *             "to": "n2"
+                 *           }
+                 *         ]
+                 *       },
+                 *       "draft_version": 1
+                 *     }
+                 */
+                "application/json": components["schemas"]["SaveCanvasDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description The saved canvas */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "Tell my server when a lesson plan is ready",
+                     *       "created_at": "2026-10-16T09:12:03Z",
+                     *       "updated_at": "2026-10-16T09:14:40Z",
+                     *       "draft": {
+                     *         "revision": 1,
+                     *         "draft_version": 2,
+                     *         "definition": {
+                     *           "schema": 2,
+                     *           "nodes": [
+                     *             {
+                     *               "id": "n1",
+                     *               "kind": "client",
+                     *               "position": [
+                     *                 0,
+                     *                 0
+                     *               ]
+                     *             },
+                     *             {
+                     *               "id": "n2",
+                     *               "kind": "secret",
+                     *               "position": [
+                     *                 0,
+                     *                 1
+                     *               ]
+                     *             }
+                     *           ],
+                     *           "edges": [
+                     *             {
+                     *               "from": "n1",
+                     *               "to": "n2"
+                     *             }
+                     *           ]
+                     *         },
+                     *         "objects": {}
+                     *       },
+                     *       "active": null
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Canvas"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    activateCanvas: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                canvas_id: components["parameters"]["CanvasId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "draft_version": 2,
+                 *       "outcome": "complete",
+                 *       "objects": {
+                 *         "n1": {
+                 *           "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                 *         }
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["ActivateCanvasRequest"];
+            };
+        };
+        responses: {
+            /** @description The canvas after the apply */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "Tell my server when a lesson plan is ready",
+                     *       "created_at": "2026-10-16T09:12:03Z",
+                     *       "updated_at": "2026-10-16T09:20:00Z",
+                     *       "draft": null,
+                     *       "active": {
+                     *         "revision": 1,
+                     *         "definition": {
+                     *           "schema": 2,
+                     *           "nodes": [
+                     *             {
+                     *               "id": "n1",
+                     *               "kind": "client",
+                     *               "position": [
+                     *                 0,
+                     *                 0
+                     *               ]
+                     *             }
+                     *           ],
+                     *           "edges": []
+                     *         },
+                     *         "objects": {
+                     *           "n1": {
+                     *             "id": "0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"
+                     *           }
+                     *         },
+                     *         "activated_at": "2026-10-16T09:20:00Z"
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Canvas"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    listDialogues: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+                name?: string;
+            };
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of dialogues */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "items": [
+                     *         {
+                     *           "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                     *           "name": "The night-market lantern",
+                     *           "ir_id": "night_market_keepers",
+                     *           "created_at": "2026-10-28T09:12:03Z",
+                     *           "updated_at": "2026-10-28T09:40:51Z",
+                     *           "has_draft": true,
+                     *           "active_revision": 2,
+                     *           "npc_count": 2,
+                     *           "checkpoint_count": 7
+                     *         }
+                     *       ],
+                     *       "next_cursor": null,
+                     *       "has_more": false
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DialoguePage"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    createDialogue: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "definition": {
+                 *         "schema": "dialogue.v1",
+                 *         "id": "night_market_keepers",
+                 *         "title": "The night-market lantern",
+                 *         "npcs": [
+                 *           {
+                 *             "id": "old_wei",
+                 *             "name": "Old Wei"
+                 *           }
+                 *         ],
+                 *         "start": "greet",
+                 *         "checkpoints": [
+                 *           {
+                 *             "id": "greet",
+                 *             "goal": "Greet the stranger",
+                 *             "edges": [
+                 *               {
+                 *                 "id": "thanked",
+                 *                 "to": "success",
+                 *                 "when": "the player says thank you"
+                 *               }
+                 *             ]
+                 *           }
+                 *         ]
+                 *       }
+                 *     }
+                 */
+                "application/json": components["schemas"]["CreateDialogueRequest"];
+            };
+        };
+        responses: {
+            /** @description The new dialogue */
+            201: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dialogue"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    getDialogue: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dialogue */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "The night-market lantern",
+                     *       "created_at": "2026-10-28T09:12:03Z",
+                     *       "updated_at": "2026-10-28T09:12:03Z",
+                     *       "draft": {
+                     *         "revision": 1,
+                     *         "draft_version": 1,
+                     *         "definition": {
+                     *           "schema": "dialogue.v1",
+                     *           "id": "night_market_keepers",
+                     *           "pedagogy": "subtle",
+                     *           "npcs": [
+                     *             {
+                     *               "id": "old_wei",
+                     *               "name": "Old Wei"
+                     *             }
+                     *           ],
+                     *           "facts": [],
+                     *           "start": "greet",
+                     *           "checkpoints": [
+                     *             {
+                     *               "id": "greet",
+                     *               "goal": "Greet the stranger",
+                     *               "may_disclose": [],
+                     *               "edges": []
+                     *             }
+                     *           ]
+                     *         }
+                     *       },
+                     *       "active": null,
+                     *       "warnings": [
+                     *         {
+                     *           "code": "outcome_unreachable",
+                     *           "path": "/start"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Dialogue"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    renameDialogue: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "name": "Lantern keepers"
+                 *     }
+                 */
+                "application/json": components["schemas"]["RenameDialogueRequest"];
+            };
+        };
+        responses: {
+            /** @description The dialogue */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "Lantern keepers",
+                     *       "created_at": "2026-10-28T09:12:03Z",
+                     *       "updated_at": "2026-10-28T09:30:00Z",
+                     *       "draft": null,
+                     *       "active": {
+                     *         "revision": 2,
+                     *         "definition": {
+                     *           "schema": "dialogue.v1",
+                     *           "id": "night_market_keepers",
+                     *           "pedagogy": "subtle",
+                     *           "npcs": [
+                     *             {
+                     *               "id": "old_wei",
+                     *               "name": "Old Wei"
+                     *             }
+                     *           ],
+                     *           "facts": [],
+                     *           "start": "greet",
+                     *           "checkpoints": [
+                     *             {
+                     *               "id": "greet",
+                     *               "goal": "Greet the stranger",
+                     *               "may_disclose": [],
+                     *               "edges": [
+                     *                 {
+                     *                   "id": "thanked",
+                     *                   "to": "success",
+                     *                   "when": "the player says thank you"
+                     *                 }
+                     *               ]
+                     *             }
+                     *           ]
+                     *         },
+                     *         "activated_at": "2026-10-28T09:20:00Z"
+                     *       },
+                     *       "warnings": []
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Dialogue"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    saveDialogueDraft: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "definition": {
+                 *         "schema": "dialogue.v1",
+                 *         "id": "night_market_keepers",
+                 *         "npcs": [
+                 *           {
+                 *             "id": "old_wei",
+                 *             "name": "Old Wei"
+                 *           }
+                 *         ],
+                 *         "start": "greet",
+                 *         "checkpoints": [
+                 *           {
+                 *             "id": "greet",
+                 *             "goal": "Greet the stranger",
+                 *             "edges": [
+                 *               {
+                 *                 "id": "thanked",
+                 *                 "to": "success",
+                 *                 "when": "the player says thank you"
+                 *               }
+                 *             ]
+                 *           }
+                 *         ]
+                 *       },
+                 *       "draft_version": 1
+                 *     }
+                 */
+                "application/json": components["schemas"]["SaveDialogueDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description The dialogue */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "The night-market lantern",
+                     *       "created_at": "2026-10-28T09:12:03Z",
+                     *       "updated_at": "2026-10-28T09:14:00Z",
+                     *       "draft": {
+                     *         "revision": 1,
+                     *         "draft_version": 2,
+                     *         "definition": {
+                     *           "schema": "dialogue.v1",
+                     *           "id": "night_market_keepers",
+                     *           "pedagogy": "subtle",
+                     *           "npcs": [
+                     *             {
+                     *               "id": "old_wei",
+                     *               "name": "Old Wei"
+                     *             }
+                     *           ],
+                     *           "facts": [],
+                     *           "start": "greet",
+                     *           "checkpoints": [
+                     *             {
+                     *               "id": "greet",
+                     *               "goal": "Greet the stranger",
+                     *               "may_disclose": [],
+                     *               "edges": [
+                     *                 {
+                     *                   "id": "thanked",
+                     *                   "to": "success",
+                     *                   "when": "the player says thank you"
+                     *                 }
+                     *               ]
+                     *             }
+                     *           ]
+                     *         }
+                     *       },
+                     *       "active": null,
+                     *       "warnings": []
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Dialogue"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    activateDialogue: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "draft_version": 2
+                 *     }
+                 */
+                "application/json": components["schemas"]["ActivateDialogueRequest"];
+            };
+        };
+        responses: {
+            /** @description The dialogue */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "3c9e1f2a-4b5d-4e6f-8a7b-9c0d1e2f3a4b",
+                     *       "name": "The night-market lantern",
+                     *       "created_at": "2026-10-28T09:12:03Z",
+                     *       "updated_at": "2026-10-28T09:20:00Z",
+                     *       "draft": null,
+                     *       "active": {
+                     *         "revision": 1,
+                     *         "definition": {
+                     *           "schema": "dialogue.v1",
+                     *           "id": "night_market_keepers",
+                     *           "pedagogy": "subtle",
+                     *           "npcs": [
+                     *             {
+                     *               "id": "old_wei",
+                     *               "name": "Old Wei"
+                     *             }
+                     *           ],
+                     *           "facts": [],
+                     *           "start": "greet",
+                     *           "checkpoints": [
+                     *             {
+                     *               "id": "greet",
+                     *               "goal": "Greet the stranger",
+                     *               "may_disclose": [],
+                     *               "edges": [
+                     *                 {
+                     *                   "id": "thanked",
+                     *                   "to": "success",
+                     *                   "when": "the player says thank you"
+                     *                 }
+                     *               ]
+                     *             }
+                     *           ]
+                     *         },
+                     *         "activated_at": "2026-10-28T09:20:00Z"
+                     *       },
+                     *       "warnings": []
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Dialogue"];
+                };
+            };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    exportDialogue: {
+        parameters: {
+            query?: {
+                revision?: "active" | "draft";
+                layout?: "keep" | "omit";
+            };
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+                "If-None-Match"?: string;
+            };
+            path: {
+                dialogue_id: components["parameters"]["DialogueId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dialogue.v1 document */
+            200: {
+                headers: {
+                    /** @description The SHA-256 of the body, quoted. */
+                    ETag?: string;
+                    /** @description The revision the body holds. */
+                    "Lingara-Dialogue-Revision"?: number;
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "checkpoints": [
+                     *         {
+                     *           "edges": [
+                     *             {
+                     *               "id": "thanked",
+                     *               "to": "success",
+                     *               "when": "the player says thank you"
+                     *             }
+                     *           ],
+                     *           "goal": "Greet the stranger",
+                     *           "id": "greet",
+                     *           "may_disclose": []
+                     *         }
+                     *       ],
+                     *       "facts": [],
+                     *       "id": "night_market_keepers",
+                     *       "npcs": [
+                     *         {
+                     *           "id": "old_wei",
+                     *           "name": "Old Wei"
+                     *         }
+                     *       ],
+                     *       "pedagogy": "subtle",
+                     *       "schema": "dialogue.v1",
+                     *       "start": "greet"
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DialogueDefinition"];
+                };
+            };
+            /** @description Unchanged since the ETag you sent */
+            304: {
+                headers: {
+                    /** @description The SHA-256 of the body, quoted. */
+                    ETag?: string;
+                    /** @description The revision the body holds. */
+                    "Lingara-Dialogue-Revision"?: number;
                     [name: string]: unknown;
                 };
                 content?: never;

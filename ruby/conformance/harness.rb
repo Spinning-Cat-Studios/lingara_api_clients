@@ -44,6 +44,26 @@ module Harness
   EVENT_CALLS = %w[listEvents streamEvents sendEvent].freeze
   # The event helpers a step drives: `events` to its end, `tail` for `take`.
   HELPERS = {"events" => :events, "tail" => :tail_events}.freeze
+  # The canvas operations, on client.canvases (ADR 16.10.26ak): whether each
+  # takes params.canvas_id, and whether it takes the case's body.
+  CANVAS_CALLS = {
+    "listCanvases" => [false, false], "createCanvas" => [false, true], "getCanvas" => [true, false],
+    "renameCanvas" => [true, true], "saveCanvasDraft" => [true, true], "activateCanvas" => [true, true],
+    "dryRunCanvasPlan" => [false, true]
+  }.freeze
+  # The dialogue operations, on client.dialogues (ADR 29.10.26c), the same
+  # way; listDialogues and exportDialogue take keywords instead.
+  DIALOGUE_CALLS = {
+    "listDialogues" => [false, false], "createDialogue" => [false, true], "getDialogue" => [true, false],
+    "renameDialogue" => [true, true], "saveDialogueDraft" => [true, true], "activateDialogue" => [true, true],
+    "exportDialogue" => [true, false]
+  }.freeze
+  # Each grouped operation's dispatcher.
+  GROUP_CALLS = CANVAS_CALLS.keys.to_h { |id| [id, :invoke_canvas] }
+    .merge(DIALOGUE_CALLS.keys.to_h { |id| [id, :invoke_dialogue] }).freeze
+  # The page-helper steps (ADR 16.10.26ak D7, 29.10.26c D7): the group and
+  # the helper each drives.
+  PAGERS = {"page_canvases" => %i[canvases page_canvases], "page_dialogues" => %i[dialogues page_dialogues]}.freeze
 
   # One case's client, its virtual clock, and what one step recorded.
   class Rig
@@ -128,6 +148,8 @@ module Harness
       invoke_event(client, call)
     elsif EMBED_CALLS.include?(operation)
       invoke_embed(client, call)
+    elsif GROUP_CALLS.key?(operation)
+      send(GROUP_CALLS[operation], client, call)
     else
       {outcome: "harness: no operation #{operation}"}
     end
@@ -144,6 +166,57 @@ module Harness
 
     method, status = by_player
     result(status) { client.public_send(method, (call["params"] || {})["player_ref"]) }
+  end
+
+  # listCanvases takes its params as keywords; the rest the id, the body or
+  # both.
+  def invoke_canvas(client, call)
+    params = call["params"] || {}
+    method = call["operation"].gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+    return result { client.canvases.list_canvases(**params.transform_keys(&:to_sym)) } if method == "list_canvases"
+
+    by_id, with_body = CANVAS_CALLS.fetch(call["operation"])
+    args = (by_id ? [params["canvas_id"]] : []) + (with_body ? [call["body"] || {}] : [])
+    result { client.canvases.public_send(method, *args) }
+  end
+
+  # listDialogues takes its params as keywords, exportDialogue its id and
+  # the rest of its params as keywords; the others the id, the body or both.
+  def invoke_dialogue(client, call)
+    params = call["params"] || {}
+    method = call["operation"].gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase
+    return result { client.dialogues.list_dialogues(**params.transform_keys(&:to_sym)) } if method == "list_dialogues"
+    return export_dialogue(client, params) if method == "export_dialogue"
+
+    by_id, with_body = DIALOGUE_CALLS.fetch(call["operation"])
+    args = (by_id ? [params["dialogue_id"]] : []) + (with_body ? [call["body"] || {}] : [])
+    result((method == "create_dialogue") ? 201 : 200) { client.dialogues.public_send(method, *args) }
+  end
+
+  # An export under `body` (ADR 29.10.26c D7): {revision, etag, ir_json}
+  # for a Body, {not_modified: true, revision, etag} for a NotModified.
+  def export_dialogue(client, params)
+    options = params.except("dialogue_id").transform_keys(&:to_sym)
+    response = client.dialogues.export_dialogue(params["dialogue_id"], **options)
+    value = response.value
+    body = {"revision" => value.revision, "etag" => value.etag}
+    not_modified = value.is_a?(Lingara::ExportedDialogue::NotModified)
+    body.update(not_modified ? {"not_modified" => true} : {"ir_json" => value.ir_json})
+    {outcome: "completed", status: not_modified ? 304 : 200, body: body, served_version: response.served_version,
+     renderings: renderings(response)}
+  rescue Lingara::Error => e
+    failed(e, nil)
+  end
+
+  # A page_canvases or page_dialogues step (ADR 16.10.26ak D7, 29.10.26c
+  # D7): the helper iterated to its end, its items as one list under `body`,
+  # or the error.
+  def page_all(client, kind, block)
+    filters = (block["params"] || {}).transform_keys(&:to_sym)
+    group, helper = PAGERS.fetch(kind)
+    {outcome: "completed", body: client.public_send(group).public_send(helper, **filters).to_a}
+  rescue Lingara::Error => e
+    failed(e, nil)
   end
 
   # A MintedToken in wire form, read through the exposing accessor:
@@ -363,7 +436,7 @@ module Harness
 
   def run_helper(rig, kind, options, expect)
     rig.reset
-    seen = drive(rig.client, kind, options)
+    seen = PAGERS.key?(kind) ? page_all(rig.client, kind, options) : drive(rig.client, kind, options)
     seen[:sleeps] = rig.sleeps_s
     seen[:hooks] = rig.hook_calls
     seen[:renderings] = (seen[:renderings] || []) + renderings(rig.client) + renderings(rig.client.token_source)
@@ -372,7 +445,7 @@ module Harness
 
   # A call step, an event-helper step, or neither (a bare advance_clock_s).
   def run_any(rig, step, base)
-    helper = HELPERS.keys.find { |kind| step.key?(kind) }
+    helper = (HELPERS.keys + PAGERS.keys).find { |kind| step.key?(kind) }
     if step["call"] && step["expect"] then run_step(rig, step["call"], substitute(step["expect"], base))
     elsif helper then run_helper(rig, helper, step[helper] || {}, substitute(step["expect"] || {}, base))
     else []

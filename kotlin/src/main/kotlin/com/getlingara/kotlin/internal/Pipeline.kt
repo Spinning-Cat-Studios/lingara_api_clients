@@ -35,7 +35,7 @@ internal class Target(
 
 /**
  * The request pipeline behind every `/v1` call (ADR 29.9.26s D4, D5): auth and K1's one 401 retry,
- * K4's loop, and the refusal mapping. It returns only a 2xx.
+ * K4's loop, and the refusal mapping. It returns only a 2xx, or the one status a caller allows.
  */
 internal class Pipeline(
     private val target: Target,
@@ -43,14 +43,19 @@ internal class Pipeline(
     private val tokens: TokenSource?,
     private val http: HttpClient,
 ) {
-    /** Sends [call], reading its body through [handler], and throws on any non-2xx. */
+    /**
+     * Sends [call], reading its body through [handler], and throws on any non-2xx but [allow]: the
+     * one status a caller reads as an answer itself (ADR 29.10.26c D6, the export's `304`). Every
+     * other call passes none, so nothing else changes.
+     */
     suspend fun <T> send(
         call: Call,
         handler: HttpResponse.BodyHandler<T>,
+        allow: Int? = null,
     ): HttpResponse<T> {
         val response = authorised(call, handler)
         val status = response.statusCode()
-        if (status in 200..299) return response
+        if (status in 200..299 || status == allow) return response
         val body = refusalBody(response.body())
         throw ErrorMapper.refusal(Endpoint.V1, status, response.headers(), body, policy.clock.instant())
     }

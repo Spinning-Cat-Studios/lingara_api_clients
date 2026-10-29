@@ -23,7 +23,9 @@ import kotlin.coroutines.cancellation.CancellationException
  * serializer, so its body is reported in wire form through the exposing accessor; `linkEmbedPlayer`
  * reports its generated [EmbedPlayerLink]; and `deleteEmbedPlayer`'s and `unlinkEmbedPlayer`'s
  * success is a `204` with no body. It is also where `Observe`'s JSON dispatch
- * ends, so any other name is reported as an operation the harness does not know.
+ * ends: a canvas operation goes on to `EventSteps.canvasCall` (ADR 16.10.26ak), a dialogue one to
+ * `DialogueSteps.call` (ADR 29.10.26c), and any other name is reported as an operation the harness
+ * does not know.
  */
 internal object EmbedSteps {
     suspend fun call(
@@ -36,7 +38,10 @@ internal object EmbedSteps {
             "deleteEmbedPlayer" -> observe { c.deleteEmbedPlayer(playerRef(call)) }
             "linkEmbedPlayer" -> observe { c.linkEmbedPlayer(playerRef(call)) }
             "unlinkEmbedPlayer" -> observe { c.unlinkEmbedPlayer(playerRef(call)) }
-            else -> Seen().apply { outcome = "harness: no operation $operation" }
+            else ->
+                EventSteps.canvasCall(c, call, operation)
+                    ?: DialogueSteps.call(c, call, operation)
+                    ?: Seen().apply { outcome = "harness: no operation $operation" }
         }
 
     private fun playerRef(call: JsonObject): String =

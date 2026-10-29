@@ -24,14 +24,19 @@
 //! repository: the token handling, retries, errors and streams below are
 //! its K1–K6, and [`events`] holds its K5a tail, its event helpers and its
 //! appendix W webhook verifier. [`embed`] holds the calls a game's server
-//! makes for its players, and the redacting [`embed::MintedToken`].
+//! makes for its players, and the redacting [`embed::MintedToken`];
+//! [`dialogues`] the stored-dialogue operations, reached as
+//! `client.dialogues()`, and the export a game loads by id; [`canvas`]
+//! the canvas operations, reached as `client.canvases()`.
 
 #[cfg(not(any(feature = "rustls", feature = "native-tls")))]
 compile_error!("lingara needs a TLS backend: enable the `rustls` feature (the default) or the `native-tls` feature");
 
 mod builder;
 mod builder_options;
+pub mod canvas;
 mod client;
+pub mod dialogues;
 pub mod embed;
 mod error;
 pub mod events;

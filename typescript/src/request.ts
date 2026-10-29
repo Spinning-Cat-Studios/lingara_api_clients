@@ -10,7 +10,7 @@ export type JsonOk<Op extends keyof operations> = operations[Op]["responses"] ex
 export type NoContent = { readonly servedVersion?: string };
 
 export interface Send {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   path: string;
   body?: unknown;
   accept: string;
@@ -18,7 +18,15 @@ export interface Send {
   headers?: Record<string, string> | undefined;
   /** `false` bypasses K4's attempt loop: the tail counts its own (K5a). */
   retries?: boolean;
+  /** A non-2xx status the caller reads itself rather than raises (an export's `304`, ADR 29.10.26c D6). */
+  allow?: number;
   signal?: AbortSignal | undefined;
+}
+
+/** A response its caller reads itself, with the `Lingara-Version` echo already observed. */
+export interface RawResponse {
+  response: Response;
+  servedVersion: string | undefined;
 }
 
 /** A stream request's parts beyond its route. */

@@ -1,8 +1,14 @@
 # Lingara API client libraries
 
 Official client libraries for the [Lingara API](https://getlingara.com): generate
-vocabulary lists, create lesson plans, hold tutor conversations and read your
-usage, from your own code.
+vocabulary lists, create lesson plans, hold tutor conversations, read your
+usage, and draw, dry-run and activate canvases (`client.canvases`: `listCanvases`,
+`createCanvas`, `getCanvas`, `renameCanvas`, `saveCanvasDraft`,
+`activateCanvas`, `dryRunCanvasPlan` and the `pageCanvases` helper), and author,
+activate and export stored dialogues (`client.dialogues`: `listDialogues`,
+`createDialogue`, `getDialogue`, `renameDialogue`, `saveDialogueDraft`,
+`activateDialogue`, `exportDialogue` and the `pageDialogues` helper), from your
+own code.
 
 The libraries are pre-release: every version before 1.0.0 carries an
 `-alpha.N`, `-beta.N` or `-rc.N` suffix, and every install line pins one.

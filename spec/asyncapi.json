@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara events",
     "x-i18n": "asyncapi.info",
-    "version": "2026-10-simple-tarpon",
+    "version": "2026-10-expensive-sauger",
     "description": "The events Lingara sends about your account, to a webhook endpoint you register or through the event feed and stream, and the events your game or integration can send to Lingara. Every outbound event is the same envelope on every transport."
   },
   "servers": {
@@ -2395,7 +2395,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },
@@ -2420,7 +2422,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },
@@ -2445,7 +2449,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },
@@ -2469,7 +2475,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },
@@ -2493,7 +2501,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },
@@ -2518,7 +2528,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },
@@ -2543,7 +2555,9 @@
               "embed:mint": "Mint short-lived tokens for your game's or site's players, and delete players. Metered clients only.",
               "embed:play": "Act for a player: send their practice results and hold NPC conversations with them.",
               "canvas:read": "Read your canvases and dry-run their plans.",
-              "canvas:write": "Create, rename and save your canvases, and record what an apply made."
+              "canvas:write": "Create, rename and save your canvases, and record what an apply made.",
+              "dialogues:read": "Read and export your dialogues; a player's token loads only the active ones.",
+              "dialogues:write": "Create, rename, save and activate your dialogues."
             }
           }
         },

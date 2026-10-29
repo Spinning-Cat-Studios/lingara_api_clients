@@ -203,28 +203,30 @@ fn a_k5a_behaviour_without_a_case_fails() {
     assert_eq!(parsed.case.behaviours, vec![case::Behaviour::K5a]);
 }
 
-/// 1.10.26w AC3: a `DELETE` request parses; any other new verb is refused.
+/// 16.10.26ak AC2 (replacing 1.10.26w AC3 and 22.10.26t AC8): `PUT`,
+/// `PATCH` and `DELETE` requests parse; any other verb is refused, and the
+/// message names the five accepted.
 #[test]
-fn a_delete_request_parses_and_patch_is_refused() {
+fn put_and_patch_parse_and_options_is_refused() {
     let with = |method: &str| {
         format!(
-            "id: op.x\ntitle: t\nbehaviours: [K1]\nsteps:\n  - call: {{ operation: deleteEmbedPlayer, params: {{ player_ref: p-1 }} }}\n    expect: {{ outcome: completed }}\nexchanges:\n  items:\n    - request: {{ method: {method}, path: /v1/embed/players/p-1 }}\n      response: {{ status: 204 }}\n"
+            "id: op.x\ntitle: t\nbehaviours: [K1]\nsteps:\n  - call: {{ operation: renameCanvas, params: {{ canvas_id: c-1 }} }}\n    expect: {{ outcome: completed }}\nexchanges:\n  items:\n    - request: {{ method: {method}, path: /v1/canvases/c-1 }}\n      response: {{ status: 200, json: {{ id: c-1 }} }}\n"
         )
     };
-    assert!(case::parse(&with("DELETE"), Path::new("op/x.yaml")).is_ok());
-    let refused = case::parse(&with("PATCH"), Path::new("op/x.yaml")).unwrap_err();
-    assert!(refused.contains("`PATCH` is not GET, POST, PUT or DELETE"), "{refused}");
+    for method in ["PUT", "PATCH", "DELETE"] {
+        assert!(case::parse(&with(method), Path::new("op/x.yaml")).is_ok(), "{method}");
+    }
+    let refused = case::parse(&with("OPTIONS"), Path::new("op/x.yaml")).unwrap_err();
+    assert!(refused.contains("`OPTIONS` is not GET, POST, PUT, PATCH or DELETE"), "{refused}");
 }
 
-/// 22.10.26t AC8: a `PUT` request parses; `PATCH` is still refused.
+/// 29.10.26c AC1: a `page_dialogues` step parses, and coverage rule 1 does
+/// not count it as a call of `listDialogues`.
 #[test]
-fn a_put_request_parses_and_patch_is_refused() {
-    let with = |method: &str| {
-        format!(
-            "id: op.x\ntitle: t\nbehaviours: [K1]\nsteps:\n  - call: {{ operation: linkEmbedPlayer, params: {{ player_ref: p-1 }} }}\n    expect: {{ outcome: completed }}\nexchanges:\n  items:\n    - request: {{ method: {method}, path: /v1/embed/players/p-1/link }}\n      response: {{ status: 200, json: {{ status: linked }} }}\n"
-        )
-    };
-    assert!(case::parse(&with("PUT"), Path::new("op/x.yaml")).is_ok());
-    let refused = case::parse(&with("PATCH"), Path::new("op/x.yaml")).unwrap_err();
-    assert!(refused.contains("`PATCH` is not GET, POST, PUT or DELETE"), "{refused}");
+fn a_page_dialogues_step_parses() {
+    let yaml = "id: op.x\ntitle: t\nbehaviours: [K1]\nsteps:\n  - page_dialogues: { params: { name: market, limit: 2 } }\n    expect: { outcome: completed, body: [] }\n";
+    let parsed = case::parse(yaml, Path::new("op/x.yaml")).unwrap();
+    assert!(parsed.case.steps[0].page_dialogues.is_some());
+    let problems = check(&view_with(&["listDialogues"]), &[parsed]);
+    assert!(problems.contains(&"operation `listDialogues` has no case".to_string()), "{problems:#?}");
 }

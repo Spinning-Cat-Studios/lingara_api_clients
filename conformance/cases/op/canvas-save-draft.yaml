@@ -1,0 +1,25 @@
+id: op.canvas-save-draft
+title: "Saving a draft sends a PUT to the draft path with its definition and draft_version, and decodes the Canvas"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: saveCanvasDraft
+      params: {"canvas_id":"6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b"}
+      body: {"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"draft_version":4}
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-simple-tarpon
+      body: {"id":"6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b","name":"Lesson plan webhook","created_at":"2026-10-20T09:00:00Z","updated_at":"2026-10-21T10:30:00Z","draft":{"revision":3,"draft_version":5,"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"objects":{"n1":{"id":"0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"}}},"active":{"revision":2,"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"objects":{"n1":{"id":"0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"},"n2":{"id":"1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f"}},"activated_at":"2026-10-21T10:30:00Z"}}
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_cvsave, token_type: Bearer, expires_in: 3600, scope: "canvas:write" } }
+    - request:
+        method: PUT
+        path: /v1/canvases/6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b/draft
+        headers: { authorization: { equals: Bearer lgr_at_cvsave }, accept: { contains: application/json }, content-type: { contains: application/json } }
+        json: {"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"draft_version":4}
+      response: { status: 200, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"id":"6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b","name":"Lesson plan webhook","created_at":"2026-10-20T09:00:00Z","updated_at":"2026-10-21T10:30:00Z","draft":{"revision":3,"draft_version":5,"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"objects":{"n1":{"id":"0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"}}},"active":{"revision":2,"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"objects":{"n1":{"id":"0b9e4c2d-7a1f-4e3b-9d8c-5f6a7b8c9d0e"},"n2":{"id":"1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f"}},"activated_at":"2026-10-21T10:30:00Z"}} }

@@ -172,6 +172,43 @@ MintedToken minted =
 
 The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk) build on these calls: server kits for higher-level minting and webhook helpers, and player kits for the engines.
 
+## Canvases
+
+A canvas is the builder's drawing of the objects your integration needs. Its seven operations live on one group, `client.canvases()` (`com.getlingara.client.canvas`): `listCanvases`, `createCanvas`, `getCanvas`, `renameCanvas` (a `PATCH`), `saveCanvasDraft` (a `PUT`), `activateCanvas` and `dryRunCanvasPlan`, with scopes `canvas:read` and `canvas:write`. The group shares the client's token, retries, version pin and errors.
+
+```java
+for (CanvasSummary canvas : client.canvases().pageCanvases(CanvasFilters.of().status("live"))) {
+  System.out.println(canvas.getName());
+}
+```
+
+- `pageCanvases(filters)` is an `Iterable` that follows `next_cursor` page by page, sending the same filters each time, and stops when a page says `has_more: false`. It never sleeps or polls. `listCanvases` is the call for one page and its `total`.
+- **A stale draft is an answer.** `saveCanvasDraft` with a `draft_version` someone has since moved is `409 canvas_conflict`, thrown as an `ApiException` and never retried. It may follow your own save, if a retry met a save that had already landed. Re-read with `getCanvas`, compare its draft with yours, and decide; the library never merges or re-sends. A replayed `activateCanvas` at a `draft_version` already promoted also answers `409 canvas_conflict` and writes nothing.
+- **Branch on `code`, not on the message.** An error's message is localised by the server: show it only as a fallback, and localise by `code`. `dryRunCanvasPlan` answers `200` whether or not `ok` is true; a `refused` verdict's `code` and English `error` are data, never thrown.
+- A node's `fields` and `params` stay open maps and keep every key, so a definition read and saved back is unchanged.
+- A canvas is deleted through the platform's lifecycle routes, not this library.
+
+## Dialogues
+
+A dialogue is a stored `dialogue.v1` graph: the NPCs, checkpoints and facts a game walks. Its seven operations live on one group, `client.dialogues()` (`com.getlingara.client.dialogue`): `listDialogues`, `createDialogue`, `getDialogue`, `renameDialogue` (a `PATCH`), `saveDialogueDraft` (a `PUT`), `activateDialogue` and `exportDialogue`, with scopes `dialogues:read` and `dialogues:write`. The group shares the client's token, retries, version pin and errors.
+
+```java
+ExportedDialogue exported =
+    client.dialogues().exportDialogue(dialogueId, ExportDialogueOptions.of().ifNoneMatch(etag)).body();
+if (exported instanceof ExportedDialogue.Body body) {
+  store(body.etag(), body.irJson()); // exactly as received
+}
+```
+
+- `pageDialogues(filters)` is an `Iterable` that follows `next_cursor` page by page, sending the same `name` and `limit` each time, and stops when a page says `has_more: false`. It never sleeps or polls.
+- **A stale draft is an answer.** `saveDialogueDraft` with a `draft_version` someone has since moved is `409 dialogue_conflict`, thrown as an `ApiException` and never retried. It may follow your own save, if a retry met a save that had already landed. Re-read with `getDialogue`, take its draft's `draft_version` (or send `0` when `draft` is null, which opens one), and decide; the library never merges or re-sends. A stale or replayed `activateDialogue` answers `409 dialogue_conflict` too.
+- **Branch on `code`, not on the message.** An error's message is localised by the server: show it only as a fallback, and localise by `code`.
+- `400 dialogue_invalid` and `400 dialogue_graph_invalid` carry two more fields on the wire, `path` (a JSON Pointer into your definition) and `rule`. This release does not surface them on `ApiException`: a tool that needs them sends the request itself and reads the `400` body.
+- A warning's `code` is the generated `DialogueWarningCode`, a closed enum: a warning code a later API version adds fails the whole `Dialogue`'s decode (`TransportException` `malformed_response`) until you upgrade the library.
+- **Cache an export by its `ETag`.** `exportDialogue` returns `ExportedDialogue.Body` with the document as text, never parsed: its bytes are canonical and the `ETag` is their SHA-256, so store them exactly as received. Send the `etag` back as `ifNoneMatch`, unchanged, and an unchanged revision answers `ExportedDialogue.NotModified`, not an error. A `304` still spends one unit of the rate budget.
+- A definition stays an open JSON value, so members the library does not know, such as `x-layout`, survive a read and a save.
+- A dialogue is deleted through the platform's lifecycle routes, not this library.
+
 ## Jackson
 
 The generated models carry Jackson annotations, so Jackson databind is an `api` dependency and is not shaded: a shaded copy would double your Jackson and hide its security fixes. The library is built against Jackson databind 2.22. If your build pins an older 2.x, raise it to 2.22 or newer. Jackson 3 (`tools.jackson`) is a separate library and is not used.

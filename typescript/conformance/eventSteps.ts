@@ -1,6 +1,7 @@
 // The harness's event pieces (conformance/README.md, ADR 30.9.26aa D9): the
 // `events` and `tail` steps, which drive the helpers rather than an
-// operation, and the `InboundEvent` a `sendEvent` call is built from.
+// operation, and the `InboundEvent` a `sendEvent` call is built from; and the
+// canvas group's call shape and its `page_canvases` step (ADR 16.10.26ak).
 
 import { InboundEvent, UnknownEvent, type EventFeed, type EventTail, type EventsParams, type Lingara } from "@lingara/api";
 
@@ -39,6 +40,29 @@ export async function runHelper(client: Lingara, kind: "events" | "tail", step: 
     return { outcome: "completed", ...seen() };
   } catch (e) {
     return { outcome: "error", ...seen(), error: errorFields(e), raised: e };
+  }
+}
+
+/** The seven canvas operations, called on `client.canvases` (ADR 16.10.26ak). */
+export const CANVAS_OPS = new Set(["listCanvases", "createCanvas", "getCanvas", "renameCanvas", "saveCanvasDraft", "activateCanvas", "dryRunCanvasPlan"]);
+
+/** A canvas call's arguments before its options: the id as `{ canvasId }`, then the body; or the params; or the body. */
+export function canvasArgs(params: Record<string, unknown> | undefined, body: unknown): unknown[] {
+  if (params?.["canvas_id"] !== undefined) {
+    const ref = { canvasId: params["canvas_id"] };
+    return body === undefined ? [ref] : [ref, body];
+  }
+  return [params ?? body ?? {}];
+}
+
+/** A `page_canvases` step (ADR 16.10.26ak D7): the helper iterated to its end, its items as one list under `body`. */
+export async function runPageCanvases(client: Lingara, params: Record<string, unknown> | undefined, errorFields: ErrorFields): Promise<HelperRun> {
+  const items: unknown[] = [];
+  try {
+    for await (const item of client.canvases.pageCanvases(params ?? {})) items.push(item);
+    return { outcome: "completed", events: [], body: items };
+  } catch (e) {
+    return { outcome: "error", events: [], error: errorFields(e), raised: e };
   }
 }
 

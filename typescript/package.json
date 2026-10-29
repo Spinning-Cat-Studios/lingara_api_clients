@@ -1,6 +1,6 @@
 {
   "name": "@lingara/api",
-  "version": "0.2.0-alpha.4",
+  "version": "0.2.0-alpha.6",
   "description": "The official Lingara API library for Node, Deno and Bun. No runtime dependencies.",
   "license": "MIT",
   "repository": {

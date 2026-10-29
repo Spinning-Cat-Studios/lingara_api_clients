@@ -133,11 +133,11 @@ public final class Pipeline {
             .setDefaultPropertyInclusion(
                 JsonInclude.Value.construct(
                     JsonInclude.Include.NON_NULL, JsonInclude.Include.NON_NULL));
-    mapper
-        .configOverride(List.class)
-        .setInclude(
-            JsonInclude.Value.construct(
-                JsonInclude.Include.NON_EMPTY, JsonInclude.Include.NON_NULL));
+    JsonInclude.Value nonEmpty =
+        JsonInclude.Value.construct(JsonInclude.Include.NON_EMPTY, JsonInclude.Include.NON_NULL);
+    mapper.configOverride(List.class).setInclude(nonEmpty);
+    // The same for an optional map the caller never set: CanvasNode.params (ADR 16.10.26ak D6).
+    mapper.configOverride(Map.class).setInclude(nonEmpty);
     return mapper;
   }
 
@@ -219,9 +219,43 @@ public final class Pipeline {
    * @return the 2xx answer, its body unread
    */
   public HttpResponse<InputStream> send(Call call) {
+    // 0 is no status: every non-2xx is raised.
+    return send(call, 0);
+  }
+
+  /**
+   * An answer read whole, its status and headers beside its bytes.
+   *
+   * @param status the status: a 2xx, or the one status the call allowed
+   * @param headers the response headers
+   * @param body the body's bytes, empty when there were none
+   */
+  public record Raw(int status, java.net.http.HttpHeaders headers, byte[] body) {}
+
+  /**
+   * Sends {@code call} as {@link #send} does, except that {@code allowed} is returned rather than
+   * raised, and reads the whole body without decoding it (ADR 29.10.26c D6: {@code exportDialogue}
+   * reads its own {@code 304}). Every other call goes through {@link #send}, unchanged.
+   *
+   * @param call the request
+   * @param allowed the one non-2xx status the caller reads itself
+   * @return the status, headers and bytes, and the served version
+   */
+  public Answer<Raw> raw(Call call, int allowed) {
+    HttpResponse<InputStream> response = send(call, allowed);
+    Optional<String> served = observe(response);
+    try (InputStream in = response.body()) {
+      return new Answer<>(
+          new Raw(response.statusCode(), response.headers(), in.readAllBytes()), served);
+    } catch (IOException e) {
+      throw failedRead(e);
+    }
+  }
+
+  private HttpResponse<InputStream> send(Call call, int allowed) {
     HttpResponse<InputStream> response = authorised(call);
     int status = response.statusCode();
-    if (status >= 200 && status <= 299) {
+    if ((status >= 200 && status <= 299) || status == allowed) {
       return response;
     }
     byte[] body;

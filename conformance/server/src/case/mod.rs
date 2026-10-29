@@ -38,15 +38,7 @@ pub enum Behaviour {
     K6,
 }
 
-pub const BEHAVIOURS: [Behaviour; 7] = [
-    Behaviour::K1,
-    Behaviour::K2,
-    Behaviour::K3,
-    Behaviour::K4,
-    Behaviour::K5,
-    Behaviour::K5a,
-    Behaviour::K6,
-];
+pub const BEHAVIOURS: [Behaviour; 7] = [Behaviour::K1, Behaviour::K2, Behaviour::K3, Behaviour::K4, Behaviour::K5, Behaviour::K5a, Behaviour::K6];
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -120,6 +112,12 @@ pub struct Step {
     /// `client.tailEvents(…)`: `take` events, then the harness stops it
     /// (ADR 30.9.26aa D7, D9).
     pub tail: Option<TailStep>,
+    /// `client.canvases.pageCanvases(params)`, iterated to its end; the
+    /// items are `expect.body` as one list (ADR 16.10.26ak D7).
+    pub page_canvases: Option<PageStep>,
+    /// `client.dialogues.pageDialogues(params)`, the same shape over
+    /// `listDialogues` (ADR 29.10.26c D7).
+    pub page_dialogues: Option<PageStep>,
     pub expect: Option<Expect>,
     pub advance_clock_s: Option<u64>,
 }
@@ -151,6 +149,12 @@ pub struct TailStep {
     pub start: Option<String>,
     pub types: Option<Vec<String>>,
     pub take: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PageStep {
+    pub params: Option<Value>,
 }
 
 #[derive(Debug, Clone, Deserialize)]

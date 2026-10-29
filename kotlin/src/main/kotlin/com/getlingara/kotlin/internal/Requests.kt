@@ -48,6 +48,18 @@ internal class Requests(
         return ApiResponse(Unit, served)
     }
 
+    /**
+     * Sends [call] and reads its whole body undecoded, answering [allow] beside any 2xx rather than
+     * raising it (ADR 29.10.26c D6); the second value is the version it was served under.
+     */
+    suspend fun bytes(
+        call: Call,
+        allow: Int,
+    ): Pair<HttpResponse<ByteArray>, String?> {
+        val response = pipeline.send(call, HttpResponse.BodyHandlers.ofByteArray(), allow)
+        return response to deprecations.observe(response.headers(), response.request().uri())
+    }
+
     /** A `GET` of [path] decoded through [serializer]. */
     suspend fun <T> get(
         path: String,

@@ -158,6 +158,41 @@ val minted = client.createEmbedToken(EmbedTokenRequest(playerRef = "player-1001"
 
 The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk) build on these calls: server kits for higher-level minting and webhook helpers, and player kits for the engines.
 
+## Canvases
+
+A canvas is the builder's drawing of the objects your integration needs. Its seven operations live on one group, the `client.canvases` extension in `com.getlingara.kotlin.canvas`: `listCanvases`, `createCanvas`, `getCanvas`, `renameCanvas` (a `PATCH`), `saveCanvasDraft` (a `PUT`), `activateCanvas` and `dryRunCanvasPlan`, with scopes `canvas:read` and `canvas:write`. The group shares the client's token, retries, version pin and errors.
+
+```kotlin
+client.canvases.pageCanvases(CanvasFilters(status = "live")).collect { println(it.name) }
+```
+
+- `pageCanvases(filters)` is a cold `Flow` that follows `next_cursor` page by page, sending the same filters each time, and completes when a page says `has_more: false`. It never sleeps or polls. `listCanvases` is the call for one page and its `total`.
+- **A stale draft is an answer.** `saveCanvasDraft` with a `draftVersion` someone has since moved is `409 canvas_conflict`, thrown as an `ApiException` and never retried. It may follow your own save, if a retry met a save that had already landed. Re-read with `getCanvas`, compare its draft with yours, and decide; the library never merges or re-sends. A replayed `activateCanvas` at a `draftVersion` already promoted also answers `409 canvas_conflict` and writes nothing.
+- **Branch on `code`, not on the message.** An error's message is localised by the server: show it only as a fallback, and localise by `code`. `dryRunCanvasPlan` answers `200` whether or not `ok` is true; a `refused` verdict's `code` and English `error` are data, never thrown.
+- A node's `fields` and `params` are JSON trees and keep every key, so a definition read and saved back is unchanged.
+- A canvas is deleted through the platform's lifecycle routes, not this library.
+
+## Dialogues
+
+A stored dialogue is a `dialogue.v1` document your tools write and your game loads by id. Its seven operations live on one group, the `client.dialogues` extension in `com.getlingara.kotlin.dialogue`: `listDialogues`, `createDialogue`, `getDialogue`, `renameDialogue` (a `PATCH`), `saveDialogueDraft` (a `PUT`), `activateDialogue` and `exportDialogue`, with scopes `dialogues:read` and `dialogues:write`. The group shares the client's token, retries, version pin and errors.
+
+```kotlin
+val exported = client.dialogues.exportDialogue(dialogueId, ExportDialogueOptions(ifNoneMatch = cached?.etag)).body
+when (exported) {
+    is ExportedDialogue.Body -> cached = exported // store exported.irJson exactly as received
+    is ExportedDialogue.NotModified -> Unit // the copy you hold is current
+}
+```
+
+- `pageDialogues(filters)` is a cold `Flow` that follows `next_cursor` page by page, sending the same `name` and `limit` each time, and completes when a page says `has_more: false`. It never sleeps or polls. A page has no `total`.
+- **A stale draft is an answer.** `saveDialogueDraft` with a `draftVersion` someone has since moved is `409 dialogue_conflict`, thrown as an `ApiException` and never retried. It may follow your own save, if a retry met a save that had already landed. Re-read with `getDialogue`, take its `draft.draftVersion` (or `0` when `draft` is `null`, which opens a new draft), and decide; the library never merges or re-sends. A replayed `activateDialogue` answers `409 dialogue_conflict` too and writes nothing.
+- **Branch on `code`, not on the message.** An error's message is localised by the server: show it only as a fallback, and localise by `code`.
+- `dialogue_invalid` and `dialogue_graph_invalid` carry `path` (a JSON Pointer) and `rule` on the wire, but this release does not surface them on `ApiException`. A tool that needs them reads the `400`'s body itself.
+- A `Dialogue`'s `warnings[].code` is the generated, closed `DialogueWarningCode` enum, so a warning code a later API version adds fails to decode the `Dialogue` (as `TransportException` `malformed_response`) until you update the library.
+- **Cache an export by its `ETag`.** `exportDialogue` returns `ExportedDialogue.Body` with the revision, the `ETag` and `irJson`, the document as text that the library never parses: its bytes are canonical and the `ETag` is their SHA-256, so store them exactly as received. Send that `etag` back as `ifNoneMatch`, and an unchanged revision answers `ExportedDialogue.NotModified` instead of an error. A `304` still spends one unit of the rate budget. `revision = "draft"` exports the draft, and `layout = "omit"` drops every `x-` member, under its own `ETag`.
+- A dialogue's `definition` is a `JsonObject` and keeps every member, an editor's `x-layout` included.
+- A dialogue is deleted through the platform's lifecycle routes, not this library.
+
 ## Security
 
 The client secret and access tokens never appear in any `toString()`, exception message or log line. They render as `[REDACTED]`. `ClientSecret.exposeSecret()` and `AccessToken.exposeSecret()` are the only ways to read them. See [SECURITY.md](../SECURITY.md).

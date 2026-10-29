@@ -23,5 +23,11 @@ export { EventFeed } from "./events/feed.js";
 export type { EventsParams, ListEventsParams } from "./events/feed.js";
 export { EventTail } from "./events/tail.js";
 export type { SendEventOptions } from "./events/send.js";
+// Canvases (ADR 16.10.26ak): the group reached as `client.canvases`.
+export { Canvases } from "./canvas.js";
+export type { CanvasFilters, CanvasRef, ListCanvasesParams } from "./canvas.js";
+// Dialogues (ADR 29.10.26c): the group reached as `client.dialogues`, and the export's result.
+export { Dialogues } from "./dialogue.js";
+export type { DialogueFilters, DialogueRef, ExportDialogueParams, ExportedDialogue, ListDialoguesParams } from "./dialogue.js";
 // Embedding (ADR 1.10.26w): the token createEmbedToken mints.
 export { MintedToken } from "./embed.js";

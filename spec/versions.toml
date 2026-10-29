@@ -126,8 +126,23 @@ at = "2026-10-13T04:04:05Z"
 [[version]]
 id = "2026-10-simple-tarpon"
 minted_at = "2026-10-13T04:04:05Z"
-state = "development"
+state = "supported"
+spec_sha256 = "02612c806d03a90755763574c4ec93a93a995a459a26e62cb868225a02c524ae"
+asyncapi_sha256 = "5e395c8e06cba8555506fcb8297ab8fdafab2d3dc38ecee3752fdc23b01fa1c9"
 
 [[version.history]]
 state = "development"
 at = "2026-10-13T04:04:05Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-10-28T23:26:05Z"
+
+[[version]]
+id = "2026-10-expensive-sauger"
+minted_at = "2026-10-28T23:26:05Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-10-28T23:26:05Z"

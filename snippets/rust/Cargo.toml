@@ -8,4 +8,9 @@ description = "The Rust snippets the Lingara API reference shows, each a complet
 
 [dependencies]
 lingara = { path = "../../rust" }
+# A canvas definition's `fields` and a dry-run plan's ops are open JSON
+# objects (ADR 16.10.26ak D6), so their snippets build them with `json!`.
+serde_json = "1"
+# `page_canvases` is a `Stream`; `StreamExt::next` walks it.
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

@@ -282,10 +282,12 @@ module Lingara
     # the version observer, and returns what the block returns. A client with
     # no token source sends an operation that needs one without
     # Authorization; the server's 401 is the answer. +policy+ is the tail's
-    # single-attempt one for a tail open (K5a).
-    def pipeline(operation, url, body, on_start: nil, headers: {}, policy: @policy, &on_success)
+    # single-attempt one for a tail open (K5a). +allow+ is one more status
+    # yielded as a success: the export's 304 (ADR 29.10.26c D6), and nil for
+    # every other call.
+    def pipeline(operation, url, body, on_start: nil, headers: {}, policy: @policy, allow: nil, &on_success)
       send_all = lambda do |token|
-        policy.run { attempt(operation, url, body, [token, headers], on_start, &on_success) }
+        policy.run { attempt(operation, url, body, [token, headers], on_start, allow: allow, &on_success) }
       end
       result = if @token_source && operation[:needs_token]
         RetryPolicy.with_token_retry(@token_source, &send_all)
@@ -297,12 +299,13 @@ module Lingara
     end
 
     # +auth+ is the token and the call's own headers.
-    def attempt(operation, url, body, auth, on_start)
+    def attempt(operation, url, body, auth, on_start, allow: nil)
       token, extra = auth
       observe = ->(response) { @versions.observe(response, url) }
       result = @transport.request(operation[:method], url, headers(operation, body, token).merge(extra), body: body,
         read_timeout: operation[:stream] && @idle, secrets: token ? [token.expose_secret] : [], on_start: on_start) do |response, phase|
-        next Attempt.new(response: response, body: response.body.to_s) unless (200..299).cover?(response.code.to_i)
+        status = response.code.to_i
+        next Attempt.new(response: response, body: response.body.to_s) unless (200..299).cover?(status) || status == allow
         Attempt.new(value: yield(response, phase, observe), done: true)
       end
       # Phase#leave hands back the stream's value directly.

@@ -105,7 +105,7 @@ private class Harness(
             step["advance_clock_s"]?.let { rig.advance(it.jsonPrimitive.content.toLong()) }
             val expect = Compare.substitute(step["expect"] ?: continue, env.base).jsonObject
             (step["call"] as? JsonObject)?.let { mismatches += Observe.runStep(rig, it, expect) }
-            for (kind in listOf("events", "tail")) {
+            for (kind in listOf("events", "tail", "page_canvases", "page_dialogues")) {
                 (step[kind] as? JsonObject)?.let { mismatches += EventSteps.runStep(rig, kind, it, expect) }
             }
         }

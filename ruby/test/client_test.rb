@@ -22,15 +22,19 @@ class ClientTest < Minitest::Test
     server&.close
   end
 
-  # 29.9.26t AC28, 22.10.26t AC21: the client's operation methods and
-  # operations.rb's keys name the same eighteen operations under D3's
-  # snake_case rule, both ways. The feed and tail helpers (ADR 30.9.26aa D6,
-  # D7) are not operations.
+  # 29.9.26t AC28, 22.10.26t AC21, 16.10.26ak, 29.10.26c: the client's
+  # operation methods, with client.canvases' seven and client.dialogues'
+  # seven, and operations.rb's keys name the same thirty-two operations
+  # under D3's snake_case rule, both ways. The feed, tail and page helpers
+  # (ADR 30.9.26aa D6, D7; 16.10.26ak D5; 29.10.26c D5) are not operations.
   def test_operation_methods_match_generated_operations
     snake = ->(id) { id.gsub(/([a-z\d])([A-Z])/, '\1_\2').downcase }
-    methods = Lingara::Client.public_instance_methods(false) - %i[inspect to_s token_source pretty_print events tail_events]
+    methods = Lingara::Client.public_instance_methods(false) -
+      %i[inspect to_s token_source pretty_print events tail_events canvases dialogues]
+    methods += Lingara::Canvases.public_instance_methods(false) - %i[page_canvases]
+    methods += Lingara::Dialogues.public_instance_methods(false) - %i[page_dialogues]
     assert_equal Lingara::OPERATIONS.keys.map { |id| snake.call(id).to_sym }.sort, methods.sort
-    assert_equal 18, methods.size
+    assert_equal 32, methods.size
   end
 
   # 29.9.26t AC29: Client.new refuses version: "", client_id: without

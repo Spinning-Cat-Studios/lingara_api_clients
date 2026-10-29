@@ -4,8 +4,9 @@ import com.getlingara.client.EventStream;
 import com.getlingara.client.LingaraClient;
 // lingara:begin sendDialogueTurn
 import com.getlingara.client.model.DialogueEntry;
+import com.getlingara.client.model.DialogueNpc;
 import com.getlingara.client.model.DialogueTurnRequest;
-import com.getlingara.client.model.Npc;
+import com.getlingara.client.model.Pedagogy;
 import com.getlingara.client.model.SendDialogueTurnEvent;
 import com.getlingara.client.model.Speaker;
 import java.util.List;
@@ -21,10 +22,14 @@ public final class SendDialogueTurn {
     String line = "饺子多少钱？";
     DialogueTurnRequest turn =
         new DialogueTurnRequest()
-            .npc(new Npc().name("Auntie Lin").persona("a street-food vendor who likes to haggle"))
+            .npc(
+                new DialogueNpc()
+                    .name("Auntie Lin")
+                    .persona("a street-food vendor who likes to haggle"))
             .sourceLang("en")
             .targetLang("zh")
             .level(3)
+            .pedagogy(Pedagogy.SUBTLE) // NONE: she speaks at her own level
             .line(line)
             .history(history); // at most 12 entries, each at most 500 characters
     StringBuilder reply = new StringBuilder();

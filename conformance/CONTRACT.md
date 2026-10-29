@@ -18,7 +18,7 @@ source*, *call*, *stream*.
 
 These are properties of the Lingara API that the rules below depend on.
 
-- **Operations.** Eighteen. Fourteen need an access token: `generateVocabulary`
+- **Operations.** Thirty-two. Twenty-eight need an access token: `generateVocabulary`
   (scope `vocab:generate`), `createLessonPlan` (`lesson_plans:write`),
   `getLessonPlan` and `streamLessonPlan` (`lesson_plans:read`),
   `sendTutorMessage` (`tutor:converse`), `getUsage` (`usage:read`),
@@ -28,7 +28,17 @@ These are properties of the Lingara API that the rules below depend on.
   only), and `sendDialogueTurn` (`embed:play`) (ADR 1.10.26w);
   `linkEmbedPlayer` (`embed:play`, on the player's *delegated* token from
   the account's own consent, never the client's) and `unlinkEmbedPlayer`
-  (`embed:mint`) (ADR 22.10.26t).
+  (`embed:mint`) (ADR 22.10.26t); and the seven canvas operations (ADR
+  16.10.26ak), reached as `client.canvases` in every library: `listCanvases`,
+  `getCanvas` and `dryRunCanvasPlan` (`canvas:read`), `createCanvas`,
+  `renameCanvas`, `saveCanvasDraft` and `activateCanvas` (`canvas:write`).
+  There is no canvas delete: deletion is the platform's lifecycle routes.
+  And the seven dialogue operations (ADR 29.10.26c), reached as
+  `client.dialogues` in every library: `listDialogues`, `getDialogue` and
+  `exportDialogue` (`dialogues:read`; an embed token may call only
+  `exportDialogue`, and only for the active revision), `createDialogue`,
+  `renameDialogue`, `saveDialogueDraft` and `activateDialogue`
+  (`dialogues:write`). There is no dialogue delete and no dry-run.
   Four need none (`security: []`): `getOpenApiDocument`,
   `getAsyncApiDocument`, `listApiVersions` and `getApiVersion`.
 - **Events** (ADR 30.9.26aa). Every door carries one envelope, `{id, type,
@@ -62,8 +72,28 @@ These are properties of the Lingara API that the rules below depend on.
   `metered_billing_inactive`, 400 `api_version_unknown`, 410
   `api_version_discontinued`, and the embed mint's 403
   `embed_needs_metered`, 400 `embed_scope_not_grantable`, 400
-  `embed_origin_not_registered` and 409 `embed_player_limit_reached`. None
-  changes a library's behaviour: every `{code, error}` is `ApiError`.
+  `embed_origin_not_registered` and 409 `embed_player_limit_reached`, and the
+  canvas operations' ten (ADR 16.10.26ak): 400 `canvas_invalid`,
+  `canvas_schema_unsupported`, `canvas_too_large`, `canvas_objects_invalid`,
+  `canvas_plan_invalid`, `canvas_plan_too_large`, `canvas_filter_invalid` and
+  `canvas_cursor_invalid`, and 409 `canvas_limit_reached` and
+  `canvas_conflict`, and the dialogue operations' nine (ADR 29.10.26c): 400
+  `dialogue_invalid`, `dialogue_schema_unsupported`, `dialogue_too_large`,
+  `dialogue_graph_invalid` and `dialogue_cursor_invalid`, 409
+  `dialogue_limit_reached` and `dialogue_conflict`, and 404
+  `dialogue_not_active` and `dialogue_no_draft`. `dialogue_invalid` and
+  `dialogue_graph_invalid` also carry `path` and `rule` in the envelope,
+  which `ApiError` does not surface in this release. None changes a library's behaviour: every `{code, error}`
+  is `ApiError`, and no library enumerates the codes. `409 canvas_conflict`
+  (a stale `draft_version`) is "any other status" under K4, so never
+  retried; the caller re-reads and decides. `409 dialogue_conflict` is the
+  same: never retried. A `dryRunCanvasPlan` verdict's
+  `code` and English `error` are data in a `200` answer, never a refusal.
+- **Methods.** `GET`, `POST`, `PUT`, `PATCH` and `DELETE`. `PATCH` is
+  `renameCanvas`'s and `renameDialogue`'s; `PUT` is `linkEmbedPlayer`'s,
+  `saveCanvasDraft`'s and `saveDialogueDraft`'s. A
+  `PUT` or `PATCH` with a body sends it as JSON with `Content-Type:
+  application/json`, as a `POST` does.
 - **Path parameters** (ADR 1.10.26w D5). A path parameter is UTF-8 encoded,
   and every byte outside RFC 3986's unreserved set (`A–Z a–z 0–9 - . _ ~`)
   is written as `%XX` with upper-case hex. `/` is always encoded. The
@@ -446,6 +476,34 @@ Decided by ADR 30.9.26aa D3, D6 and D8.
   malformed_event}`.
 - **`sendEvent(event, {idempotencyKey?})`** posts `{type, data}` with K4's
   `Idempotency-Key` rule and returns the `202` body.
+- **The canvas pages** (ADR 16.10.26ak D5). `listCanvases` is the operation:
+  one page. The helper `pageCanvases(filters?)`, on `client.canvases` beside
+  it, takes `listCanvases`' query less the cursor (`name`, `status`,
+  `recipes`, `kinds`, `scopes`, and `limit` as the page size), resends it
+  unchanged on every page, follows `next_cursor`, and yields each page item
+  until a page has `has_more: false`. It never sleeps or polls and stops on
+  the first error, which it raises. A page with `has_more: true` and a `null`
+  `next_cursor` is `TransportError{kind: malformed_response}`, raised before
+  that page's items are yielded. Unlike the feed it exposes no resumable
+  `cursor`: a canvas list is a bounded owner-set, not a 30-day feed.
+- **The dialogue pages** (ADR 29.10.26c D5). `pageDialogues(filters?)`, on
+  `client.dialogues` beside `listDialogues`, is the canvas pages' rule over
+  `listDialogues`' query less the cursor (`name`, and `limit` as the page
+  size). The page has no `total`.
+- **The dialogue export** (ADR 29.10.26c D6). `exportDialogue(dialogue_id,
+  {revision?, layout?, ifNoneMatch?})` is a `GET` whose query carries only
+  the options given, `revision` then `layout`, and whose `If-None-Match` is
+  sent only when given, unchanged. It answers one of two arms, never a
+  decoded model: `Body {revision, etag, irJson}` on a `200`, the body as the
+  text received and never parsed (the `ETag` is the SHA-256 of those exact
+  bytes); or `NotModified {revision, etag}` on a `304`, which is a result,
+  never an error. `revision` is `Lingara-Dialogue-Revision`, `etag` is
+  `ETag`; both are required on both arms, and a missing one, or a revision
+  that is not a non-negative integer, is `TransportError{kind:
+  malformed_response}`. K4 applies, since the export only reads; every
+  other status is a refusal as usual. A harness reports the result under
+  `expect.body` as `{revision, etag, ir_json}` for `Body`, or
+  `{not_modified: true, revision, etag}` for `NotModified`.
 
 ## Cancellation
 

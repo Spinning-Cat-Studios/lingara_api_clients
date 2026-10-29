@@ -4,9 +4,12 @@
 //! only (`rig.rs`), a `parallel: n` step is `n` futures under `join_all`, and
 //! `cancel_after_events: n` drops the stream after its n-th event
 //! (`observe.rs`). The `events` and `tail` steps drive the event helpers
-//! (`events.rs`, ADR 30.9.26aa D9).
+//! (`events.rs`, ADR 30.9.26aa D9), as do `page_canvases` (ADR
+//! 16.10.26ak D7) and `page_dialogues` (ADR 29.10.26c D7).
 
+mod canvas;
 mod compare;
+mod dialogue;
 mod events;
 mod observe;
 mod rig;
@@ -124,6 +127,10 @@ async fn steps(env: &Env, case: &Value) -> Result<Vec<String>, String> {
             mismatches.extend(run_helper(&rig, "events", events::events_step(&rig.client, block), &expect).await?);
         } else if let Some(block) = step.get("tail") {
             mismatches.extend(run_helper(&rig, "tail", events::tail_step(&rig.client, block), &expect).await?);
+        } else if let Some(block) = step.get("page_canvases") {
+            mismatches.extend(run_helper(&rig, "page_canvases", events::page_canvases_step(&rig.client, block), &expect).await?);
+        } else if let Some(block) = step.get("page_dialogues") {
+            mismatches.extend(run_helper(&rig, "page_dialogues", events::page_dialogues_step(&rig.client, block), &expect).await?);
         }
     }
     Ok(mismatches)
@@ -205,6 +212,12 @@ async fn invoke(rig: &Rig, call: &Value) -> Result<Observed, String> {
         "linkEmbedPlayer" => json_result(c.link_embed_player(&param(call, "player_ref")?).await),
         "unlinkEmbedPlayer" => empty_result(c.unlink_embed_player(&param(call, "player_ref")?).await),
         "sendDialogueTurn" => stream(c.send_dialogue_turn(&input(call, "body")?).await, cancel).await,
+        op @ ("listCanvases" | "createCanvas" | "getCanvas" | "renameCanvas" | "saveCanvasDraft" | "activateCanvas" | "dryRunCanvasPlan") => {
+            canvas::call(c, op, call).await?
+        }
+        op @ ("listDialogues" | "createDialogue" | "getDialogue" | "renameDialogue" | "saveDialogueDraft" | "activateDialogue" | "exportDialogue") => {
+            dialogue::call(c, op, call).await?
+        }
         other => return Err(format!("no operation {other}")),
     })
 }

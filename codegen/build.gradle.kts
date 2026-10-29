@@ -69,6 +69,11 @@ val generateJavaModels = tasks.register<GenerateTask>("generateJavaModels") {
         ),
     )
     importMappings.set(mapOf("BigInteger" to "java.math.BigInteger"))
+    // An anyOf of bare primitives (a canvas node's param, a dialogue fact)
+    // would be generated over openapi-generator's AbstractOpenApiSchema and
+    // java.util.logging, neither of which this module carries: the value is
+    // the JSON scalar itself, a Boolean, Number or String (ADR 16.10.26ak D6).
+    schemaMappings.set(mapOf("CanvasParam" to "java.lang.Object", "FactValue" to "java.lang.Object"))
     // No toUrlQueryString helpers: they call the generator's ApiClient.
     additionalProperties.set(mapOf("supportUrlQuery" to false))
 }
@@ -167,6 +172,18 @@ val generateKotlinModels = tasks.register<GenerateTask>("generateKotlinModels") 
         ),
     )
     importMappings.set(mapOf("JsonElement" to "kotlinx.serialization.json.JsonElement"))
+    // An anyOf of bare primitives (a canvas node's param, a dialogue fact)
+    // would be an empty class no value decodes into: it is the JSON tree
+    // instead (ADR 16.10.26ak D6).
+    schemaMappings.set(
+        mapOf(
+            "CanvasParam" to "kotlinx.serialization.json.JsonElement",
+            "FactValue" to "kotlinx.serialization.json.JsonElement",
+            // A bare `type: object` (a dialogue.v1 document) would be kotlin.Any,
+            // which has no serializer.
+            "DialogueDefinition" to "kotlinx.serialization.json.JsonObject",
+        ),
+    )
 }
 
 val generateKotlinStreams = tasks.register<JavaExec>("generateKotlinStreams") {
@@ -296,7 +313,11 @@ val generatePhpModels = tasks.register<GenerateTask>("generatePhpModels") {
     )
     // A re-serialised \DateTime need not match the server's bytes, which the
     // conformance harness compares, so timestamps and ids stay strings.
-    typeMappings.set(mapOf("DateTime" to "string", "UUID" to "string"))
+    // An anyOf of bare primitives (a canvas node's param, a dialogue fact)
+    // would be an empty model no value decodes into: it is the JSON scalar
+    // itself (ADR 16.10.26ak D6).
+    typeMappings.set(mapOf("DateTime" to "string", "UUID" to "string", "CanvasParam" to "mixed", "FactValue" to "mixed"))
+    schemaMappings.set(mapOf("CanvasParam" to "mixed", "FactValue" to "mixed"))
 }
 
 tasks.register<Sync>("generatePhp") {

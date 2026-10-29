@@ -86,10 +86,15 @@ type request struct {
 	// single sends one attempt and hands a 429 or 503 back as its error:
 	// a tail open bypasses K4's attempt loop (CONTRACT.md K5a).
 	single bool
+	// allow is one non-2xx status this call reads itself rather than raise:
+	// exportDialogue's 304 (ADR 29.10.26c D6). Zero, every other call's,
+	// allows none.
+	allow int
 }
 
 // send runs the pipeline: auth and the one 401 retry, the Retry-After loop,
-// and the error mapping. It returns a 2xx response. reqCtx carries the
+// and the error mapping. It returns a 2xx response, or the request's allowed
+// status (r.allow). reqCtx carries the
 // request; ctx is the caller's, which decides whether a failure is theirs.
 // A client with no token source sends an operation that needs one without
 // Authorization, and the server's 401 is the answer.
@@ -111,10 +116,16 @@ func (c *Client) send(ctx, reqCtx context.Context, r request) (*http.Response, e
 	if err != nil {
 		return nil, err
 	}
-	if res.StatusCode >= 200 && res.StatusCode <= 299 {
+	if r.accepts(res.StatusCode) {
 		return res, nil
 	}
 	return nil, readRefusal(endpointV1, res, c.policy.clock())
+}
+
+// accepts is whether send hands a status back as the answer: any 2xx, and
+// the one status the request allows.
+func (r request) accepts(status int) bool {
+	return (status >= 200 && status <= 299) || (r.allow != 0 && status == r.allow)
 }
 
 func (c *Client) sendOnce(ctx, reqCtx context.Context, r request, tok *Token) (*http.Response, error) {

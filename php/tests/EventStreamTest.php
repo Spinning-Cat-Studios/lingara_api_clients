@@ -10,9 +10,9 @@ use Lingara\Exception\TransportException;
 use Lingara\Exception\TransportKind;
 use Lingara\HttpStack;
 use Lingara\Internal\Operations;
+use Lingara\Model\DialogueNpc;
 use Lingara\Model\DialogueTurnRequest;
 use Lingara\Model\LessonPlanCreateRequest;
-use Lingara\Model\Npc;
 use Lingara\Model\TutorTurnRequest;
 use Lingara\Stream\CreateLessonPlanEvent;
 use Lingara\Stream\GenerateVocabularyEvent;
@@ -230,7 +230,7 @@ final class EventStreamTest extends StacksTestCase
             'generateVocabulary' => $client->generateVocabulary(self::vocab()),
             'createLessonPlan' => $client->createLessonPlan(new LessonPlanCreateRequest(['context' => 'a night market', 'source_lang' => 'en', 'target_lang' => 'zh', 'level' => 2])),
             'streamLessonPlan' => $client->streamLessonPlan(self::PLAN),
-            'sendDialogueTurn' => $client->sendDialogueTurn(new DialogueTurnRequest(['npc' => new Npc(['name' => 'Auntie Lin']),
+            'sendDialogueTurn' => $client->sendDialogueTurn(new DialogueTurnRequest(['npc' => new DialogueNpc(['name' => 'Auntie Lin']),
                 'source_lang' => 'en', 'target_lang' => 'zh', 'level' => 2, 'line' => 'hello'])),
             default => $client->sendTutorMessage(new TutorTurnRequest(['message' => 'hello', 'source_lang' => 'en', 'target_lang' => 'zh'])),
         };

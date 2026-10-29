@@ -58,6 +58,10 @@ steps:                           # run in order
     expect: {…}
   - tail: { cursor: <str>, start: <str>, types: [<type>…], take: <n> }   # client.tailEvents(…): n events, then stop
     expect: {…}
+  - page_canvases: { params: {…} }   # client.canvases.pageCanvases(params), iterated to its end
+    expect: {…}                      # body: the yielded items, as one list
+  - page_dialogues: { params: {…} }  # client.dialogues.pageDialogues(params), the same shape
+    expect: {…}
   - advance_clock_s: <int>
 exchanges:
   order: sequence | any          # default sequence
@@ -65,7 +69,7 @@ exchanges:
     - times: <n>                 # default 1
       group: <n>                 # consecutive items sharing a group match in any order
       request:
-        method: GET | POST | PUT | DELETE
+        method: GET | POST | PUT | PATCH | DELETE
         path: <path>             # exact; the query goes in `query` (absent = no query)
         query: {…}
         headers: { <lowercase name>: { equals | prefix | contains | pattern: <str> } | { absent: true } | { basic: [id, secret] } | { same_as: { request: <n>, header: <name> } } }
@@ -95,6 +99,24 @@ from `client.tailEvents(…)` and then the harness stops it, which is the
 outcome `completed` (the tail never ends on its own). Each event-step's
 `params` keys are the operation's parameter names (`cursor`, `start`,
 `types`, `limit`); `types` is a list, sent comma-separated.
+
+`page_canvases` (ADR 16.10.26ak D7) drives the canvas page helper the same
+way: the harness calls `client.canvases.pageCanvases(params)` (each
+language's spelling), iterates it to its end, and reports the items as one
+list, in wire form, under `expect.body`, or the error under `expect.error`.
+Its `params` are `listCanvases`' less the cursor (`limit`, `name`, `status`,
+`recipes`, `kinds`, `scopes`); the three lists are sent comma-separated. It
+is not an operationId, so coverage rule 1 does not count it. A canvas `call`
+names its canvas as `params.canvas_id`.
+
+`page_dialogues` (ADR 29.10.26c D7) is the same step over
+`client.dialogues.pageDialogues(params)`, its `params` `listDialogues`' less
+the cursor (`name`, `limit`). A dialogue `call` names its dialogue as
+`params.dialogue_id`; an `exportDialogue` call's `params` also carry
+`revision`, `layout` and `if_none_match`. The harness reports an export
+under `expect.body` as `{revision, etag, ir_json}` for a `200`'s `Body`, or
+`{not_modified: true, revision, etag}` for a `304`'s `NotModified`; a case
+scripts the export's answer with `status`, `headers` and `text`.
 
 `then: reset` waits 100 ms after the last chunk before the TCP reset, so a
 client that reads promptly has the bytes before it: some kernels discard a

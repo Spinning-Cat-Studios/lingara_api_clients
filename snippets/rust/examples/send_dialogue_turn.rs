@@ -10,19 +10,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // lingara:begin sendDialogueTurn
     use std::num::NonZeroU8;
 
-    use lingara::models::{DialogueEntry, DialogueTurnRequest, Npc, SendDialogueTurnEvent, Speaker};
+    use lingara::models::{DialogueEntry, DialogueNpc, DialogueTurnRequest, Pedagogy, SendDialogueTurnEvent, Speaker};
 
     // One turn: at most 12 history entries, each and the line at most 500
     // characters. A turn is never retried, since each attempt spends NPC cells.
     let line = "饺子多少钱？";
     let request = DialogueTurnRequest {
-        npc: Npc { name: "Auntie Lin".parse()?, persona: Some("a street-food vendor who likes to haggle".parse()?) },
+        npc: DialogueNpc {
+            name: "Auntie Lin".parse()?,
+            persona: Some("a street-food vendor who likes to haggle".parse()?),
+            languages: None,
+        },
         source_lang: "en".into(),
         target_lang: "zh".into(),
         level: NonZeroU8::new(3).ok_or("level")?,
         line: line.parse()?,
         history: history.clone(),
         scene: None,
+        pedagogy: Pedagogy::Subtle,
+        checkpoint: None,
+        edges: Vec::new(),
+        facts: Default::default(),
     };
     let mut turn = client.send_dialogue_turn(&request).await?;
     let mut reply = String::new();

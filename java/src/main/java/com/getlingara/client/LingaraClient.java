@@ -3,6 +3,8 @@ package com.getlingara.client;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.getlingara.client.canvas.Canvases;
+import com.getlingara.client.dialogue.Dialogues;
 import com.getlingara.client.events.Event;
 import com.getlingara.client.events.EventFeed;
 import com.getlingara.client.events.EventTail;
@@ -45,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -314,6 +317,56 @@ public final class LingaraClient {
     return stream(route, call, Streams::decodeSendDialogueTurn);
   }
 
+  // ── Canvases (ADR 16.10.26ak) ─────────────────────────────────────────────────────────────
+
+  /**
+   * The canvas operations (scopes {@code canvas:read}, {@code canvas:write}), over this client's
+   * request path: its token, retries, version pin and errors.
+   *
+   * @return the group
+   */
+  public Canvases canvases() {
+    return new Canvases(
+        new Canvases.Requests() {
+          @Override
+          public <T> ApiResponse<T> send(String method, String path, Object body, Class<T> type) {
+            return LingaraClient.this.send(method, path, body, type);
+          }
+        });
+  }
+
+  // ── Dialogues (ADR 29.10.26c) ─────────────────────────────────────────────────────────────
+
+  /**
+   * The dialogue operations (scopes {@code dialogues:read}, {@code dialogues:write}), over this
+   * client's request path: its token, retries, version pin and errors.
+   *
+   * @return the group
+   */
+  public Dialogues dialogues() {
+    return new Dialogues(
+        new Dialogues.Requests() {
+          @Override
+          public <T> ApiResponse<T> send(String method, String path, Object body, Class<T> type) {
+            return LingaraClient.this.send(method, path, body, type);
+          }
+
+          @Override
+          public <T> ApiResponse<T> read(
+              String path,
+              Map<String, String> headers,
+              int allowed,
+              Function<Dialogues.Exchange, T> decode) {
+            Call call = new Call("GET", path, null, "application/json", true, headers, false);
+            Pipeline.Answer<Pipeline.Raw> answer = pipeline.raw(call, allowed);
+            Pipeline.Raw raw = answer.body();
+            return new ApiResponse<>(
+                decode.apply(new Dialogues.Exchange(raw.status(), raw.headers(), raw.body())),
+                answer.served());
+          }
+        });
+  }
+
   // ── Events (ADR 30.9.26aa) ────────────────────────────────────────────────────────────────
 
   /**
@@ -436,6 +489,12 @@ public final class LingaraClient {
 
   private <T> ApiResponse<T> json(String path, boolean needsToken, Class<T> type) {
     return json(new Call("GET", path, null, "application/json", needsToken), type);
+  }
+
+  /** A group's JSON request under the client's token, the body encoded when there is one. */
+  private <T> ApiResponse<T> send(String method, String path, Object body, Class<T> type) {
+    byte[] payload = body == null ? null : pipeline.bytes(body);
+    return json(new Call(method, path, payload, "application/json", true), type);
   }
 
   private <T> ApiResponse<T> json(Call call, Class<T> type) {

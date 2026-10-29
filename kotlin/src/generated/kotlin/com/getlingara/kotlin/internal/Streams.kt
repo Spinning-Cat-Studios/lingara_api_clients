@@ -115,9 +115,9 @@ internal object Streams {
             "/v1/embed/dialogue/turns",
             com.getlingara.kotlin.model.DialogueTurnRequest::class,
             listOf(),
-            listOf("delta", "notice", "done", "error"),
+            listOf("delta", "notice", "transition", "done", "error"),
             mapOf("done" to Ending.QUIET, "error" to Ending.RAISE),
-            mapOf("delta" to com.getlingara.kotlin.model.TurnDelta.serializer(), "notice" to com.getlingara.kotlin.model.Notice.serializer(), "done" to kotlinx.serialization.json.JsonElement.serializer(), "error" to com.getlingara.kotlin.model.StreamError.serializer()),
+            mapOf("delta" to com.getlingara.kotlin.model.TurnDelta.serializer(), "notice" to com.getlingara.kotlin.model.Notice.serializer(), "transition" to com.getlingara.kotlin.model.DialogueTransition.serializer(), "done" to kotlinx.serialization.json.JsonElement.serializer(), "error" to com.getlingara.kotlin.model.StreamError.serializer()),
             ::decodeSendDialogueTurn,
         )
 
@@ -196,6 +196,7 @@ internal object Streams {
         when (event) {
             "delta" -> com.getlingara.kotlin.model.SendDialogueTurnEvent.Delta(json.decodeFromJsonElement(com.getlingara.kotlin.model.TurnDelta.serializer(), data))
             "notice" -> com.getlingara.kotlin.model.SendDialogueTurnEvent.Notice(json.decodeFromJsonElement(com.getlingara.kotlin.model.Notice.serializer(), data))
+            "transition" -> com.getlingara.kotlin.model.SendDialogueTurnEvent.Transition(json.decodeFromJsonElement(com.getlingara.kotlin.model.DialogueTransition.serializer(), data))
             else -> null
         }
 }

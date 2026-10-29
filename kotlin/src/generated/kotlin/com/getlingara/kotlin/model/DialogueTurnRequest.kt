@@ -16,7 +16,10 @@
 package com.getlingara.kotlin.model
 
 import com.getlingara.kotlin.model.DialogueEntry
-import com.getlingara.kotlin.model.Npc
+import com.getlingara.kotlin.model.DialogueNpc
+import com.getlingara.kotlin.model.GraphCheckpoint
+import com.getlingara.kotlin.model.GraphEdge
+import com.getlingara.kotlin.model.Pedagogy
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -30,15 +33,19 @@ import kotlinx.serialization.Contextual
  * @param targetLang 
  * @param level 
  * @param line 
+ * @param pedagogy `subtle` (the default) keeps the character's `target_lang` at or below the learner's `level`. `none` lets the character speak at its own level, as a native speaker when it has no `languages`, and ignores `level`.
  * @param scene 
  * @param history The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.
+ * @param checkpoint Where the story stands: a goal the character steers toward, and the facts it may reveal. Needs `enable_npc_dialogue_graphs`.
+ * @param edges The ways out of this checkpoint whose game conditions already hold, each with a plain-language condition. After the reply, at most one is chosen and sent as a `transition` event before `done`. Edges your game decides on its own are never sent.
+ * @param facts 
  */
 @Serializable
 
 public data class DialogueTurnRequest (
 
     @SerialName(value = "npc")
-    val npc: Npc,
+    val npc: DialogueNpc,
 
     @SerialName(value = "source_lang")
     val sourceLang: kotlin.String,
@@ -52,12 +59,27 @@ public data class DialogueTurnRequest (
     @SerialName(value = "line")
     val line: kotlin.String,
 
+    /* `subtle` (the default) keeps the character's `target_lang` at or below the learner's `level`. `none` lets the character speak at its own level, as a native speaker when it has no `languages`, and ignores `level`. */
+    @SerialName(value = "pedagogy")
+    val pedagogy: Pedagogy? = null,
+
     @SerialName(value = "scene")
     val scene: kotlin.String? = null,
 
     /* The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters. */
     @SerialName(value = "history")
-    val history: kotlin.collections.List<DialogueEntry>? = arrayListOf()
+    val history: kotlin.collections.List<DialogueEntry>? = arrayListOf(),
+
+    /* Where the story stands: a goal the character steers toward, and the facts it may reveal. Needs `enable_npc_dialogue_graphs`. */
+    @SerialName(value = "checkpoint")
+    val checkpoint: GraphCheckpoint? = null,
+
+    /* The ways out of this checkpoint whose game conditions already hold, each with a plain-language condition. After the reply, at most one is chosen and sent as a `transition` event before `done`. Edges your game decides on its own are never sent. */
+    @SerialName(value = "edges")
+    val edges: kotlin.collections.List<GraphEdge>? = null,
+
+    @SerialName(value = "facts")
+    val facts: kotlin.collections.Map<kotlin.String, kotlinx.serialization.json.JsonElement>? = null
 
 ) {
 

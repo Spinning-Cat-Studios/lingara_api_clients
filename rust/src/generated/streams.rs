@@ -81,6 +81,8 @@ pub enum SendDialogueTurnEvent {
     Delta(super::models::TurnDelta),
     #[serde(rename = "notice")]
     Notice(super::models::Notice),
+    #[serde(rename = "transition")]
+    Transition(super::models::DialogueTransition),
     #[serde(rename = "done")]
     Done(super::models::Done),
     #[serde(rename = "error")]
@@ -152,7 +154,7 @@ pub(crate) const SEND_DIALOGUE_TURN: StreamRoute = StreamRoute {
     path: "/v1/embed/dialogue/turns",
     request_body: Some("DialogueTurnRequest"),
     path_params: &[],
-    events: &["delta", "notice", "done", "error"],
+    events: &["delta", "notice", "transition", "done", "error"],
     ends: &[("done", Outcome::End), ("error", Outcome::Raise)],
     resumable: false,
 };

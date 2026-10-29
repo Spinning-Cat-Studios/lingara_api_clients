@@ -34,10 +34,11 @@ use Lingara\HttpStack;
 use Lingara\Internal\Operations;
 use Lingara\MintedToken;
 use Lingara\Model\DialogueEntry;
+use Lingara\Model\DialogueNpc;
 use Lingara\Model\DialogueTurnRequest;
 use Lingara\Model\EmbedTokenRequest;
 use Lingara\Model\LessonPlanCreateRequest;
-use Lingara\Model\Npc;
+use Lingara\Model\Pedagogy;
 use Lingara\Model\Speaker;
 use Lingara\Model\TutorTurnRequest;
 use Lingara\Model\VocabRequest;
@@ -156,7 +157,7 @@ function invoke(Client $client, int $step): array
             'getUsage' => completed($client->getUsage()),
             'getOpenApiDocument' => completed($client->getOpenApiDocument()),
             'listApiVersions' => completed($client->listApiVersions()),
-            default => invokeEvents($client, $call) ?? ['outcome' => "harness: no operation {$operation}"],
+            default => invokeEvents($client, $call) ?? invokeCanvas($client, $call) ?? invokeDialogue($client, $call) ?? ['outcome' => "harness: no operation {$operation}"],
         };
     } catch (LingaraException $e) {
         return failed($e, []);
@@ -164,14 +165,17 @@ function invoke(Client $client, int $step): array
 }
 
 /**
- * A case body as DialogueTurnRequest, its npc and history entries built as
- * their models: the array constructor would leave them arrays, and the
+ * A case body as DialogueTurnRequest, its npc, pedagogy and history entries
+ * built as their models: the array constructor would leave them arrays, and the
  * serializer's deserialize() would set every absent key to null, which
  * sanitizeForSerialization then sends.
  */
 function dialogueTurn(array $body): DialogueTurnRequest
 {
-    $body['npc'] = new Npc($body['npc']);
+    $body['npc'] = new DialogueNpc($body['npc']);
+    if (isset($body['pedagogy'])) {
+        $body['pedagogy'] = Pedagogy::from($body['pedagogy']);
+    }
     if (isset($body['history'])) {
         $body['history'] = array_map(
             static fn (array $entry): DialogueEntry => new DialogueEntry(['speaker' => Speaker::from($entry['speaker']), 'text' => $entry['text']]),
@@ -403,16 +407,26 @@ function runStep(Rig $rig, Client $client, int $step, string $base): array
     return $out;
 }
 
-/** @return list<string> an `events` or `tail` step's mismatches */
+/** @return list<string> an `events`, `tail`, `page_canvases` or `page_dialogues` step's mismatches */
 function runHelperStep(Rig $rig, Client $client, int $step, string $base): array
 {
     $rig->sleeps = [];
     $rig->hooks = [];
-    $seen = runHelper($client, Current::$case['steps'][$step]);
+    $block = Current::$case['steps'][$step];
+    $seen = match (true) {
+        isset($block['page_canvases']) => runPageCanvases($client, $block),
+        isset($block['page_dialogues']) => runPageDialogues($client, $block),
+        default => runHelper($client, $block),
+    };
     $seen['sleeps'] = array_map(static fn (float $s): int => (int) round($s), $rig->sleeps);
     $seen['hooks'] = $rig->hooks;
     $expect = substitute(Current::$case['steps'][$step]['expect'], $base);
-    $label = isset(Current::$case['steps'][$step]['tail']) ? 'tail' : 'events';
+    $label = match (true) {
+        isset($block['page_canvases']) => 'page_canvases',
+        isset($block['page_dialogues']) => 'page_dialogues',
+        isset($block['tail']) => 'tail',
+        default => 'events',
+    };
     return array_map(static fn (string $m): string => "{$label}: {$m}", [...compare($expect, $seen), ...compareHelper($expect, $seen)]);
 }
 
@@ -433,7 +447,7 @@ function steps(array $env, HttpStack $http): array
             if (isset($step['call'], $step['expect'])) {
                 array_push($out, ...runStep($rig, $client, $i, $env['base']));
             }
-            if ((isset($step['events']) || isset($step['tail'])) && isset($step['expect'])) {
+            if ((isset($step['events']) || isset($step['tail']) || isset($step['page_canvases']) || isset($step['page_dialogues'])) && isset($step['expect'])) {
                 array_push($out, ...runHelperStep($rig, $client, $i, $env['base']));
             }
         }

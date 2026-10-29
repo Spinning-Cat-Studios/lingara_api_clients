@@ -44,12 +44,6 @@ fn the_30_dialect_rewrites_nullables_and_refuses_the_rest() {
     assert_eq!(props["e"], json!({ "type": "string", "enum": ["started"] }));
     assert_eq!(out["x-lingara-streams"], json!([]));
 
-    let mut doc = view31();
-    doc["components"]["schemas"]["A"]["properties"]["s"] = json!({ "$ref": "#/components/schemas/B", "description": "x" });
-    assert_eq!(
-        refusal(&doc),
-        "/components/schemas/A/properties/s/$ref: 3.0 ignores a $ref's sibling keywords"
-    );
 
     for key in SCHEMA_KEYS_31 {
         let mut doc = view31();
@@ -68,6 +62,23 @@ fn the_30_dialect_rewrites_nullables_and_refuses_the_rest() {
         doc.pointer_mut(ptr).unwrap()[key] = json!({});
         assert_eq!(refusal(&doc), format!("{ptr}/{key}: a 3.1-only field"));
     }
+}
+
+// A `$ref` with siblings (28.10.26d's `pedagogy`) is said through `allOf`;
+// one already beside an `allOf` has no single spelling and is refused.
+#[test]
+fn a_ref_with_siblings_moves_into_all_of() {
+    let mut doc = view31();
+    let ref_b = json!({ "$ref": "#/components/schemas/B", "description": "x", "default": "subtle" });
+    doc["components"]["schemas"]["A"]["properties"]["s"] = ref_b;
+    let out = dialect30(&doc).unwrap();
+    assert_eq!(
+        out["components"]["schemas"]["A"]["properties"]["s"],
+        json!({ "description": "x", "default": "subtle", "allOf": [{ "$ref": "#/components/schemas/B" }] })
+    );
+
+    doc["components"]["schemas"]["A"]["properties"]["s"]["allOf"] = json!([{ "type": "object" }]);
+    assert_eq!(refusal(&doc), "/components/schemas/A/properties/s/allOf: a $ref beside an allOf");
 }
 
 #[test]

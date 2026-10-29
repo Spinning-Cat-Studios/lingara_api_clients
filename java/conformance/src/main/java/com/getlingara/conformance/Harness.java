@@ -28,7 +28,23 @@ import java.util.stream.Collectors;
  * event ({@link Observe}).
  */
 public final class Harness {
-  static final ObjectMapper JSON = new ObjectMapper();
+  static final ObjectMapper JSON = jsonMapper();
+
+  /**
+   * Renders a decoded model in wire form: an optional map the server never sent (a canvas node's
+   * {@code params}, defaulted empty by the model) is left out, as the library leaves it out of a
+   * request (ADR 16.10.26ak D6).
+   */
+  private static ObjectMapper jsonMapper() {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper
+        .configOverride(java.util.Map.class)
+        .setInclude(
+            com.fasterxml.jackson.annotation.JsonInclude.Value.construct(
+                com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY,
+                com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS));
+    return mapper;
+  }
 
   private final HttpClient control = HttpClient.newHttpClient();
   private final Env env;
@@ -117,7 +133,7 @@ public final class Harness {
       if (step.has("call") && step.has("expect")) {
         mismatches.addAll(Observe.runStep(rig, step.path("call"), expect));
       }
-      for (String kind : List.of("events", "tail")) {
+      for (String kind : List.of("events", "tail", "page_canvases", "page_dialogues")) {
         if (step.has(kind) && step.has("expect")) {
           mismatches.addAll(EventSteps.runStep(rig, kind, step.path(kind), expect));
         }

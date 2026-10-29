@@ -6,6 +6,42 @@ module Lingara
   # is its terminal table: :yield (yielded, then the stream ends), :quiet
   # (a Done payload, never yielded) and :raise (the error event).
   OPERATIONS = {
+    "activateCanvas" => {
+      method: "POST",
+      path: "/v1/canvases/{canvas_id}/activate",
+      path_params: ["canvas_id"].freeze,
+      needs_token: true,
+      request_body: "ActivateCanvasRequest",
+      response: "Canvas",
+      stream: nil
+    }.freeze,
+    "activateDialogue" => {
+      method: "POST",
+      path: "/v1/dialogues/{dialogue_id}/activate",
+      path_params: ["dialogue_id"].freeze,
+      needs_token: true,
+      request_body: "ActivateDialogueRequest",
+      response: "Dialogue",
+      stream: nil
+    }.freeze,
+    "createCanvas" => {
+      method: "POST",
+      path: "/v1/canvases",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: "CreateCanvasRequest",
+      response: "Canvas",
+      stream: nil
+    }.freeze,
+    "createDialogue" => {
+      method: "POST",
+      path: "/v1/dialogues",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: "CreateDialogueRequest",
+      response: "Dialogue",
+      stream: nil
+    }.freeze,
     "createEmbedToken" => {
       method: "POST",
       path: "/v1/embed/tokens",
@@ -33,6 +69,24 @@ module Lingara
       response: nil,
       stream: nil
     }.freeze,
+    "dryRunCanvasPlan" => {
+      method: "POST",
+      path: "/v1/canvases/dry-run",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: "CanvasPlan",
+      response: "CanvasDryRun",
+      stream: nil
+    }.freeze,
+    "exportDialogue" => {
+      method: "GET",
+      path: "/v1/dialogues/{dialogue_id}/export",
+      path_params: ["dialogue_id"].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "DialogueDefinition",
+      stream: nil
+    }.freeze,
     "generateVocabulary" => {
       method: "POST",
       path: "/v1/vocab/stream",
@@ -58,6 +112,24 @@ module Lingara
       needs_token: false,
       request_body: nil,
       response: nil,
+      stream: nil
+    }.freeze,
+    "getCanvas" => {
+      method: "GET",
+      path: "/v1/canvases/{canvas_id}",
+      path_params: ["canvas_id"].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "Canvas",
+      stream: nil
+    }.freeze,
+    "getDialogue" => {
+      method: "GET",
+      path: "/v1/dialogues/{dialogue_id}",
+      path_params: ["dialogue_id"].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "Dialogue",
       stream: nil
     }.freeze,
     "getLessonPlan" => {
@@ -105,6 +177,24 @@ module Lingara
       response: "VersionList",
       stream: nil
     }.freeze,
+    "listCanvases" => {
+      method: "GET",
+      path: "/v1/canvases",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "CanvasPage",
+      stream: nil
+    }.freeze,
+    "listDialogues" => {
+      method: "GET",
+      path: "/v1/dialogues",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: nil,
+      response: "DialoguePage",
+      stream: nil
+    }.freeze,
     "listEvents" => {
       method: "GET",
       path: "/v1/events",
@@ -114,6 +204,42 @@ module Lingara
       response: "EventPage",
       stream: nil
     }.freeze,
+    "renameCanvas" => {
+      method: "PATCH",
+      path: "/v1/canvases/{canvas_id}",
+      path_params: ["canvas_id"].freeze,
+      needs_token: true,
+      request_body: "RenameCanvasRequest",
+      response: "Canvas",
+      stream: nil
+    }.freeze,
+    "renameDialogue" => {
+      method: "PATCH",
+      path: "/v1/dialogues/{dialogue_id}",
+      path_params: ["dialogue_id"].freeze,
+      needs_token: true,
+      request_body: "RenameDialogueRequest",
+      response: "Dialogue",
+      stream: nil
+    }.freeze,
+    "saveCanvasDraft" => {
+      method: "PUT",
+      path: "/v1/canvases/{canvas_id}/draft",
+      path_params: ["canvas_id"].freeze,
+      needs_token: true,
+      request_body: "SaveCanvasDraftRequest",
+      response: "Canvas",
+      stream: nil
+    }.freeze,
+    "saveDialogueDraft" => {
+      method: "PUT",
+      path: "/v1/dialogues/{dialogue_id}/draft",
+      path_params: ["dialogue_id"].freeze,
+      needs_token: true,
+      request_body: "SaveDialogueDraftRequest",
+      response: "Dialogue",
+      stream: nil
+    }.freeze,
     "sendDialogueTurn" => {
       method: "POST",
       path: "/v1/embed/dialogue/turns",
@@ -121,7 +247,7 @@ module Lingara
       needs_token: true,
       request_body: "DialogueTurnRequest",
       response: nil,
-      stream: {union: "SendDialogueTurnEvent", events: {"delta" => "SendDialogueTurnEventDelta", "notice" => "SendDialogueTurnEventNotice", "done" => "SendDialogueTurnEventDone", "error" => "SendDialogueTurnEventError"}.freeze, ends: {"done" => :quiet, "error" => :raise}.freeze}.freeze
+      stream: {union: "SendDialogueTurnEvent", events: {"delta" => "SendDialogueTurnEventDelta", "notice" => "SendDialogueTurnEventNotice", "transition" => "SendDialogueTurnEventTransition", "done" => "SendDialogueTurnEventDone", "error" => "SendDialogueTurnEventError"}.freeze, ends: {"done" => :quiet, "error" => :raise}.freeze}.freeze
     }.freeze,
     "sendEvent" => {
       method: "POST",

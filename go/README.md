@@ -62,7 +62,9 @@ events operations (`ListEvents`, `StreamEvents`, `SendEvent`) and their
 helpers are under [Webhooks and events](#webhooks-and-events), and the embed
 operations (`CreateEmbedToken`, `DeleteEmbedPlayer`, `LinkEmbedPlayer`,
 `UnlinkEmbedPlayer`, `SendDialogueTurn`) under
-[Embedding Lingara](#embedding-lingara).
+[Embedding Lingara](#embedding-lingara). The seven canvas operations live on a
+group, `client.Canvases()`, under [Canvases](#canvases), and the seven
+dialogue operations on `client.Dialogues()`, under [Dialogues](#dialogues).
 
 - `GenerateVocabulary`, `CreateLessonPlan`, `StreamLessonPlan` and
   `SendTutorMessage` send their request at once and return a
@@ -294,6 +296,92 @@ minted, err := client.CreateEmbedToken(ctx, lingara.EmbedTokenRequest{PlayerRef:
 The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
 build on these calls: server kits for higher-level minting and webhook
 helpers, and player kits for the engines.
+
+## Canvases
+
+The canvas operations (`canvas:read`, `canvas:write`) are on a group the
+client hands out, so every call reads `client.Canvases().SaveCanvasDraft(…)`.
+The group holds no state: the token, retries, version pin and errors are the
+client's.
+
+- `ListCanvases(ctx, lingara.ListCanvasesOptions{Cursor, Filters})` returns one
+  `CanvasPage`: `Items`, `Total` and `NextCursor` (both may be nil) and
+  `HasMore`. `CanvasFilters` holds `Limit`, `Name`, `Status`, `Recipes`,
+  `Kinds` and `Scopes`; each list is sent comma-separated.
+- `PageCanvases(ctx, filters)` is an `iter.Seq2[CanvasSummary, error]` over
+  every page: it follows `next_cursor` until `has_more` is false, resends the
+  filters on every page, never sleeps, and ends on the first error. A page
+  with `has_more` and no `next_cursor` is a `*TransportError` of kind
+  `malformed_response`.
+- `CreateCanvas(ctx, body)` answers `201` with a `Canvas`, which does not
+  echo the `Recipe` you sent. `GetCanvas(ctx, canvasID)` returns the draft and
+  the active revision inline; either may be nil.
+- `RenameCanvas(ctx, canvasID, body)` is a `PATCH`, `SaveCanvasDraft(ctx,
+  canvasID, body)` a `PUT`, and `ActivateCanvas(ctx, canvasID, body)` promotes
+  a draft with the objects your apply made.
+- `DryRunCanvasPlan(ctx, plan)` answers `200` whether or not `Ok` is true: a
+  refused op is a verdict, not an error, and its `Code` and English `Error` are
+  plain strings.
+
+**A conflict is an answer.** A stale `draft_version` is `409
+canvas_conflict`, returned as an `*APIError` and never retried. Re-read with
+`GetCanvas`, compare its draft with the one you sent (after a retried save it
+may be your own), take `Draft.DraftVersion`, and decide; the library never
+merges or re-sends on its own. A replayed `ActivateCanvas` at a
+`draft_version` already promoted also answers `409 canvas_conflict` and writes
+nothing. Branch on `code`, show `error` (the `Message`) only as a fallback, and
+localise by code.
+
+A canvas is deleted through the platform's lifecycle routes, not this library.
+
+## Dialogues
+
+The stored-dialogue operations (`dialogues:read`, `dialogues:write`) are on a
+group the client hands out, so every call reads
+`client.Dialogues().SaveDialogueDraft(…)`. Like `Canvases()`, the group holds
+no state: the token, retries, version pin and errors are the client's.
+
+- `ListDialogues(ctx, lingara.ListDialoguesOptions{Cursor, Filters})` returns
+  one `DialoguePage`: `Items`, `NextCursor` (may be nil) and `HasMore`.
+  `DialogueFilters` holds `Limit` and `Name`.
+- `PageDialogues(ctx, filters)` is an `iter.Seq2[DialogueSummary, error]` over
+  every page, exactly as `PageCanvases`: it resends the filters on every page,
+  never sleeps, ends on the first error, and a page with `has_more` and no
+  `next_cursor` is a `*TransportError` of kind `malformed_response`.
+- `CreateDialogue(ctx, body)` answers `201` with a `Dialogue`; its `Warnings`
+  are advice, never a refusal. `GetDialogue(ctx, dialogueID)` returns the
+  draft and the active revision inline; either may be nil.
+- `RenameDialogue(ctx, dialogueID, body)` is a `PATCH`,
+  `SaveDialogueDraft(ctx, dialogueID, body)` a `PUT`, and
+  `ActivateDialogue(ctx, dialogueID, body)` promotes the draft at the
+  `DraftVersion` you send.
+- `ExportDialogue(ctx, dialogueID, lingara.ExportDialogueOptions{Revision,
+  Layout, IfNoneMatch})` returns an `ExportedDialogue`: an
+  `ExportedDialogueBody{Revision, ETag, IRJSON}` on a `200`, or an
+  `ExportedDialogueNotModified{Revision, ETag}` on a `304`. Each option is
+  sent only when set.
+
+**A conflict is an answer.** A stale `draft_version` is `409
+dialogue_conflict`, returned as an `*APIError` and never retried. Re-read with
+`GetDialogue`, take `Draft.DraftVersion` (or send `0` when `Draft` is nil, which
+opens a new draft), and decide; the library never merges or re-sends on its
+own. A replayed `ActivateDialogue` answers the same code. Branch on `code`,
+never on `error` (the `Message`), which is localised text.
+
+`dialogue_invalid` and `dialogue_graph_invalid` carry `path` and `rule` on the
+wire, but this release does not surface them on `*APIError`: a tool that needs
+them reads the `400`'s body itself.
+
+**Cache an export by its `ETag`.** `IRJSON` is never parsed by the library:
+its bytes are canonical and the `ETag` is their SHA-256, so store it exactly
+as received and decode it with your own JSON reader. Send the `ETag` you hold
+back as `IfNoneMatch`, unchanged, and an unchanged revision answers
+`ExportedDialogueNotModified` with no body. A `304` still spends one unit of
+the rate budget. An answer missing `ETag` or `Lingara-Dialogue-Revision` is a
+`*TransportError` of kind `malformed_response`.
+
+A dialogue is deleted through the platform's lifecycle routes, not this
+library.
 
 ## The contract
 

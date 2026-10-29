@@ -47,7 +47,7 @@ export const STREAMS = {
     path: "/v1/embed/dialogue/turns",
     requestBody: "DialogueTurnRequest",
     union: "SendDialogueTurnEvent",
-    events: ["delta", "notice", "done", "error"],
+    events: ["delta", "notice", "transition", "done", "error"],
     ends: { done: "end", error: "raise" },
   },
 } as const;

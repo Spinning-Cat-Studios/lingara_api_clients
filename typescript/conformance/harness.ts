@@ -22,7 +22,8 @@ import {
 } from "@lingara/api";
 
 import { compare, render, substitute, type Expect, type Observed } from "./compare.js";
-import { inboundEvent, runHelper, type HelperRun, type HelperStep } from "./eventSteps.js";
+import { DIALOGUE_OPS, dialogueArgs, groupOf, runPageDialogues, wireExport } from "./dialogueSteps.js";
+import { CANVAS_OPS, canvasArgs, inboundEvent, runHelper, runPageCanvases, type HelperRun, type HelperStep } from "./eventSteps.js";
 
 const env = (name: string): string => {
   const value = process.env[name];
@@ -63,6 +64,8 @@ interface Step {
   call?: Call;
   events?: HelperStep;
   tail?: HelperStep;
+  page_canvases?: { params?: Record<string, unknown> };
+  page_dialogues?: { params?: Record<string, unknown> };
   expect?: Expect;
   advance_clock_s?: number;
 }
@@ -174,6 +177,14 @@ function firstArgument(call: Call): unknown {
   return call.params ?? call.body ?? (PARAMS_FIRST.has(call.operation) ? {} : undefined);
 }
 
+/** The call's arguments before its options. */
+function callArgs(call: Call): unknown[] {
+  if (CANVAS_OPS.has(call.operation)) return canvasArgs(call.params, call.body);
+  if (DIALOGUE_OPS.has(call.operation)) return dialogueArgs(call.operation, call.params, call.body);
+  const first = firstArgument(call);
+  return first === undefined ? [] : [first];
+}
+
 /** A result's body in wire form: a `MintedToken` through `exposeToken`, snake_case, `expires_in` in seconds. */
 function wireBody(value: unknown): unknown {
   if (!(value instanceof MintedToken)) return value;
@@ -181,20 +192,24 @@ function wireBody(value: unknown): unknown {
   return { token: value.exposeToken(), expires_at: expiresAt, expires_in: expiresIn, subject, scopes, account_linked: accountLinked };
 }
 
+/** A completed non-stream call: its status and body in wire form (an export as D7's object, 29.10.26c). */
+function completed(call: Call, value: { servedVersion?: string }, events: unknown[]): Run {
+  const shaped = call.operation === "exportDialogue" ? wireExport(value as never) : { status: STATUS[call.operation] ?? 200, body: wireBody(value) };
+  return { outcome: "completed", ...shaped, events, servedVersion: value.servedVersion, result: value };
+}
+
 /** Runs one call to completion, error or cancellation. */
 async function invoke(r: Rig, call: Call): Promise<Run> {
   const ac = new AbortController();
   const options = call.idempotency_key === undefined ? { signal: ac.signal } : { signal: ac.signal, idempotencyKey: call.idempotency_key };
-  const fn = (r.client as unknown as Record<string, (...args: unknown[]) => unknown>)[call.operation];
+  const target = groupOf(r.client, call.operation);
+  const fn = (target as unknown as Record<string, (...args: unknown[]) => unknown>)[call.operation];
   if (!fn) throw new Error(`no operation ${call.operation}`);
-  const first = firstArgument(call);
-  const result = first === undefined ? fn.call(r.client, options) : fn.call(r.client, first, options);
+  const result = fn.call(target, ...callArgs(call), options);
   const events: unknown[] = [];
   try {
     if (result instanceof EventStream) return await drain(result, events, call, ac);
-    const value = (await result) as { servedVersion?: string };
-    const status = STATUS[call.operation] ?? 200;
-    return { outcome: "completed", status, body: wireBody(value), events, servedVersion: value.servedVersion, result: value };
+    return completed(call, (await result) as { servedVersion?: string }, events);
   } catch (e) {
     const servedVersion = result instanceof EventStream ? await result.servedVersion : undefined;
     if (ac.signal.aborted && e === ac.signal.reason) return { outcome: "cancelled", events, servedVersion };
@@ -229,6 +244,8 @@ async function runStep(r: Rig, step: Step, expect: Expect): Promise<string[]> {
 async function stepRuns(r: Rig, step: Step): Promise<[string, Run[]]> {
   if (step.events) return ["events", [await runHelper(r.client, "events", step.events, errorFields)]];
   if (step.tail) return ["tail", [await runHelper(r.client, "tail", step.tail, errorFields)]];
+  if (step.page_canvases) return ["page_canvases", [await runPageCanvases(r.client, step.page_canvases.params, errorFields)]];
+  if (step.page_dialogues) return ["page_dialogues", [await runPageDialogues(r.client, step.page_dialogues.params, errorFields)]];
   const call = step.call!;
   return [call.operation, await Promise.all(Array.from({ length: call.parallel ?? 1 }, () => invoke(r, call)))];
 }
@@ -236,7 +253,7 @@ async function stepRuns(r: Rig, step: Step): Promise<[string, Run[]]> {
 /** One case step: a clock advance, then its call or helper against its expectation. */
 async function runSteps(r: Rig, step: Step): Promise<string[]> {
   if (step.advance_clock_s !== undefined) r.advance(step.advance_clock_s);
-  const runnable = step.call ?? step.events ?? step.tail;
+  const runnable = step.call ?? step.events ?? step.tail ?? step.page_canvases ?? step.page_dialogues;
   if (!runnable || !step.expect) return [];
   return runStep(r, step, substitute(step.expect, BASE_URL) as Expect);
 }

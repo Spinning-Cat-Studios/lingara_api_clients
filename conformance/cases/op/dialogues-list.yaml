@@ -1,0 +1,24 @@
+id: op.dialogues-list
+title: "Listing dialogues sends name and limit as query parameters and decodes the page: each item's ir_id, npc_count and checkpoint_count"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: listDialogues
+      params: {"name":"market","limit":2}
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-simple-tarpon
+      body: {"items":[{"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","ir_id":"night_market_keepers","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T10:30:00Z","has_draft":true,"active_revision":2,"npc_count":1,"checkpoint_count":3}],"next_cursor":"dl1","has_more":true}
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_dllist, token_type: Bearer, expires_in: 3600, scope: "dialogues:read" } }
+    - request:
+        method: GET
+        path: /v1/dialogues
+        query: {"name":"market","limit":"2"}
+        headers: { authorization: { equals: Bearer lgr_at_dllist }, accept: { contains: application/json } }
+      response: { status: 200, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"items":[{"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","ir_id":"night_market_keepers","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T10:30:00Z","has_draft":true,"active_revision":2,"npc_count":1,"checkpoint_count":3}],"next_cursor":"dl1","has_more":true} }

@@ -19,4 +19,8 @@ public sealed interface SendDialogueTurnEvent {
     /** The `notice` event. */
     @Serializable
     public data class Notice(public val data: com.getlingara.kotlin.model.Notice) : SendDialogueTurnEvent
+
+    /** The `transition` event. */
+    @Serializable
+    public data class Transition(public val data: com.getlingara.kotlin.model.DialogueTransition) : SendDialogueTurnEvent
 }

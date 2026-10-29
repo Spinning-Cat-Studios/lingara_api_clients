@@ -29,7 +29,7 @@ const UNIONS: [&str; 6] = [
     "StreamEventsEvent",
     "SendDialogueTurnEvent",
 ];
-const REMAINING: [&str; 12] = [
+const REMAINING: [&str; 26] = [
     "getLessonPlan",
     "getUsage",
     "getOpenApiDocument",
@@ -42,6 +42,20 @@ const REMAINING: [&str; 12] = [
     "deleteEmbedPlayer",
     "linkEmbedPlayer",
     "unlinkEmbedPlayer",
+    "listCanvases",
+    "createCanvas",
+    "getCanvas",
+    "renameCanvas",
+    "saveCanvasDraft",
+    "activateCanvas",
+    "dryRunCanvasPlan",
+    "listDialogues",
+    "createDialogue",
+    "getDialogue",
+    "renameDialogue",
+    "saveDialogueDraft",
+    "activateDialogue",
+    "exportDialogue",
 ];
 
 fn operation_ids(doc: &Value) -> Vec<&str> {
@@ -89,7 +103,9 @@ fn the_vendored_spec_names_how_each_stream_ends() {
 }
 
 // 29.9.26m AC8; 1.10.26w adds the embed mint's stream and two operations;
-// 22.10.26t AC9 adds linkEmbedPlayer and unlinkEmbedPlayer
+// 22.10.26t AC9 adds linkEmbedPlayer and unlinkEmbedPlayer; 2026-10-simple-tarpon
+// adds the seven canvas operations (16.10.26ak) and the seven dialogue ones
+// (29.10.26c), all plain JSON: the stream count does not move
 #[test]
 fn the_vendored_spec_yields_six_streams_and_twelve_operations() {
     let (spec, catalogue) = vendored_pair();
@@ -170,5 +186,37 @@ fn the_vendored_pair_names_the_embed_operations() {
         let direction = |t: &str| events.iter().find(|e| e["type"] == t).map(|e| e["direction"].clone());
         assert_eq!(direction("world.practice_completed"), Some(json!("in")), "{name}");
         assert_eq!(direction("practice.completed"), Some(json!("out")), "{name}");
+    }
+}
+
+// 16.10.26ak AC1
+#[test]
+fn the_vendored_pair_names_the_canvas_operations() {
+    let want = [
+        ("listCanvases", "get", "/v1/canvases", "canvas:read"),
+        ("createCanvas", "post", "/v1/canvases", "canvas:write"),
+        ("dryRunCanvasPlan", "post", "/v1/canvases/dry-run", "canvas:read"),
+        ("getCanvas", "get", "/v1/canvases/{canvas_id}", "canvas:read"),
+        ("renameCanvas", "patch", "/v1/canvases/{canvas_id}", "canvas:write"),
+        ("saveCanvasDraft", "put", "/v1/canvases/{canvas_id}/draft", "canvas:write"),
+        ("activateCanvas", "post", "/v1/canvases/{canvas_id}/activate", "canvas:write"),
+    ];
+    let view = vendored_view();
+    for (name, doc) in OUTPUTS.iter().zip([&view.v31, &view.v30]) {
+        let paths = doc["paths"].as_object().unwrap();
+        let mut found = Vec::new();
+        for (path, item) in paths.iter().filter(|(p, _)| p.starts_with("/v1/canvases")) {
+            assert!(item.get("delete").is_none(), "{name}: {path} has a DELETE");
+            for (method, op) in item.as_object().unwrap() {
+                let Some(id) = op.get("operationId").and_then(Value::as_str) else { continue };
+                let scope = op["security"][0]["oauth2"][0].as_str().unwrap_or_default().to_string();
+                found.push((id.to_string(), method.clone(), path.clone(), scope));
+            }
+        }
+        found.sort();
+        let mut want: Vec<_> =
+            want.iter().map(|(i, m, p, s)| (i.to_string(), m.to_string(), p.to_string(), s.to_string())).collect();
+        want.sort();
+        assert_eq!(found, want, "{name}");
     }
 }

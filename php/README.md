@@ -234,6 +234,99 @@ build on these calls: server kits (`spinningcatstudios/lingara-embed` for
 PHP) for higher-level minting and webhook helpers, and player kits for the
 engines.
 
+## Canvases
+
+The canvas operations (`canvas:read`, `canvas:write`) are a group on the
+client, `$client->canvases()`, which uses the client's own token, retries,
+version pin and errors:
+
+```php
+use Lingara\Model\RenameCanvasRequest;
+
+$canvases = $client->canvases();
+foreach ($canvases->pageCanvases(['kinds' => ['webhook']]) as $canvas) {
+    echo $canvas->getName(), "\n";
+}
+$canvases->renameCanvas($canvasId, new RenameCanvasRequest(['name' => 'Ready plans to my server']));
+```
+
+- `listCanvases($params)` is one page: `cursor` plus the filters `limit`,
+  `name`, `status`, `recipes`, `kinds` and `scopes` (lists are sent
+  comma-separated). `pageCanvases($filters)` is a `Generator` over every
+  page: it follows `next_cursor`, resends the filters, never sleeps, and
+  stops on the first error.
+- `createCanvas()`, `getCanvas($canvasId)`, `renameCanvas()` (`PATCH`),
+  `saveCanvasDraft()` (`PUT`), `activateCanvas()` and `dryRunCanvasPlan()`
+  each return an `ApiResponse` of the generated model. A node's `fields` and
+  `params` stay open: keys this library does not know are kept, so a
+  definition read and saved back is the one written.
+- **A conflict is an answer.** A stale `draft_version` is an `ApiException`
+  with `errorCode()` `canvas_conflict`, and is never retried. Re-read with
+  `getCanvas()`, compare its draft with the one you sent (after a retried
+  save it may be your own), take `draft_version`, and decide; the library
+  never merges or re-sends. A replayed `activateCanvas()` at a version
+  already promoted answers `409 canvas_conflict` too, and writes nothing.
+  The `saveCanvasDraft` snippet shows the handling.
+- **Branch on the code, not the text.** Every refusal's `errorCode()` is the
+  contract; show the localised message only as a fallback, and localise by
+  code. A dry-run answers `200` whether or not `ok` is true: a refused
+  verdict's `code` and English `error` are data, never thrown.
+- A canvas is deleted through the platform's lifecycle routes, not this
+  library.
+
+## Dialogues
+
+The dialogue operations (`dialogues:read`, `dialogues:write`) are a group on
+the client, `$client->dialogues()`, which uses the client's own token,
+retries, version pin and errors:
+
+```php
+use Lingara\Dialogue\ExportedDialogue\Body;
+
+$dialogues = $client->dialogues();
+foreach ($dialogues->pageDialogues(['name' => 'market']) as $dialogue) {
+    echo $dialogue->getName(), "\n";
+}
+$exported = $dialogues->exportDialogue($dialogueId, ifNoneMatch: $cachedEtag);
+if ($exported instanceof Body) {
+    $cache->set($dialogueId, [$exported->etag, $exported->irJson]);
+}
+```
+
+- `listDialogues($params)` is one page: `cursor` plus the filters `name` and
+  `limit`. `pageDialogues($filters)` is a `Generator` over every page: it
+  follows `next_cursor`, resends the filters, never sleeps, and stops on the
+  first error.
+- `createDialogue()`, `getDialogue($dialogueId)`, `renameDialogue()`
+  (`PATCH`), `saveDialogueDraft()` (`PUT`) and `activateDialogue()` each
+  return an `ApiResponse` of the generated `Dialogue`. A `definition` is a
+  `dialogue.v1` document kept as plain JSON objects (`\stdClass`), so members
+  this library does not know, `x-layout` included, are kept.
+- **A conflict is an answer.** A stale `draft_version` is an `ApiException`
+  with `errorCode()` `dialogue_conflict`, and is never retried. Re-read with
+  `getDialogue()`, take the draft's `draft_version` (or send `0` when
+  `getDraft()` is null, which opens one), and decide; the library never
+  merges or re-sends. A replayed `activateDialogue()` answers `409
+  dialogue_conflict` too, and writes nothing. The `saveDialogueDraft`
+  snippet shows the handling.
+- **Branch on the code, not the text.** Every refusal's `errorCode()` is the
+  contract; show the localised message only as a fallback, and localise by
+  code. `dialogue_invalid` and `dialogue_graph_invalid` carry two more
+  fields on the wire, `path` (a JSON Pointer) and `rule`, which this release
+  does not surface on `ApiException`: a tool that needs them reads the
+  `400`'s body itself.
+- **Cache an export by its ETag.** `exportDialogue($dialogueId, revision:,
+  layout:, ifNoneMatch:)` sends each option only when given, and returns a
+  `Body` (`revision`, `etag`, `irJson`) or, on a `304`, a `NotModified`
+  (`revision`, `etag`), never an exception. `irJson` is canonical bytes,
+  never parsed here: store them exactly as received, since the `ETag` is
+  their SHA-256, and send the `etag` back unchanged as `ifNoneMatch`. A
+  `304` still spends one unit of the rate budget. An answer missing its
+  `ETag` or `Lingara-Dialogue-Revision` is a `TransportException`
+  (`malformed_response`).
+- A dialogue is deleted through the platform's lifecycle routes, not this
+  library.
+
 ## HTTP clients
 
 PSR-18 does not say whether a response body streams, and it has no

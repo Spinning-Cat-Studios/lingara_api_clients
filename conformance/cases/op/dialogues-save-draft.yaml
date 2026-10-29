@@ -1,0 +1,25 @@
+id: op.dialogues-save-draft
+title: "Saving a dialogue draft sends a PUT to the draft path with the definition and draft_version and decodes the Dialogue"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: saveDialogueDraft
+      params: {"dialogue_id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71"}
+      body: {"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"},"draft_version":4}
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-simple-tarpon
+      body: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T11:00:00Z","draft":{"revision":3,"draft_version":5,"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"}},"active":null,"warnings":[]}
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_dlsave, token_type: Bearer, expires_in: 3600, scope: "dialogues:write" } }
+    - request:
+        method: PUT
+        path: /v1/dialogues/4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71/draft
+        headers: { authorization: { equals: Bearer lgr_at_dlsave }, accept: { contains: application/json }, content-type: { contains: application/json } }
+        json: {"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"},"draft_version":4}
+      response: { status: 200, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T11:00:00Z","draft":{"revision":3,"draft_version":5,"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"}},"active":null,"warnings":[]} }

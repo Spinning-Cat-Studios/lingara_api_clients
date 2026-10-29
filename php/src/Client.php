@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Lingara;
 
+use Lingara\Canvas\Canvases;
+use Lingara\Dialogue\Dialogues;
 use Lingara\Events\EventFeed;
 use Lingara\Events\EventTail;
 use Lingara\Events\Generated\InboundEvent;
@@ -16,6 +18,7 @@ use Lingara\Internal\ErrorLogLogger;
 use Lingara\Internal\ErrorMapper;
 use Lingara\Internal\Json;
 use Lingara\Internal\Operations;
+use Lingara\Internal\RawCalls;
 use Lingara\Internal\Retry;
 use Lingara\Internal\Secrets;
 use Lingara\Internal\SystemClock;
@@ -57,6 +60,7 @@ use Psr\SimpleCache\CacheInterface;
 final class Client
 {
     use EmbedCalls;
+    use RawCalls;
 
     public const DEFAULT_BASE_URL = 'https://api.getlingara.com';
     public const DEFAULT_TOKEN_URL = 'https://api.getlingara.com/oauth/token';
@@ -302,6 +306,18 @@ final class Client
         return $this->json('getApiVersion', [$id], VersionDetail::class);
     }
 
+    /** The canvas operations (ADR 16.10.26ak), over this client's request path. */
+    public function canvases(): Canvases
+    {
+        return new Canvases($this->json(...));
+    }
+
+    /** The dialogue operations (ADR 29.10.26c), over this client's request path. */
+    public function dialogues(): Dialogues
+    {
+        return new Dialogues($this->json(...), $this->exchange(...));
+    }
+
     /**
      * Streams an NPC's reply to one line (scope embed:play: an embed token,
      * or a metered client's own token). Opened without K4's retries, since
@@ -463,20 +479,22 @@ final class Client
      * (a fresh budget for the retried request; none when $retry is false),
      * and the refusal mapping. $headers go on every attempt, so an
      * Idempotency-Key is the same on each (ADR 30.9.26aa D8). Returns a 2xx
-     * response and the token it carried. A client with no token source sends
-     * an operation that needs one without Authorization; the server's 401 is
-     * the answer.
+     * response, or one whose status is in $allow (the export's 304, ADR
+     * 29.10.26c D6), and the token it carried. A client with no token source
+     * sends an operation that needs one without Authorization; the server's
+     * 401 is the answer.
      *
      * No closure here captures a raw token: a closure's captured variables
      * show in any dump of a stack frame that holds it.
      *
      * @param array<string, string> $headers
+     * @param list<int>             $allow
      *
      * @return array{ResponseInterface, ?AccessToken}
      *
      * @throws LingaraException
      */
-    private function send(string $operationId, string $url, ?string $payload, array $headers = [], bool $retry = true): array
+    private function send(string $operationId, string $url, ?string $payload, array $headers = [], bool $retry = true, array $allow = []): array
     {
         $operation = Operations::OPERATIONS[$operationId];
         $tokens = $operation['needsToken'] ? $this->tokenSource : null;
@@ -490,7 +508,7 @@ final class Client
             $response = $this->attempts($retry, fn(): ResponseInterface => $this->attempt($operation, $call, $token));
         }
         $status = $response->getStatusCode();
-        if ($status < 200 || $status > 299) {
+        if (($status < 200 || $status > 299) && !in_array($status, $allow, true)) {
             $body = $this->transport()->readAll($response->getBody(), $this->streamIdleTimeout, self::secrets($token));
             throw ErrorMapper::refusal('v1', $response, $body, $this->retry->now());
         }

@@ -14,11 +14,13 @@ func sendDialogueTurn(ctx context.Context, client *lingara.Client, history []lin
 	// characters. A turn is never retried, since each attempt spends NPC cells.
 	persona := "a street-food vendor who likes to haggle"
 	line := "饺子多少钱？"
+	pedagogy := lingara.PedagogySubtle
 	s, err := client.SendDialogueTurn(ctx, lingara.DialogueTurnRequest{
-		Npc:        lingara.Npc{Name: "Auntie Lin", Persona: &persona},
+		Npc:        lingara.DialogueNpc{Name: "Auntie Lin", Persona: &persona},
 		SourceLang: "en",
 		TargetLang: "zh",
 		Level:      3,
+		Pedagogy:   &pedagogy,
 		Line:       line,
 		History:    &history,
 	})

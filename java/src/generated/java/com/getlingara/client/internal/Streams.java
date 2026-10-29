@@ -116,9 +116,9 @@ public final class Streams {
           "/v1/embed/dialogue/turns",
           com.getlingara.client.model.DialogueTurnRequest.class,
           List.of(),
-          List.of("delta", "notice", "done", "error"),
+          List.of("delta", "notice", "transition", "done", "error"),
           Map.of("done", Ending.QUIET, "error", Ending.RAISE),
-          Map.of("delta", com.getlingara.client.model.TurnDelta.class, "notice", com.getlingara.client.model.Notice.class, "done", com.fasterxml.jackson.databind.JsonNode.class, "error", com.getlingara.client.model.StreamError.class));
+          Map.of("delta", com.getlingara.client.model.TurnDelta.class, "notice", com.getlingara.client.model.Notice.class, "transition", com.getlingara.client.model.DialogueTransition.class, "done", com.fasterxml.jackson.databind.JsonNode.class, "error", com.getlingara.client.model.StreamError.class));
 
   /** Every stream route, by operationId. */
   public static final Map<String, Route> ROUTES =
@@ -219,6 +219,8 @@ public final class Streams {
         return new com.getlingara.client.model.SendDialogueTurnEvent.Delta(mapper.treeToValue(data, com.getlingara.client.model.TurnDelta.class));
       case "notice":
         return new com.getlingara.client.model.SendDialogueTurnEvent.Notice(mapper.treeToValue(data, com.getlingara.client.model.Notice.class));
+      case "transition":
+        return new com.getlingara.client.model.SendDialogueTurnEvent.Transition(mapper.treeToValue(data, com.getlingara.client.model.DialogueTransition.class));
       default:
         return null;
     }

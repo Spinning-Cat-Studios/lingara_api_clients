@@ -58,6 +58,7 @@ module Lingara
     BRANCHES = {
       "delta" => SendDialogueTurnEventDelta,
       "notice" => SendDialogueTurnEventNotice,
+      "transition" => SendDialogueTurnEventTransition,
       "done" => SendDialogueTurnEventDone,
       "error" => SendDialogueTurnEventError
     }.freeze

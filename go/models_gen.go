@@ -35,6 +35,93 @@ func (e AppContextSlice) Valid() bool {
 	}
 }
 
+// Defines values for CanvasActivationOutcome.
+const (
+	CanvasActivationOutcomeComplete CanvasActivationOutcome = "complete"
+	CanvasActivationOutcomePartial  CanvasActivationOutcome = "partial"
+)
+
+// Valid indicates whether the value is a known member of the CanvasActivationOutcome enum.
+func (e CanvasActivationOutcome) Valid() bool {
+	switch e {
+	case CanvasActivationOutcomeComplete:
+		return true
+	case CanvasActivationOutcomePartial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CanvasNodeKind.
+const (
+	CanvasNodeKindApp     CanvasNodeKind = "app"
+	CanvasNodeKindClient  CanvasNodeKind = "client"
+	CanvasNodeKindSecret  CanvasNodeKind = "secret"
+	CanvasNodeKindWebhook CanvasNodeKind = "webhook"
+)
+
+// Valid indicates whether the value is a known member of the CanvasNodeKind enum.
+func (e CanvasNodeKind) Valid() bool {
+	switch e {
+	case CanvasNodeKindApp:
+		return true
+	case CanvasNodeKindClient:
+		return true
+	case CanvasNodeKindSecret:
+		return true
+	case CanvasNodeKindWebhook:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CanvasRecipe.
+const (
+	CanvasRecipeBlank           CanvasRecipe = "blank"
+	CanvasRecipeCallLingara     CanvasRecipe = "call_lingara"
+	CanvasRecipeLessonPlanReady CanvasRecipe = "lesson_plan_ready"
+	CanvasRecipeShowCard        CanvasRecipe = "show_card"
+)
+
+// Valid indicates whether the value is a known member of the CanvasRecipe enum.
+func (e CanvasRecipe) Valid() bool {
+	switch e {
+	case CanvasRecipeBlank:
+		return true
+	case CanvasRecipeCallLingara:
+		return true
+	case CanvasRecipeLessonPlanReady:
+		return true
+	case CanvasRecipeShowCard:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CanvasVerdictKind.
+const (
+	CanvasVerdictKindRefused     CanvasVerdictKind = "refused"
+	CanvasVerdictKindWouldCreate CanvasVerdictKind = "would_create"
+	CanvasVerdictKindWouldUpdate CanvasVerdictKind = "would_update"
+)
+
+// Valid indicates whether the value is a known member of the CanvasVerdictKind enum.
+func (e CanvasVerdictKind) Valid() bool {
+	switch e {
+	case CanvasVerdictKindRefused:
+		return true
+	case CanvasVerdictKindWouldCreate:
+		return true
+	case CanvasVerdictKindWouldUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CreateLessonPlanEventErrorEvent.
 const (
 	CreateLessonPlanEventErrorEventError CreateLessonPlanEventErrorEvent = "error"
@@ -89,6 +176,87 @@ const (
 func (e CreateLessonPlanEventStartedEvent) Valid() bool {
 	switch e {
 	case CreateLessonPlanEventStartedEventStarted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DialogueRule.
+const (
+	DialogueRuleBound             DialogueRule = "bound"
+	DialogueRuleDefaultType       DialogueRule = "default_type"
+	DialogueRuleDuplicateID       DialogueRule = "duplicate_id"
+	DialogueRuleIDPattern         DialogueRule = "id_pattern"
+	DialogueRuleMissingMember     DialogueRule = "missing_member"
+	DialogueRuleNumberRange       DialogueRule = "number_range"
+	DialogueRuleOutcomeName       DialogueRule = "outcome_name"
+	DialogueRulePredicateType     DialogueRule = "predicate_type"
+	DialogueRulePredicateUnparsed DialogueRule = "predicate_unparsed"
+	DialogueRuleTextBlank         DialogueRule = "text_blank"
+	DialogueRuleTextChar          DialogueRule = "text_char"
+	DialogueRuleTextMultiline     DialogueRule = "text_multiline"
+	DialogueRuleUndeclaredFact    DialogueRule = "undeclared_fact"
+	DialogueRuleUnknownMember     DialogueRule = "unknown_member"
+	DialogueRuleUnknownTarget     DialogueRule = "unknown_target"
+	DialogueRuleWhenLessCycle     DialogueRule = "when_less_cycle"
+)
+
+// Valid indicates whether the value is a known member of the DialogueRule enum.
+func (e DialogueRule) Valid() bool {
+	switch e {
+	case DialogueRuleBound:
+		return true
+	case DialogueRuleDefaultType:
+		return true
+	case DialogueRuleDuplicateID:
+		return true
+	case DialogueRuleIDPattern:
+		return true
+	case DialogueRuleMissingMember:
+		return true
+	case DialogueRuleNumberRange:
+		return true
+	case DialogueRuleOutcomeName:
+		return true
+	case DialogueRulePredicateType:
+		return true
+	case DialogueRulePredicateUnparsed:
+		return true
+	case DialogueRuleTextBlank:
+		return true
+	case DialogueRuleTextChar:
+		return true
+	case DialogueRuleTextMultiline:
+		return true
+	case DialogueRuleUndeclaredFact:
+		return true
+	case DialogueRuleUnknownMember:
+		return true
+	case DialogueRuleUnknownTarget:
+		return true
+	case DialogueRuleWhenLessCycle:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DialogueWarningCode.
+const (
+	DialogueWarningCodeCheckpointUnreachable DialogueWarningCode = "checkpoint_unreachable"
+	DialogueWarningCodeOutcomeUnreachable    DialogueWarningCode = "outcome_unreachable"
+	DialogueWarningCodePredicateUnchecked    DialogueWarningCode = "predicate_unchecked"
+)
+
+// Valid indicates whether the value is a known member of the DialogueWarningCode enum.
+func (e DialogueWarningCode) Valid() bool {
+	switch e {
+	case DialogueWarningCodeCheckpointUnreachable:
+		return true
+	case DialogueWarningCodeOutcomeUnreachable:
+		return true
+	case DialogueWarningCodePredicateUnchecked:
 		return true
 	default:
 		return false
@@ -194,6 +362,24 @@ func (e LinkStatus) Valid() bool {
 	case LinkStatusExisting:
 		return true
 	case LinkStatusLinked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Pedagogy.
+const (
+	PedagogyNone   Pedagogy = "none"
+	PedagogySubtle Pedagogy = "subtle"
+)
+
+// Valid indicates whether the value is a known member of the Pedagogy enum.
+func (e Pedagogy) Valid() bool {
+	switch e {
+	case PedagogyNone:
+		return true
+	case PedagogySubtle:
 		return true
 	default:
 		return false
@@ -362,6 +548,21 @@ const (
 func (e SendDialogueTurnEventNoticeEvent) Valid() bool {
 	switch e {
 	case SendDialogueTurnEventNoticeEventNotice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SendDialogueTurnEventTransitionEvent.
+const (
+	SendDialogueTurnEventTransitionEventTransition SendDialogueTurnEventTransitionEvent = "transition"
+)
+
+// Valid indicates whether the value is a known member of the SendDialogueTurnEventTransitionEvent enum.
+func (e SendDialogueTurnEventTransitionEvent) Valid() bool {
+	switch e {
+	case SendDialogueTurnEventTransitionEventTransition:
 		return true
 	default:
 		return false
@@ -671,6 +872,66 @@ func (e EventStart) Valid() bool {
 	}
 }
 
+// Defines values for ListCanvasesParamsStatus.
+const (
+	ListCanvasesParamsStatusAll       ListCanvasesParamsStatus = "all"
+	ListCanvasesParamsStatusChanged   ListCanvasesParamsStatus = "changed"
+	ListCanvasesParamsStatusLive      ListCanvasesParamsStatus = "live"
+	ListCanvasesParamsStatusUnapplied ListCanvasesParamsStatus = "unapplied"
+)
+
+// Valid indicates whether the value is a known member of the ListCanvasesParamsStatus enum.
+func (e ListCanvasesParamsStatus) Valid() bool {
+	switch e {
+	case ListCanvasesParamsStatusAll:
+		return true
+	case ListCanvasesParamsStatusChanged:
+		return true
+	case ListCanvasesParamsStatusLive:
+		return true
+	case ListCanvasesParamsStatusUnapplied:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportDialogueParamsRevision.
+const (
+	ExportDialogueParamsRevisionActive ExportDialogueParamsRevision = "active"
+	ExportDialogueParamsRevisionDraft  ExportDialogueParamsRevision = "draft"
+)
+
+// Valid indicates whether the value is a known member of the ExportDialogueParamsRevision enum.
+func (e ExportDialogueParamsRevision) Valid() bool {
+	switch e {
+	case ExportDialogueParamsRevisionActive:
+		return true
+	case ExportDialogueParamsRevisionDraft:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportDialogueParamsLayout.
+const (
+	ExportDialogueParamsLayoutKeep ExportDialogueParamsLayout = "keep"
+	ExportDialogueParamsLayoutOmit ExportDialogueParamsLayout = "omit"
+)
+
+// Valid indicates whether the value is a known member of the ExportDialogueParamsLayout enum.
+func (e ExportDialogueParamsLayout) Valid() bool {
+	switch e {
+	case ExportDialogueParamsLayoutKeep:
+		return true
+	case ExportDialogueParamsLayoutOmit:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListEventsParamsStart.
 const (
 	ListEventsParamsStartLatest ListEventsParamsStart = "latest"
@@ -687,6 +948,18 @@ func (e ListEventsParamsStart) Valid() bool {
 	default:
 		return false
 	}
+}
+
+// ActivateCanvasRequest defines model for ActivateCanvasRequest.
+type ActivateCanvasRequest struct {
+	DraftVersion int32                      `json:"draft_version"`
+	Objects      map[string]CanvasObjectRef `json:"objects"`
+	Outcome      CanvasActivationOutcome    `json:"outcome"`
+}
+
+// ActivateDialogueRequest defines model for ActivateDialogueRequest.
+type ActivateDialogueRequest struct {
+	DraftVersion int32 `json:"draft_version"`
 }
 
 // AllowanceRow defines model for AllowanceRow.
@@ -728,6 +1001,151 @@ type AppUninstalledData struct {
 	InstallID string `json:"install_id"`
 }
 
+// Canvas defines model for Canvas.
+type Canvas struct {
+	Active    *CanvasActive `json:"active"`
+	CreatedAt time.Time     `json:"created_at"`
+	Draft     *CanvasDraft  `json:"draft"`
+	ID        string        `json:"id"`
+	Name      string        `json:"name"`
+	UpdatedAt time.Time     `json:"updated_at"`
+}
+
+// CanvasActivationOutcome defines model for CanvasActivationOutcome.
+type CanvasActivationOutcome string
+
+// CanvasActive defines model for CanvasActive.
+type CanvasActive struct {
+	ActivatedAt time.Time `json:"activated_at"`
+
+	// Definition A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content.
+	Definition CanvasDefinition           `json:"definition"`
+	Objects    map[string]CanvasObjectRef `json:"objects"`
+	Revision   int32                      `json:"revision"`
+}
+
+// CanvasDefinition A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content.
+type CanvasDefinition struct {
+	Edges  *[]CanvasEdge `json:"edges,omitempty"`
+	Nodes  []CanvasNode  `json:"nodes"`
+	Schema int16         `json:"schema"`
+}
+
+// CanvasDraft defines model for CanvasDraft.
+type CanvasDraft struct {
+	// Definition A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content.
+	Definition   CanvasDefinition           `json:"definition"`
+	DraftVersion int32                      `json:"draft_version"`
+	Objects      map[string]CanvasObjectRef `json:"objects"`
+	Revision     int32                      `json:"revision"`
+}
+
+// CanvasDryRun defines model for CanvasDryRun.
+type CanvasDryRun struct {
+	Ok       bool            `json:"ok"`
+	Verdicts []CanvasVerdict `json:"verdicts"`
+}
+
+// CanvasEdge defines model for CanvasEdge.
+type CanvasEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+// CanvasMadeObject defines model for CanvasMadeObject.
+type CanvasMadeObject struct {
+	Handle string         `json:"handle"`
+	ID     string         `json:"id"`
+	Kind   CanvasNodeKind `json:"kind"`
+}
+
+// CanvasNode defines model for CanvasNode.
+type CanvasNode struct {
+	Custom     *bool                   `json:"custom,omitempty"`
+	Fields     *map[string]interface{} `json:"fields,omitempty"`
+	ID         string                  `json:"id"`
+	Kind       CanvasNodeKind          `json:"kind"`
+	Params     *map[string]CanvasParam `json:"params,omitempty"`
+	Position   []float64               `json:"position"`
+	Script     *string                 `json:"script,omitempty"`
+	ScriptName *string                 `json:"script_name,omitempty"`
+}
+
+// CanvasNodeKind defines model for CanvasNodeKind.
+type CanvasNodeKind string
+
+// CanvasObjectRef defines model for CanvasObjectRef.
+type CanvasObjectRef struct {
+	ID string `json:"id"`
+}
+
+// CanvasPage defines model for CanvasPage.
+type CanvasPage struct {
+	HasMore    bool            `json:"has_more"`
+	Items      []CanvasSummary `json:"items"`
+	NextCursor *string         `json:"next_cursor"`
+	Total      *int64          `json:"total"`
+}
+
+// CanvasParam defines model for CanvasParam.
+type CanvasParam = any
+
+// CanvasPlan defines model for CanvasPlan.
+type CanvasPlan struct {
+	Ops []map[string]interface{} `json:"ops"`
+}
+
+// CanvasRecipe defines model for CanvasRecipe.
+type CanvasRecipe string
+
+// CanvasSummary defines model for CanvasSummary.
+type CanvasSummary struct {
+	ActiveRevision *int32             `json:"active_revision"`
+	CreatedAt      time.Time          `json:"created_at"`
+	HasDraft       bool               `json:"has_draft"`
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	NodeCount      int32              `json:"node_count"`
+	NodeKinds      []CanvasNodeKind   `json:"node_kinds"`
+	Objects        []CanvasMadeObject `json:"objects"`
+	Recipe         CanvasRecipe       `json:"recipe"`
+	Scopes         []string           `json:"scopes"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+}
+
+// CanvasVerdict defines model for CanvasVerdict.
+type CanvasVerdict struct {
+	Changes   *[]string      `json:"changes,omitempty"`
+	Code      *string        `json:"code,omitempty"`
+	DependsOn *string        `json:"depends_on,omitempty"`
+	Error     *string        `json:"error,omitempty"`
+	Handle    string         `json:"handle"`
+	Kind      CanvasNodeKind `json:"kind"`
+	Note      *string        `json:"note,omitempty"`
+	Op        string         `json:"op"`
+
+	// Verdict No `would_replace`: a changed webhook endpoint becomes a new version, so it is `would_update`.
+	Verdict CanvasVerdictKind `json:"verdict"`
+}
+
+// CanvasVerdictKind No `would_replace`: a changed webhook endpoint becomes a new version, so it is `would_update`.
+type CanvasVerdictKind string
+
+// CreateCanvasRequest defines model for CreateCanvasRequest.
+type CreateCanvasRequest struct {
+	// Definition A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content.
+	Definition CanvasDefinition `json:"definition"`
+	Name       *string          `json:"name,omitempty"`
+	Recipe     *CanvasRecipe    `json:"recipe,omitempty"`
+}
+
+// CreateDialogueRequest defines model for CreateDialogueRequest.
+type CreateDialogueRequest struct {
+	// Definition A dialogue.v1 document.
+	Definition DialogueDefinition `json:"definition"`
+	Name       *string            `json:"name,omitempty"`
+}
+
 // CreateLessonPlanEventError defines model for CreateLessonPlanEventError.
 type CreateLessonPlanEventError struct {
 	Data  StreamError                     `json:"data"`
@@ -764,23 +1182,110 @@ type CreateLessonPlanEventStarted struct {
 // CreateLessonPlanEventStartedEvent defines model for CreateLessonPlanEventStarted.Event.
 type CreateLessonPlanEventStartedEvent string
 
+// Dialogue defines model for Dialogue.
+type Dialogue struct {
+	Active    *DialogueActive   `json:"active"`
+	CreatedAt time.Time         `json:"created_at"`
+	Draft     *DialogueDraft    `json:"draft"`
+	ID        string            `json:"id"`
+	Name      string            `json:"name"`
+	UpdatedAt time.Time         `json:"updated_at"`
+	Warnings  []DialogueWarning `json:"warnings"`
+}
+
+// DialogueActive defines model for DialogueActive.
+type DialogueActive struct {
+	ActivatedAt time.Time `json:"activated_at"`
+
+	// Definition A dialogue.v1 document.
+	Definition DialogueDefinition `json:"definition"`
+	Revision   int32              `json:"revision"`
+}
+
+// DialogueDefinition A dialogue.v1 document.
+type DialogueDefinition = map[string]interface{}
+
+// DialogueDraft defines model for DialogueDraft.
+type DialogueDraft struct {
+	// Definition A dialogue.v1 document.
+	Definition   DialogueDefinition `json:"definition"`
+	DraftVersion int32              `json:"draft_version"`
+	Revision     int32              `json:"revision"`
+}
+
 // DialogueEntry defines model for DialogueEntry.
 type DialogueEntry struct {
 	Speaker Speaker `json:"speaker"`
 	Text    string  `json:"text"`
 }
 
+// DialogueNpc defines model for DialogueNpc.
+type DialogueNpc struct {
+	// Languages The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`.
+	Languages *[]NpcLanguage `json:"languages,omitempty"`
+	Name      string         `json:"name"`
+	Persona   *string        `json:"persona,omitempty"`
+}
+
+// DialoguePage defines model for DialoguePage.
+type DialoguePage struct {
+	HasMore    bool              `json:"has_more"`
+	Items      []DialogueSummary `json:"items"`
+	NextCursor *string           `json:"next_cursor"`
+}
+
+// DialogueRule Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.
+type DialogueRule string
+
+// DialogueSummary defines model for DialogueSummary.
+type DialogueSummary struct {
+	ActiveRevision  *int32    `json:"active_revision"`
+	CheckpointCount int32     `json:"checkpoint_count"`
+	CreatedAt       time.Time `json:"created_at"`
+	HasDraft        bool      `json:"has_draft"`
+	ID              string    `json:"id"`
+	IrID            string    `json:"ir_id"`
+	Name            string    `json:"name"`
+	NpcCount        int32     `json:"npc_count"`
+	UpdatedAt       time.Time `json:"updated_at"`
+}
+
+// DialogueTransition The edge the conversation just crossed. Move your story to `to`. If no edge was crossed, no `transition` is sent; a `transition_unavailable` notice means the check could not run this turn.
+type DialogueTransition struct {
+	Edge string `json:"edge"`
+	To   string `json:"to"`
+}
+
 // DialogueTurnRequest defines model for DialogueTurnRequest.
 type DialogueTurnRequest struct {
+	// Checkpoint Where the story stands: a goal the character steers toward, and the facts it may reveal. Needs `enable_npc_dialogue_graphs`.
+	Checkpoint *GraphCheckpoint `json:"checkpoint,omitempty"`
+
+	// Edges The ways out of this checkpoint whose game conditions already hold, each with a plain-language condition. After the reply, at most one is chosen and sent as a `transition` event before `done`. Edges your game decides on its own are never sent.
+	Edges *[]GraphEdge          `json:"edges,omitempty"`
+	Facts *map[string]FactValue `json:"facts,omitempty"`
+
 	// History The conversation so far, oldest first, at most 12 lines. You keep the window: Lingara stores nothing between turns. Send each NPC reply back cut to its first 500 characters.
-	History    *[]DialogueEntry `json:"history,omitempty"`
-	Level      uint8            `json:"level"`
-	Line       string           `json:"line"`
-	Npc        Npc              `json:"npc"`
-	Scene      *string          `json:"scene,omitempty"`
-	SourceLang string           `json:"source_lang"`
-	TargetLang string           `json:"target_lang"`
+	History *[]DialogueEntry `json:"history,omitempty"`
+	Level   uint8            `json:"level"`
+	Line    string           `json:"line"`
+	Npc     DialogueNpc      `json:"npc"`
+
+	// Pedagogy `subtle` (the default) keeps the character's `target_lang` at or below the learner's `level`. `none` lets the character speak at its own level, as a native speaker when it has no `languages`, and ignores `level`.
+	Pedagogy   *Pedagogy `json:"pedagogy,omitempty"`
+	Scene      *string   `json:"scene,omitempty"`
+	SourceLang string    `json:"source_lang"`
+	TargetLang string    `json:"target_lang"`
 }
+
+// DialogueWarning defines model for DialogueWarning.
+type DialogueWarning struct {
+	Code DialogueWarningCode `json:"code"`
+	Path string              `json:"path"`
+}
+
+// DialogueWarningCode defines model for DialogueWarningCode.
+type DialogueWarningCode string
 
 // Done defines model for Done.
 type Done = map[string]interface{}
@@ -835,7 +1340,7 @@ type EmbedTokenRequestScopes string
 
 // ErrorEnvelope defines model for Error.
 type ErrorEnvelope struct {
-	// Code Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`).
+	// Code Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`), `api_allowance_exhausted` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`).
 	Code  string `json:"code"`
 	Error string `json:"error"`
 }
@@ -856,6 +1361,9 @@ type EventPage struct {
 	Items      []EventEnvelope `json:"items"`
 	NextCursor string          `json:"next_cursor"`
 }
+
+// FactValue defines model for FactValue.
+type FactValue = any
 
 // GenerateVocabularyEventDone defines model for GenerateVocabularyEventDone.
 type GenerateVocabularyEventDone struct {
@@ -892,6 +1400,20 @@ type GenerateVocabularyEventStarted struct {
 
 // GenerateVocabularyEventStartedEvent defines model for GenerateVocabularyEventStarted.Event.
 type GenerateVocabularyEventStartedEvent string
+
+// GraphCheckpoint defines model for GraphCheckpoint.
+type GraphCheckpoint struct {
+	Goal        string    `json:"goal"`
+	ID          string    `json:"id"`
+	MayDisclose *[]string `json:"may_disclose,omitempty"`
+}
+
+// GraphEdge defines model for GraphEdge.
+type GraphEdge struct {
+	ID   string `json:"id"`
+	To   string `json:"to"`
+	When string `json:"when"`
+}
 
 // InboundEventAccepted defines model for InboundEventAccepted.
 type InboundEventAccepted struct {
@@ -961,6 +1483,16 @@ type Npc struct {
 	Name    string  `json:"name"`
 	Persona *string `json:"persona,omitempty"`
 }
+
+// NpcLanguage defines model for NpcLanguage.
+type NpcLanguage struct {
+	Code          string `json:"code"`
+	Comprehension uint8  `json:"comprehension"`
+	Speaking      uint8  `json:"speaking"`
+}
+
+// Pedagogy defines model for Pedagogy.
+type Pedagogy string
 
 // PlanFailReason defines model for PlanFailReason.
 type PlanFailReason string
@@ -1048,6 +1580,32 @@ type ReactionReport struct {
 // ReactionStatus defines model for ReactionStatus.
 type ReactionStatus string
 
+// RenameCanvasRequest defines model for RenameCanvasRequest.
+type RenameCanvasRequest struct {
+	Name string `json:"name"`
+}
+
+// RenameDialogueRequest defines model for RenameDialogueRequest.
+type RenameDialogueRequest struct {
+	Name string `json:"name"`
+}
+
+// SaveCanvasDraftRequest defines model for SaveCanvasDraftRequest.
+type SaveCanvasDraftRequest struct {
+	// Definition A canvas: its nodes and the edges between them. `fields` is the editor's own state; the dry-run, not this schema, judges content.
+	Definition   CanvasDefinition `json:"definition"`
+	DraftVersion int32            `json:"draft_version"`
+	Name         *string          `json:"name,omitempty"`
+}
+
+// SaveDialogueDraftRequest defines model for SaveDialogueDraftRequest.
+type SaveDialogueDraftRequest struct {
+	// Definition A dialogue.v1 document.
+	Definition   DialogueDefinition `json:"definition"`
+	DraftVersion int32              `json:"draft_version"`
+	Name         *string            `json:"name,omitempty"`
+}
+
 // SendDialogueTurnEventDelta defines model for SendDialogueTurnEventDelta.
 type SendDialogueTurnEventDelta struct {
 	Data  TurnDelta                       `json:"data"`
@@ -1083,6 +1641,16 @@ type SendDialogueTurnEventNotice struct {
 
 // SendDialogueTurnEventNoticeEvent defines model for SendDialogueTurnEventNotice.Event.
 type SendDialogueTurnEventNoticeEvent string
+
+// SendDialogueTurnEventTransition defines model for SendDialogueTurnEventTransition.
+type SendDialogueTurnEventTransition struct {
+	// Data The edge the conversation just crossed. Move your story to `to`. If no edge was crossed, no `transition` is sent; a `transition_unavailable` notice means the check could not run this turn.
+	Data  DialogueTransition                   `json:"data"`
+	Event SendDialogueTurnEventTransitionEvent `json:"event"`
+}
+
+// SendDialogueTurnEventTransitionEvent defines model for SendDialogueTurnEventTransition.Event.
+type SendDialogueTurnEventTransitionEvent string
 
 // SendTutorMessageEventDelta defines model for SendTutorMessageEventDelta.
 type SendTutorMessageEventDelta struct {
@@ -1370,6 +1938,12 @@ type WorldPracticeRequested struct {
 	Topic      string    `json:"topic"`
 }
 
+// CanvasID defines model for CanvasId.
+type CanvasID = string
+
+// DialogueID defines model for DialogueId.
+type DialogueID = string
+
 // EventCursor defines model for EventCursor.
 type EventCursor = string
 
@@ -1420,6 +1994,115 @@ type GetAsyncAPIDocumentParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
 	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
 }
+
+// ListCanvasesParams defines parameters for ListCanvases.
+type ListCanvasesParams struct {
+	Cursor  *string                   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit   *int                      `form:"limit,omitempty" json:"limit,omitempty"`
+	Name    *string                   `form:"name,omitempty" json:"name,omitempty"`
+	Status  *ListCanvasesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+	Recipes *string                   `form:"recipes,omitempty" json:"recipes,omitempty"`
+	Kinds   *string                   `form:"kinds,omitempty" json:"kinds,omitempty"`
+	Scopes  *string                   `form:"scopes,omitempty" json:"scopes,omitempty"`
+
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ListCanvasesParamsStatus defines parameters for ListCanvases.
+type ListCanvasesParamsStatus string
+
+// CreateCanvasParams defines parameters for CreateCanvas.
+type CreateCanvasParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// DryRunCanvasPlanParams defines parameters for DryRunCanvasPlan.
+type DryRunCanvasPlanParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// GetCanvasParams defines parameters for GetCanvas.
+type GetCanvasParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// RenameCanvasParams defines parameters for RenameCanvas.
+type RenameCanvasParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ActivateCanvasParams defines parameters for ActivateCanvas.
+type ActivateCanvasParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// SaveCanvasDraftParams defines parameters for SaveCanvasDraft.
+type SaveCanvasDraftParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ListDialoguesParams defines parameters for ListDialogues.
+type ListDialoguesParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Name   *string `form:"name,omitempty" json:"name,omitempty"`
+
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// CreateDialogueParams defines parameters for CreateDialogue.
+type CreateDialogueParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// GetDialogueParams defines parameters for GetDialogue.
+type GetDialogueParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// RenameDialogueParams defines parameters for RenameDialogue.
+type RenameDialogueParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ActivateDialogueParams defines parameters for ActivateDialogue.
+type ActivateDialogueParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// SaveDialogueDraftParams defines parameters for SaveDialogueDraft.
+type SaveDialogueDraftParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ExportDialogueParams defines parameters for ExportDialogue.
+type ExportDialogueParams struct {
+	Revision    *ExportDialogueParamsRevision `form:"revision,omitempty" json:"revision,omitempty"`
+	Layout      *ExportDialogueParamsLayout   `form:"layout,omitempty" json:"layout,omitempty"`
+	IfNoneMatch *string                       `json:"If-None-Match,omitempty"`
+
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
+// ExportDialogueParamsRevision defines parameters for ExportDialogue.
+type ExportDialogueParamsRevision string
+
+// ExportDialogueParamsLayout defines parameters for ExportDialogue.
+type ExportDialogueParamsLayout string
 
 // DeleteEmbedPlayerParams defines parameters for DeleteEmbedPlayer.
 type DeleteEmbedPlayerParams struct {
@@ -1507,6 +2190,33 @@ type GetAPIVersionParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
 	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
 }
+
+// CreateCanvasJSONRequestBody defines body for CreateCanvas for application/json ContentType.
+type CreateCanvasJSONRequestBody = CreateCanvasRequest
+
+// DryRunCanvasPlanJSONRequestBody defines body for DryRunCanvasPlan for application/json ContentType.
+type DryRunCanvasPlanJSONRequestBody = CanvasPlan
+
+// RenameCanvasJSONRequestBody defines body for RenameCanvas for application/json ContentType.
+type RenameCanvasJSONRequestBody = RenameCanvasRequest
+
+// ActivateCanvasJSONRequestBody defines body for ActivateCanvas for application/json ContentType.
+type ActivateCanvasJSONRequestBody = ActivateCanvasRequest
+
+// SaveCanvasDraftJSONRequestBody defines body for SaveCanvasDraft for application/json ContentType.
+type SaveCanvasDraftJSONRequestBody = SaveCanvasDraftRequest
+
+// CreateDialogueJSONRequestBody defines body for CreateDialogue for application/json ContentType.
+type CreateDialogueJSONRequestBody = CreateDialogueRequest
+
+// RenameDialogueJSONRequestBody defines body for RenameDialogue for application/json ContentType.
+type RenameDialogueJSONRequestBody = RenameDialogueRequest
+
+// ActivateDialogueJSONRequestBody defines body for ActivateDialogue for application/json ContentType.
+type ActivateDialogueJSONRequestBody = ActivateDialogueRequest
+
+// SaveDialogueDraftJSONRequestBody defines body for SaveDialogueDraft for application/json ContentType.
+type SaveDialogueDraftJSONRequestBody = SaveDialogueDraftRequest
 
 // CreateEmbedTokenJSONRequestBody defines body for CreateEmbedToken for application/json ContentType.
 type CreateEmbedTokenJSONRequestBody = EmbedTokenRequest

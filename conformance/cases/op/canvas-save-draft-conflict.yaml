@@ -1,0 +1,24 @@
+id: op.canvas-save-draft-conflict
+title: "A stale draft_version's 409 canvas_conflict is raised as ApiError with that code after one request, never retried"
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: saveCanvasDraft
+      params: {"canvas_id":"6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b"}
+      body: {"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"draft_version":4}
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 409, code: canvas_conflict, message: This canvas changed since you opened it. } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_cvconflict, token_type: Bearer, expires_in: 3600, scope: "canvas:write" } }
+    - request:
+        method: PUT
+        path: /v1/canvases/6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b/draft
+        headers: { authorization: { equals: Bearer lgr_at_cvconflict }, accept: { contains: application/json }, content-type: { contains: application/json } }
+        json: {"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"draft_version":4}
+      response: { status: 409, json: { code: canvas_conflict, error: This canvas changed since you opened it. } }

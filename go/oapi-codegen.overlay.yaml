@@ -11,3 +11,13 @@ actions:
   - target: $.components.responses.Error
     update:
       x-go-name: ErrorResponse
+  # Two anyOf scalars (boolean, number or string): oapi-codegen's union for
+  # them imports its runtime package, and the module's require block is
+  # empty. Each is an open JSON value instead, so a canvas node's params
+  # decode as map[string]any (ADR 16.10.26ak D6) and a dialogue fact as any.
+  - target: $.components.schemas.CanvasParam
+    update:
+      x-go-type: any
+  - target: $.components.schemas.FactValue
+    update:
+      x-go-type: any

@@ -2,8 +2,9 @@
 //!
 //! Some generators read 3.0 better than 3.1, so the view is also written in
 //! 3.0.3. It is a second, mechanical pass over Schema Objects only: the two
-//! nullable forms the bundle uses are rewritten, and every form 3.0 cannot
-//! say is refused with its JSON pointer rather than approximated.
+//! nullable forms the bundle uses and a `$ref` with siblings are rewritten,
+//! and every form 3.0 cannot say is refused with its JSON pointer rather than
+//! approximated.
 
 use serde_json::{Map, Value};
 
@@ -59,6 +60,9 @@ fn rewrite_one(doc: &Value, s: &Map<String, Value>, ptr: &str) -> Result<Option<
     if let Some(target) = nullable_ref(s) {
         return nullable_ref_30(doc, s, target, ptr).map(Some);
     }
+    if s.contains_key("$ref") && s.len() > 1 {
+        return ref_with_siblings_30(s, ptr).map(Some);
+    }
     match s.get("type") {
         Some(Value::Array(types)) => type_array_30(s, types, ptr).map(Some),
         Some(Value::String(t)) if t == "null" => Err(Refusal(format!("{ptr}/type: a lone null type has no 3.0 form"))),
@@ -102,6 +106,26 @@ fn nullable_ref_30(doc: &Value, s: &Map<String, Value>, target: &str, ptr: &str)
             out.insert("type".into(), Value::from(target_type));
             out.insert("nullable".into(), Value::Bool(true));
             out.insert("allOf".into(), serde_json::json!([{ "$ref": target }]));
+        } else {
+            out.insert(k.clone(), v.clone());
+        }
+    }
+    Ok(out)
+}
+
+/// `{$ref, ...siblings}` → `{...siblings, allOf: [{$ref}]}`. 3.1 reads a
+/// `$ref`'s siblings and 3.0 ignores them, so the `allOf` keeps the default
+/// and description a property sets beside its target (28.10.26d's
+/// `pedagogy`). Said exactly, not approximated: the same move
+/// `nullable_ref_30` makes.
+fn ref_with_siblings_30(s: &Map<String, Value>, ptr: &str) -> Result<Map<String, Value>, Refusal> {
+    if s.contains_key("allOf") {
+        return Err(Refusal(format!("{ptr}/allOf: a $ref beside an allOf")));
+    }
+    let mut out = Map::new();
+    for (k, v) in s {
+        if k == "$ref" {
+            out.insert("allOf".into(), serde_json::json!([{ "$ref": v }]));
         } else {
             out.insert(k.clone(), v.clone());
         }

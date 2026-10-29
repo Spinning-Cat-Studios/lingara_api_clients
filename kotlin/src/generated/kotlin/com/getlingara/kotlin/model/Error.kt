@@ -23,14 +23,14 @@ import kotlinx.serialization.Contextual
 /**
  * 
  *
- * @param code Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`).
+ * @param code Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`), `api_allowance_exhausted` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`).
  * @param error 
  */
 @Serializable
 
 public data class Error (
 
-    /* Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`). */
+    /* Why the request was refused, as a stable code to branch on: for example `insufficient_scope` (`403`), `rate_limited` (`429`), `api_allowance_exhausted` (`429`) and, for a metered client, `spend_cap_reached` (`402`) and `metered_billing_inactive` (`402`). */
     @SerialName(value = "code")
     val code: kotlin.String,
 

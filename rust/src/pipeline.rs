@@ -4,7 +4,7 @@
 //! a JSON result or an empty one.
 
 use futures_util::StreamExt as _;
-use reqwest::Method;
+use reqwest::{Method, StatusCode};
 use reqwest::header::{ACCEPT, AUTHORIZATION, HeaderValue, USER_AGENT};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -113,11 +113,17 @@ impl Client {
     /// client with no token source sends an operation that needs one without
     /// `Authorization`, and the server's 401 is the answer.
     async fn send<B: Serialize + ?Sized>(&self, req: &Req<'_, B>) -> Result<reqwest::Response, Error> {
+        self.send_allowing(req, None).await
+    }
+
+    /// [`Self::send`], also resolving with `allowed`: a non-2xx status the
+    /// caller reads itself rather than raises (an export's `304`).
+    pub(crate) async fn send_allowing<B: Serialize + ?Sized>(&self, req: &Req<'_, B>, allowed: Option<StatusCode>) -> Result<reqwest::Response, Error> {
         let res = match (&self.inner.tokens, req.needs_token) {
             (Some(tokens), true) => with_token_retry(tokens.as_ref(), |token| self.attempts(req, Some(token))).await?,
             _ => self.attempts(req, None).await?,
         };
-        if res.status().is_success() {
+        if res.status().is_success() || Some(res.status()) == allowed {
             return Ok(res);
         }
         let headers = res.headers();

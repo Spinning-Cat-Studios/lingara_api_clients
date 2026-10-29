@@ -1,0 +1,23 @@
+id: op.dialogues-graph-invalid
+title: "A 400 dialogue_graph_invalid is raised as ApiError with that status and code; its path and rule are not surfaced in this release"
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createDialogue
+      body: {"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"nowhere","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"}}
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 400, code: dialogue_graph_invalid } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_dlgraph, token_type: Bearer, expires_in: 3600, scope: "dialogues:write" } }
+    - request:
+        method: POST
+        path: /v1/dialogues
+        headers: { authorization: { equals: Bearer lgr_at_dlgraph }, content-type: { contains: application/json } }
+        json: {"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"nowhere","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"}}
+      response: { status: 400, json: { code: dialogue_graph_invalid, error: An edge names a checkpoint that does not exist., path: /checkpoints/0/edges/0/to, rule: unknown_target } }

@@ -159,6 +159,14 @@ final class Observe {
         unlinked.status = unlinked.status == null ? null : 204;
         return unlinked;
       default:
+        Supplier<ApiResponse<?>> canvas = EventSteps.canvasCall(c, call);
+        if (canvas != null) {
+          return result(canvas);
+        }
+        Seen dialogue = DialogueSteps.call(c, call);
+        if (dialogue != null) {
+          return dialogue;
+        }
         Seen seen = new Seen();
         seen.outcome = "harness: no operation " + operation;
         return seen;
@@ -169,7 +177,7 @@ final class Observe {
     return Harness.JSON.convertValue(call.path("body"), type);
   }
 
-  private static Seen result(Supplier<ApiResponse<?>> call) {
+  static Seen result(Supplier<ApiResponse<?>> call) {
     ApiResponse<?> response;
     try {
       response = call.get();

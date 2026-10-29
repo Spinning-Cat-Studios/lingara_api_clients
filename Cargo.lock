@@ -697,7 +697,7 @@ checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "lingara"
-version = "0.2.0-alpha.4"
+version = "0.2.0-alpha.6"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -752,7 +752,9 @@ dependencies = [
 name = "lingara-snippets"
 version = "0.0.0"
 dependencies = [
+ "futures-util",
  "lingara",
+ "serde_json",
  "tokio",
 ]
 

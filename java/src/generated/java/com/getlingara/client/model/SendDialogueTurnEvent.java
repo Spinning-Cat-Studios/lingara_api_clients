@@ -16,4 +16,7 @@ public sealed interface SendDialogueTurnEvent {
 
   /** The {@code notice} event. */
   record Notice(com.getlingara.client.model.Notice data) implements SendDialogueTurnEvent {}
+
+  /** The {@code transition} event. */
+  record Transition(com.getlingara.client.model.DialogueTransition data) implements SendDialogueTurnEvent {}
 }

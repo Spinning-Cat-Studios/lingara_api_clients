@@ -22,6 +22,9 @@ final class SnippetsTest extends TestCase
     private const DIR = __DIR__ . '/../../snippets/php';
     private const PLAN = '3f1c2a9e-5b7d-4e21-9a0c-6d8e4f2b1a37';
     private const VERSION = '2026-09-knowing-tenpounder';
+    private const CANVAS = '6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b';
+    private const DIALOGUE = '4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71';
+    private const ETAG = '"3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e"';
 
     /** 29.9.26u AC27: every snippet function runs against the in-memory fake with no error. */
     public function testEverySnippetRunsAgainstTheFake(): void
@@ -40,6 +43,12 @@ final class SnippetsTest extends TestCase
             'listEvents' => [null], 'streamEvents' => [self::PLAN], 'sendEvent' => [],
             'createEmbedToken' => ['player-1001'], 'deleteEmbedPlayer' => ['guild/42'], 'sendDialogueTurn' => [],
             'unlinkEmbedPlayer' => ['guild/42'],
+            'listCanvases' => [], 'pageCanvases' => [], 'createCanvas' => [], 'getCanvas' => [self::CANVAS],
+            'renameCanvas' => [self::CANVAS], 'saveCanvasDraft' => [self::CANVAS], 'activateCanvas' => [self::CANVAS, 4],
+            'dryRunCanvasPlan' => [],
+            'listDialogues' => [], 'pageDialogues' => [], 'createDialogue' => [], 'getDialogue' => [self::DIALOGUE],
+            'renameDialogue' => [self::DIALOGUE], 'saveDialogueDraft' => [self::DIALOGUE, json_decode('{"schema":"dialogue.v1"}'), 4],
+            'activateDialogue' => [self::DIALOGUE], 'exportDialogue' => [self::DIALOGUE, ['etag' => self::ETAG, 'irJson' => '{}']],
         ];
         // auth and verifyWebhook take no client, and linkEmbedPlayer takes
         // delegatedClient's (ADR 22.10.26t D7): they run on their own.
@@ -86,7 +95,8 @@ final class SnippetsTest extends TestCase
             clientId: 'lgr_cid_snippet',
             clientSecret: 'lgr_cs_snippet',
             logger: new NullLogger(),
-            http: (new FakeHttpClient($router, $router, $router))->stack(),
+            // Four answers: the token, then saveCanvasDraft's read, save and re-read.
+            http: (new FakeHttpClient($router, $router, $router, $router))->stack(),
         );
     }
 
@@ -109,13 +119,10 @@ final class SnippetsTest extends TestCase
                 ['feature' => 'vocab', 'window' => 'day', 'limit' => 50, 'used' => 3, 'remaining' => 47],
             ]]),
             $path === '/v1/openapi.json' => FakeHttpClient::json(200, ['openapi' => '3.2.0', 'info' => ['title' => 'Lingara API', 'version' => self::VERSION]]),
-            $path === '/v1/versions' => FakeHttpClient::json(200, ['current' => self::VERSION, 'development' => self::VERSION, 'versions' => [
-                ['id' => self::VERSION, 'state' => 'supported', 'lts' => false, 'minted_at' => '2026-09-20T09:00:00Z'],
-            ]]),
-            str_starts_with($path, '/v1/versions/') => FakeHttpClient::json(200, ['id' => self::VERSION, 'state' => 'supported', 'lts' => false,
-                'minted_at' => '2026-09-20T09:00:00Z', 'summary' => 'x', 'history' => [], 'spec' => ['url' => '/v1/openapi.json', 'sha256' => str_repeat('0', 64)]]),
+            str_starts_with($path, '/v1/versions') => self::versions($path),
             str_starts_with($path, '/v1/events') => self::events($request),
             str_starts_with($path, '/v1/embed/') => self::embed($path, $request->getMethod()),
+            preg_match('#^/v1/(canvases|dialogues)#', $path) === 1 => self::objectGroups($request),
             default => self::lessonsAndStreams($path),
         };
     }
@@ -138,6 +145,75 @@ final class SnippetsTest extends TestCase
                 'delta' => ['text' => '十块钱，一盘。'], 'notice' => ['code' => 'history_trimmed', 'message' => 'Older lines were left out.'],
                 'done' => new \stdClass(),
             ])),
+        };
+    }
+
+    /** The version list, or one version. */
+    private static function versions(string $path): ResponseInterface
+    {
+        return $path === '/v1/versions'
+            ? FakeHttpClient::json(200, ['current' => self::VERSION, 'development' => self::VERSION, 'versions' => [
+                ['id' => self::VERSION, 'state' => 'supported', 'lts' => false, 'minted_at' => '2026-09-20T09:00:00Z'],
+            ]])
+            : FakeHttpClient::json(200, ['id' => self::VERSION, 'state' => 'supported', 'lts' => false,
+                'minted_at' => '2026-09-20T09:00:00Z', 'summary' => 'x', 'history' => [], 'spec' => ['url' => '/v1/openapi.json', 'sha256' => str_repeat('0', 64)]]);
+    }
+
+    /** The canvas (ADR 16.10.26ak) and dialogue (ADR 29.10.26c) groups' routes. */
+    private static function objectGroups(RequestInterface $request): ResponseInterface
+    {
+        $path = $request->getUri()->getPath();
+        return str_starts_with($path, '/v1/canvases') ? self::canvases($path, $request->getMethod()) : self::dialogues($request);
+    }
+
+    /**
+     * The canvas routes (ADR 16.10.26ak): a one-item page, a dry-run with a
+     * refused op, and a canvas for the rest; a draft save answers 409
+     * canvas_conflict, so the snippet's conflict branch runs.
+     */
+    private static function canvases(string $path, string $method): ResponseInterface
+    {
+        $definition = ['schema' => 2, 'nodes' => [['id' => 'n1', 'kind' => 'client', 'position' => [0.5, 1.5], 'fields' => ['name' => 'Lesson server']]]];
+        $canvas = ['id' => self::CANVAS, 'name' => 'Lesson plan webhook', 'created_at' => '2026-10-20T09:00:00Z', 'updated_at' => '2026-10-20T09:00:00Z',
+            'draft' => ['revision' => 3, 'draft_version' => 4, 'definition' => $definition, 'objects' => new \stdClass()],
+            'active' => ['revision' => 2, 'definition' => $definition, 'objects' => ['n1' => ['id' => self::PLAN]], 'activated_at' => '2026-10-21T10:30:00Z']];
+        $item = ['id' => self::CANVAS, 'name' => 'Lesson plan webhook', 'recipe' => 'lesson_plan_ready', 'created_at' => '2026-10-20T09:00:00Z',
+            'updated_at' => '2026-10-20T09:00:00Z', 'has_draft' => true, 'active_revision' => 2, 'node_count' => 1, 'node_kinds' => ['client'],
+            'scopes' => ['events:read'], 'objects' => [['handle' => 'n1', 'kind' => 'client', 'id' => self::PLAN]]];
+        return match (true) {
+            $path === '/v1/canvases' && $method === 'GET' => FakeHttpClient::json(200, ['items' => [$item], 'total' => 1, 'next_cursor' => null, 'has_more' => false]),
+            $path === '/v1/canvases/dry-run' => FakeHttpClient::json(200, ['ok' => false, 'verdicts' => [
+                ['handle' => 'c1', 'kind' => 'client', 'op' => 'create', 'verdict' => 'refused', 'code' => 'canvas_limit_reached', 'error' => 'Too many clients.'],
+            ]]),
+            str_ends_with($path, '/draft') => FakeHttpClient::json(409, ['code' => 'canvas_conflict', 'error' => 'This canvas changed since you opened it.']),
+            default => FakeHttpClient::json($path === '/v1/canvases' ? 201 : 200, $canvas),
+        };
+    }
+
+    /**
+     * The dialogue routes (ADR 29.10.26c): a one-item page, a 304 for an
+     * export sent If-None-Match and its bytes otherwise, and a dialogue for
+     * the rest; a draft save answers 409 dialogue_conflict, so the snippet's
+     * conflict branch runs.
+     */
+    private static function dialogues(RequestInterface $request): ResponseInterface
+    {
+        $path = $request->getUri()->getPath();
+        $definition = ['schema' => 'dialogue.v1', 'id' => 'night_market_keepers', 'start' => 'greet', 'npcs' => [['id' => 'old_wei', 'name' => 'Old Wei']],
+            'checkpoints' => [['id' => 'greet', 'goal' => 'Greet the stranger', 'may_disclose' => [], 'edges' => []]], 'facts' => []];
+        $dialogue = ['id' => self::DIALOGUE, 'name' => 'Night market', 'created_at' => '2026-10-28T09:00:00Z', 'updated_at' => '2026-10-28T10:30:00Z',
+            'draft' => ['revision' => 3, 'draft_version' => 4, 'definition' => $definition],
+            'active' => ['revision' => 2, 'definition' => $definition, 'activated_at' => '2026-10-28T10:30:00Z'],
+            'warnings' => [['code' => 'checkpoint_unreachable', 'path' => '/checkpoints/0']]];
+        $item = ['id' => self::DIALOGUE, 'name' => 'Night market', 'ir_id' => 'night_market_keepers', 'created_at' => '2026-10-28T09:00:00Z',
+            'updated_at' => '2026-10-28T10:30:00Z', 'has_draft' => true, 'active_revision' => 2, 'npc_count' => 1, 'checkpoint_count' => 1];
+        $exported = ['ETag' => self::ETAG, 'Lingara-Dialogue-Revision' => '2'];
+        return match (true) {
+            $path === '/v1/dialogues' && $request->getMethod() === 'GET' => FakeHttpClient::json(200, ['items' => [$item], 'next_cursor' => null, 'has_more' => false]),
+            str_ends_with($path, '/export') && $request->hasHeader('If-None-Match') => new Response(304, $exported),
+            str_ends_with($path, '/export') => FakeHttpClient::json(200, $definition, $exported),
+            str_ends_with($path, '/draft') => FakeHttpClient::json(409, ['code' => 'dialogue_conflict', 'error' => 'This dialogue changed since you opened it.']),
+            default => FakeHttpClient::json($path === '/v1/dialogues' ? 201 : 200, $dialogue),
         };
     }
 

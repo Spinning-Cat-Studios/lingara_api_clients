@@ -6,10 +6,18 @@ namespace Lingara\Tests;
 
 use Lingara\AccessToken;
 use Lingara\AuthMethod;
+use Lingara\Canvas\Canvases;
 use Lingara\Client;
+use Lingara\Dialogue\Dialogues;
+use Lingara\Dialogue\ExportedDialogue;
 use Lingara\EventStream;
 use Lingara\Exception\ApiException;
 use Lingara\Internal\Operations;
+use Lingara\Model\Canvas;
+use Lingara\Model\CanvasDryRun;
+use Lingara\Model\CanvasPage;
+use Lingara\Model\Dialogue;
+use Lingara\Model\DialoguePage;
 use Lingara\Model\EmbedPlayerLink;
 use Lingara\Model\EmbedToken;
 use Lingara\Model\EventPage;
@@ -29,41 +37,55 @@ final class ClientTest extends TestCase
     private const VERSION = '2026-09-knowing-tenpounder';
 
     /**
-     * 29.9.26u AC22, 22.10.26t AC22: the eighteen client methods and
+     * 29.9.26u AC22, 22.10.26t AC22: the thirty-two client methods and
      * Operations' keys name the same operations, both ways, and the
      * path-parameter methods take one string; each JSON method's model is
      * its operation's success schema (`202` for sendEvent, ADR 30.9.26aa D8;
      * EmbedPlayerLink for linkEmbedPlayer). deleteEmbedPlayer's and
      * unlinkEmbedPlayer's null is unused: each calls noContent() by name (ADR
-     * 1.10.26w D4).
+     * 1.10.26w D4). The canvas (16.10.26ak) and dialogue (29.10.26c) groups'
+     * methods count as the client's.
      */
     public function testOperationMethodsMatchGeneratedOperations(): void
     {
         $methods = [];
-        foreach ((new \ReflectionClass(Client::class))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
-            $type = $method->getReturnType();
-            if ($type instanceof \ReflectionNamedType && in_array($type->getName(), [EventStream::class, \Lingara\ApiResponse::class], true)) {
-                $methods[$method->getName()] = $method;
+        foreach ([Client::class, Canvases::class, Dialogues::class] as $class) {
+            foreach ((new \ReflectionClass($class))->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+                $type = $method->getReturnType();
+                if ($type instanceof \ReflectionNamedType && in_array($type->getName(), [EventStream::class, \Lingara\ApiResponse::class, ExportedDialogue::class], true)) {
+                    $methods[$method->getName()] = $method;
+                }
             }
         }
-        $operations = array_keys(Operations::OPERATIONS);
+        $routes = Operations::OPERATIONS;
         $names = array_keys($methods);
         sort($names);
-        self::assertSame($operations, $names);
-        foreach (Operations::OPERATIONS as $id => $operation) {
+        self::assertSame(array_keys($routes), $names);
+        foreach ($routes as $id => $operation) {
             $params = $methods[$id]->getParameters();
             if ($operation['pathParams'] !== []) {
-                self::assertCount(1, $params, $id);
+                // 16.10.26ak: a canvas or dialogue write takes its body after
+                // the id; the export's options are optional (29.10.26c).
+                self::assertSame($operation['request'] === null ? 1 : 2, $methods[$id]->getNumberOfRequiredParameters(), $id);
                 self::assertSame('string', (string) $params[0]->getType(), $id);
             }
         }
-        self::assertSame([
+        // createCanvas and createDialogue answer 201, which the route row
+        // does not read: each group names its model itself. The export's
+        // row names the definition, which the export never decodes (D6).
+        $canvas = ['activateCanvas' => Canvas::class, 'createCanvas' => null, 'dryRunCanvasPlan' => CanvasDryRun::class, 'getCanvas' => Canvas::class,
+            'listCanvases' => CanvasPage::class, 'renameCanvas' => Canvas::class, 'saveCanvasDraft' => Canvas::class];
+        $dialogue = ['activateDialogue' => Dialogue::class, 'createDialogue' => null, 'exportDialogue' => 'Lingara\\Model\\DialogueDefinition',
+            'getDialogue' => Dialogue::class, 'listDialogues' => DialoguePage::class, 'renameDialogue' => Dialogue::class, 'saveDialogueDraft' => Dialogue::class];
+        $expected = $canvas + $dialogue + [
             'createEmbedToken' => EmbedToken::class, 'deleteEmbedPlayer' => null, 'getApiVersion' => VersionDetail::class, 'getAsyncApiDocument' => null, 'getLessonPlan' => LessonPlan::class,
             'getOpenApiDocument' => null, 'getUsage' => Usage::class, 'linkEmbedPlayer' => EmbedPlayerLink::class, 'listApiVersions' => VersionList::class,
             'listEvents' => EventPage::class, 'sendEvent' => InboundEventAccepted::class, 'unlinkEmbedPlayer' => null,
-        ], array_map(
+        ];
+        ksort($expected);
+        self::assertSame($expected, array_map(
             static fn(array $o): ?string => $o['response'],
-            array_filter(Operations::OPERATIONS, static fn(array $o): bool => $o['stream'] === null),
+            array_filter($routes, static fn(array $o): bool => $o['stream'] === null),
         ));
     }
 

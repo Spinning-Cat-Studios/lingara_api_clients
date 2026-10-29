@@ -179,16 +179,30 @@ func steps(e env, c map[string]any) ([]string, error) {
 			continue
 		}
 		expect = substitute(expect, e.base).(map[string]any)
-		if call, ok := st["call"].(map[string]any); ok {
-			mismatches = append(mismatches, runStep(r, call, expect)...)
-		}
-		for _, kind := range []string{"events", "tail"} {
-			if helper, ok := st[kind].(map[string]any); ok {
-				mismatches = append(mismatches, runHelper(r, kind, helper, expect)...)
-			}
-		}
+		mismatches = append(mismatches, runStepKinds(r, st, expect)...)
 	}
 	return mismatches, nil
+}
+
+// runStepKinds runs whichever of a step's call, helper and paging blocks
+// it carries, in that order, against one expect.
+func runStepKinds(r *rig, st, expect map[string]any) []string {
+	var mismatches []string
+	if call, ok := st["call"].(map[string]any); ok {
+		mismatches = append(mismatches, runStep(r, call, expect)...)
+	}
+	for _, kind := range []string{"events", "tail"} {
+		if helper, ok := st[kind].(map[string]any); ok {
+			mismatches = append(mismatches, runHelper(r, kind, helper, expect)...)
+		}
+	}
+	if page, ok := st["page_canvases"].(map[string]any); ok {
+		mismatches = append(mismatches, runPageCanvases(r, page, expect)...)
+	}
+	if page, ok := st["page_dialogues"].(map[string]any); ok {
+		mismatches = append(mismatches, runPageDialogues(r, page, expect)...)
+	}
+	return mismatches
 }
 
 // urls is where the client points: the case server, or, for

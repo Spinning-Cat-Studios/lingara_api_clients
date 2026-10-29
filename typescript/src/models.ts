@@ -77,3 +77,52 @@ export type SendDialogueTurnEvent = Schemas["SendDialogueTurnEvent"];
 // answer, returned as generated since it carries no secret
 export type EmbedPlayerLink = Schemas["EmbedPlayerLink"];
 export type LinkStatus = Schemas["LinkStatus"];
+
+// Canvases (ADR 16.10.26ak): the canvas and its revisions, its definition
+// (`fields` and `params` stay open), the list page and its item, the dry-run
+// and its verdicts, and the five request bodies
+export type Canvas = Schemas["Canvas"];
+export type CanvasDraft = Schemas["CanvasDraft"];
+export type CanvasActive = Schemas["CanvasActive"];
+export type CanvasDefinition = Schemas["CanvasDefinition"];
+export type CanvasNode = Schemas["CanvasNode"];
+export type CanvasNodeKind = Schemas["CanvasNodeKind"];
+export type CanvasEdge = Schemas["CanvasEdge"];
+export type CanvasParam = Schemas["CanvasParam"];
+export type CanvasObjectRef = Schemas["CanvasObjectRef"];
+export type CanvasPage = Schemas["CanvasPage"];
+export type CanvasSummary = Schemas["CanvasSummary"];
+export type CanvasMadeObject = Schemas["CanvasMadeObject"];
+export type CanvasRecipe = Schemas["CanvasRecipe"];
+export type CanvasDryRun = Schemas["CanvasDryRun"];
+export type CanvasVerdict = Schemas["CanvasVerdict"];
+export type CanvasVerdictKind = Schemas["CanvasVerdictKind"];
+export type CanvasPlan = Schemas["CanvasPlan"];
+export type CanvasActivationOutcome = Schemas["CanvasActivationOutcome"];
+export type CreateCanvasRequest = Schemas["CreateCanvasRequest"];
+export type RenameCanvasRequest = Schemas["RenameCanvasRequest"];
+export type SaveCanvasDraftRequest = Schemas["SaveCanvasDraftRequest"];
+export type ActivateCanvasRequest = Schemas["ActivateCanvasRequest"];
+
+// Stored dialogues (ADR 29.10.26c): the dialogue and its revisions, its
+// definition, its warnings, the list page and its item, and the four request
+// bodies. The spec publishes `definition` as a bare `object` (its shape is the
+// `dialogue.v1` schema's, never the spec's), which openapi-typescript reads as
+// `Record<string, never>`; these aliases open it, so a document can be written
+// and an unknown member read. The export's result is dialogue.ts's
+// `ExportedDialogue`.
+export type DialogueDefinition = Record<string, unknown>;
+type WithDefinition<T> = Omit<T, "definition"> & { definition: DialogueDefinition };
+export type DialogueDraft = WithDefinition<Schemas["DialogueDraft"]>;
+export type DialogueActive = WithDefinition<Schemas["DialogueActive"]>;
+export type Dialogue = Omit<Schemas["Dialogue"], "draft" | "active"> & { draft: DialogueDraft | null; active: DialogueActive | null };
+export type DialogueWarning = Schemas["DialogueWarning"];
+export type DialogueWarningCode = Schemas["DialogueWarningCode"];
+export type DialogueRule = Schemas["DialogueRule"];
+export type DialoguePage = Schemas["DialoguePage"];
+export type DialogueSummary = Schemas["DialogueSummary"];
+export type DialogueNpc = Schemas["DialogueNpc"];
+export type CreateDialogueRequest = WithDefinition<Schemas["CreateDialogueRequest"]>;
+export type RenameDialogueRequest = Schemas["RenameDialogueRequest"];
+export type SaveDialogueDraftRequest = WithDefinition<Schemas["SaveDialogueDraftRequest"]>;
+export type ActivateDialogueRequest = Schemas["ActivateDialogueRequest"];

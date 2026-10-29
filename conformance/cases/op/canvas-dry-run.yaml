@@ -1,0 +1,24 @@
+id: op.canvas-dry-run
+title: "A dry-run answering ok false decodes as a 200 result, not an error; a bare verdict and a full one both decode, and an unknown code and its English error are kept verbatim"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: dryRunCanvasPlan
+      body: {"ops":[{"handle":"c1","kind":"client","op":"create","body":{"name":"Lesson server","scopes":["events:read"]}},{"handle":"w1","kind":"webhook","op":"update","id":"1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f","client":{"handle":"c1"},"body":{"url":"https://hooks.example.com/v2"}}]}
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-simple-tarpon
+      body: {"ok":false,"verdicts":[{"handle":"c1","kind":"client","op":"create","verdict":"would_create"},{"handle":"w1","kind":"webhook","op":"update","verdict":"refused","code":"canvas_future_rule_xyz","error":"This webhook cannot change yet.","changes":["url","enabled"],"note":"Applied after c1.","depends_on":"c1"}]}
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_cvdry, token_type: Bearer, expires_in: 3600, scope: "canvas:read" } }
+    - request:
+        method: POST
+        path: /v1/canvases/dry-run
+        headers: { authorization: { equals: Bearer lgr_at_cvdry }, accept: { contains: application/json }, content-type: { contains: application/json } }
+        json: {"ops":[{"handle":"c1","kind":"client","op":"create","body":{"name":"Lesson server","scopes":["events:read"]}},{"handle":"w1","kind":"webhook","op":"update","id":"1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f","client":{"handle":"c1"},"body":{"url":"https://hooks.example.com/v2"}}]}
+      response: { status: 200, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"ok":false,"verdicts":[{"handle":"c1","kind":"client","op":"create","verdict":"would_create"},{"handle":"w1","kind":"webhook","op":"update","verdict":"refused","code":"canvas_future_rule_xyz","error":"This webhook cannot change yet.","changes":["url","enabled"],"note":"Applied after c1.","depends_on":"c1"}]} }

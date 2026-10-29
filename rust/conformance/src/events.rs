@@ -2,7 +2,9 @@
 //! D9): `events` iterates the feed helper to its end, `tail` takes `take`
 //! events from the tail helper and then drops it (Rust's cancellation, and
 //! the outcome `completed`), and the four new operations' inputs are read
-//! from a `call` block.
+//! from a `call` block. `page_canvases` and `page_dialogues` drive the
+//! canvas and dialogue page helpers (ADRs 16.10.26ak D7, 29.10.26c D7); the
+//! operations are `canvas.rs`'s and `dialogue.rs`'s.
 
 use futures_util::{Stream, StreamExt as _};
 use lingara::Error;
@@ -10,9 +12,10 @@ use lingara::events::{Event, EventStart, EventsOptions, InboundEvent, ListEvents
 use serde_json::Value;
 
 use crate::compare::Observed;
+use crate::{canvas, dialogue};
 use crate::observe::failed;
 
-fn text(block: &Value, key: &str) -> Option<String> {
+pub fn text(block: &Value, key: &str) -> Option<String> {
     block.get(key).and_then(Value::as_str).map(str::to_owned)
 }
 
@@ -107,4 +110,34 @@ pub async fn tail_step(client: &lingara::Client, block: &Value) -> Result<Observ
     let observed = drain(&mut tail, Some(take), |t| t.cursor().map(str::to_owned)).await;
     drop(tail);
     Ok(observed)
+}
+
+/// A `page_canvases` step (ADR 16.10.26ak D7): the helper iterated to its
+/// end, its items reported as one list under `body`, or its error.
+pub async fn page_canvases_step(client: &lingara::Client, block: &Value) -> Result<Observed, String> {
+    let filters = canvas::filters(block.get("params").unwrap_or(&Value::Null))?;
+    let mut items = Vec::new();
+    let mut pages = client.canvases().page_canvases(filters);
+    while let Some(item) = pages.next().await {
+        match item {
+            Ok(item) => items.push(serde_json::to_value(item).map_err(|e| e.to_string())?),
+            Err(err) => return Ok(failed(err, Vec::new(), None)),
+        }
+    }
+    Ok(Observed { outcome: "completed", body: Some(Value::Array(items)), ..Observed::default() })
+}
+
+/// A `page_dialogues` step (ADR 29.10.26c D7): `page_canvases`' shape over
+/// `listDialogues`.
+pub async fn page_dialogues_step(client: &lingara::Client, block: &Value) -> Result<Observed, String> {
+    let filters = dialogue::filters(block.get("params").unwrap_or(&Value::Null))?;
+    let mut items = Vec::new();
+    let mut pages = client.dialogues().page_dialogues(filters);
+    while let Some(item) = pages.next().await {
+        match item {
+            Ok(item) => items.push(serde_json::to_value(item).map_err(|e| e.to_string())?),
+            Err(err) => return Ok(failed(err, Vec::new(), None)),
+        }
+    }
+    Ok(Observed { outcome: "completed", body: Some(Value::Array(items)), ..Observed::default() })
 }

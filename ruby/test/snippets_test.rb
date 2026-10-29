@@ -64,6 +64,83 @@ class SnippetsTest < Minitest::Test
     end
   end
 
+  CANVAS_ID = "6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b"
+  DEFINITION = {schema: 2, nodes: [{id: "n1", kind: "client", position: [0.5, 1.5], fields: {name: "Lessons"}}], edges: []}.freeze
+  CANVAS = {id: CANVAS_ID, name: "Lesson plan webhook", created_at: "2026-10-20T09:00:00Z", updated_at: "2026-10-20T09:00:00Z",
+            draft: {revision: 1, draft_version: 4, definition: DEFINITION, objects: {}},
+            active: {revision: 1, definition: DEFINITION, objects: {}, activated_at: "2026-10-20T09:00:00Z"}}.freeze
+  SUMMARY = {id: CANVAS_ID, name: "Lesson plan webhook", recipe: "lesson_plan_ready", created_at: "2026-10-20T09:00:00Z",
+             updated_at: "2026-10-20T09:00:00Z", has_draft: true, active_revision: 1, node_count: 2,
+             node_kinds: ["client", "webhook"], scopes: ["events:read"], objects: []}.freeze
+
+  # The answer to each canvas route a snippet calls (ADR 16.10.26ak): the
+  # second draft save is a 409 canvas_conflict, so the snippet's handling
+  # runs too.
+  def answer_canvases(request, conn)
+    path = request.path.split("?").first
+    if path == "/v1/canvases" && request.method == "GET"
+      conn.json(200, {items: [SUMMARY], total: 1, next_cursor: nil, has_more: false})
+    elsif path == "/v1/canvases/dry-run"
+      conn.json(200, {ok: false, verdicts: [{handle: "c1", kind: "client", op: "create", verdict: "refused", code: "client_limit_reached",
+                                             error: "Too many clients."}]})
+    elsif path.end_with?("/draft") && (@saves = (@saves || 0) + 1) > 1
+      conn.json(409, {code: "canvas_conflict", error: "This canvas changed."})
+    else
+      conn.json((path == "/v1/canvases") ? 201 : 200, CANVAS)
+    end
+  end
+
+  def run_canvas_snippets(client)
+    LingaraSnippets.list_canvases(client)
+    LingaraSnippets.page_canvases(client)
+    id = LingaraSnippets.create_canvas(client)
+    LingaraSnippets.get_canvas(client, id)
+    LingaraSnippets.rename_canvas(client, id)
+    2.times { LingaraSnippets.save_canvas_draft(client, id) }
+    LingaraSnippets.activate_canvas(client, id)
+    LingaraSnippets.dry_run_canvas_plan(client)
+  end
+
+  DIALOGUE_ID = "4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71"
+  IR = {schema: "dialogue.v1", id: "night_market_keepers", start: "greet", npcs: [], checkpoints: [], facts: []}.freeze
+  DIALOGUE = {id: DIALOGUE_ID, name: "Night market", created_at: "2026-10-28T09:00:00Z", updated_at: "2026-10-28T09:00:00Z",
+              draft: {revision: 2, draft_version: 4, definition: IR},
+              active: {revision: 1, definition: IR, activated_at: "2026-10-28T09:00:00Z"},
+              warnings: [{code: "checkpoint_unreachable", path: "/checkpoints/0"}]}.freeze
+  DIALOGUE_ITEM = {id: DIALOGUE_ID, name: "Night market", ir_id: "night_market_keepers", created_at: "2026-10-28T09:00:00Z",
+                   updated_at: "2026-10-28T09:00:00Z", has_draft: true, active_revision: nil, npc_count: 1, checkpoint_count: 2}.freeze
+  EXPORT_HEADERS = {"ETag" => '"3b7e"', "Lingara-Dialogue-Revision" => "1"}.freeze
+
+  # The answer to each dialogue route a snippet calls (ADR 29.10.26c): the
+  # second draft save is a 409 dialogue_conflict, and an export sent with
+  # If-None-Match is a 304, so both arms of each snippet run.
+  def answer_dialogues(request, conn)
+    path = request.path.split("?").first
+    if path == "/v1/dialogues" && request.method == "GET"
+      conn.json(200, {items: [DIALOGUE_ITEM], next_cursor: nil, has_more: false})
+    elsif path.end_with?("/export")
+      return conn.text(304, "", EXPORT_HEADERS) if request.headers["if-none-match"]
+      conn.text(200, JSON.generate(IR), {"Content-Type" => "application/json"}.merge(EXPORT_HEADERS))
+    elsif path.end_with?("/draft") && (@dialogue_saves = (@dialogue_saves || 0) + 1) > 1
+      conn.json(409, {code: "dialogue_conflict", error: "This dialogue changed."})
+    else
+      conn.json((path == "/v1/dialogues") ? 201 : 200, DIALOGUE)
+    end
+  end
+
+  def run_dialogue_snippets(client)
+    LingaraSnippets.list_dialogues(client)
+    LingaraSnippets.page_dialogues(client)
+    id = LingaraSnippets.create_dialogue(client)
+    LingaraSnippets.get_dialogue(client, id)
+    LingaraSnippets.rename_dialogue(client, id)
+    2.times { LingaraSnippets.save_dialogue_draft(client, id) }
+    LingaraSnippets.activate_dialogue(client, id)
+    cached = LingaraSnippets.export_dialogue(client, id)
+    assert_equal JSON.generate(IR), cached[:ir_json]
+    LingaraSnippets.export_dialogue(client, id, cached)
+  end
+
   # The answer to each route a snippet calls.
   def answer(request, conn)
     return answer_embed(request, conn) if request.path.start_with?("/v1/embed/")
@@ -94,6 +171,8 @@ class SnippetsTest < Minitest::Test
   # 29.9.26t AC31: every snippet method runs against the fake with no error.
   def test_every_snippet_runs_against_the_fake
     server = Fixtures.server do |request, conn|
+      next answer_canvases(request, conn) if request.path.start_with?("/v1/canvases")
+      next answer_dialogues(request, conn) if request.path.start_with?("/v1/dialogues")
       request.path.start_with?("/v1/events") ? answer_events(request, conn) : answer(request, conn)
     end
     client = server.client(**Fixtures.credentials)
@@ -119,16 +198,20 @@ class SnippetsTest < Minitest::Test
       LingaraSnippets.link_embed_player(LingaraSnippets.delegated_client("lgr_at_delegated", base_url: server.url))
       LingaraSnippets.unlink_embed_player(client)
       assert_equal "十块钱，一盘。", LingaraSnippets.send_dialogue_turn(client).last[:text]
+      run_canvas_snippets(client)
+      run_dialogue_snippets(client)
     end
     %w[你好 ready still 好的 vocab 3.2.0 current supported c1 lgr_evt_unit2 on\ its\ way lgr_sub_unit deleted 十块钱
-      linked\ as\ lgr_sub_account unlinked].each do |text|
+      linked\ as\ lgr_sub_account unlinked lesson_plan_ready 2\ node(s) draft_version\ 4 active\ revision\ 1
+      renamed\ to saved\ at someone\ saved\ first client_limit_reached night_market_keepers never\ activated
+      checkpoint_unreachable changed\ elsewhere is\ new is\ unchanged].each do |text|
       assert_includes out, text
     end
     assert_includes server.requests.map(&:path), "/v1/embed/players/guild-42%2Fplayer-1001"
     link = server.requests.find { |r| r.method == "PUT" }
     assert_equal "Bearer lgr_at_delegated", link.headers["authorization"]
     snippet_methods = LingaraSnippets.singleton_methods.sort
-    assert_equal 21, snippet_methods.size
+    assert_equal 37, snippet_methods.size
   ensure
     server&.close
   end

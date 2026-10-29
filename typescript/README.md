@@ -59,8 +59,10 @@ Eighteen methods, each named after its `operationId`: `generateVocabulary`,
 `getOpenApiDocument`, `getAsyncApiDocument`, `listApiVersions` and
 `getApiVersion` return a promise. The last four need no credentials. Every
 method takes `{ signal?: AbortSignal }` last. The `events` and `tailEvents`
-helpers are under *Webhooks and events* below, and the five embedding calls
-under *Embedding Lingara*.
+helpers are under *Webhooks and events* below, the five embedding calls
+under *Embedding Lingara*, the seven canvas calls, on `client.canvases`,
+under *Canvases*, and the seven dialogue calls, on `client.dialogues`, under
+*Dialogues*.
 
 - `break` out of a `for await`, or `stream.close()`, closes the connection.
 - A stream's `error` event is thrown as an `ApiError` with `status: 200`;
@@ -216,6 +218,88 @@ const minted = await client.createEmbedToken({ player_ref: "player-1001" });
 The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
 build on these calls: server kits for higher-level minting and webhook
 helpers, and player kits for the engines.
+
+## Canvases
+
+The canvas operations (`canvas:read`, `canvas:write`) are on a group the
+client hands out, so every call reads `client.canvases.saveCanvasDraft(…)`.
+The group holds no state: the token, retries, version pin and errors are the
+client's.
+
+- `listCanvases({ cursor?, limit?, name?, status?, recipes?, kinds?, scopes? })`
+  returns one `CanvasPage`: `items`, `total` and `next_cursor` (both may be
+  `null`) and `has_more`. Each list is sent comma-separated.
+- `pageCanvases(filters?)` is an `AsyncIterable` over every page: it follows
+  `next_cursor` until `has_more` is false, resends the filters on every page,
+  never sleeps, and stops on the first error. A page with `has_more` and no
+  `next_cursor` throws `TransportError("malformed_response")`.
+- `createCanvas(body)` answers `201` with a `Canvas`, which does not echo the
+  `recipe` you sent. `getCanvas({ canvasId })` returns the draft and the active
+  revision inline; either may be `null`.
+- `renameCanvas({ canvasId }, body)` is a `PATCH`, `saveCanvasDraft({ canvasId
+  }, body)` a `PUT`, and `activateCanvas({ canvasId }, body)` promotes a draft
+  with the objects your apply made.
+- `dryRunCanvasPlan(plan)` answers `200` whether or not `ok` is true: a
+  refused op is a verdict, not an error, and its `code` and English `error`
+  are plain strings.
+
+**A conflict is an answer.** A stale `draft_version` is `409
+canvas_conflict`, thrown as an `ApiError` and never retried. Re-read with
+`getCanvas`, compare its draft with the one you sent (after a retried save it
+may be your own), take `draft.draft_version`, and decide; the library never
+merges or re-sends on its own. A replayed `activateCanvas` at a
+`draft_version` already promoted also answers `409 canvas_conflict` and writes
+nothing. Branch on `code`, show `error` (the `message`) only as a fallback, and
+localise by code as the web does.
+
+A canvas is deleted through the platform's lifecycle routes, not this library.
+
+## Dialogues
+
+The stored-dialogue operations (`dialogues:read`, `dialogues:write`) are on a
+group the client hands out, so every call reads
+`client.dialogues.saveDialogueDraft(…)`. Like the canvas group it holds no
+state.
+
+- `listDialogues({ cursor?, limit?, name? })` returns one `DialoguePage`:
+  `items`, `next_cursor` (may be `null`) and `has_more`, with no `total`.
+- `pageDialogues(filters?)` is an `AsyncIterable` over every page, with
+  `pageCanvases`' rules: it follows `next_cursor`, resends the filters, never
+  sleeps, stops on the first error, and a page with `has_more` and no
+  `next_cursor` throws `TransportError("malformed_response")`.
+- `createDialogue(body)` answers `201` with a `Dialogue`; its `warnings` are
+  advice, never a refusal. `getDialogue({ dialogueId })` returns the draft and
+  the active revision inline; either may be `null`. A `definition` is an open
+  object (`DialogueDefinition`) whose shape is the `dialogue.v1` schema's, so
+  an unknown member such as `x-layout` survives a read and a save.
+- `renameDialogue` is a `PATCH`, `saveDialogueDraft` a `PUT` (send
+  `draft_version: 0` to open a draft when there is none), and
+  `activateDialogue({ dialogueId }, { draft_version })` promotes the draft.
+
+**A conflict is an answer.** A stale `draft_version` is `409
+dialogue_conflict`, thrown as an `ApiError` and never retried: re-read with
+`getDialogue`, take `draft.draft_version` (or `0` when `draft` is `null`), and
+decide. After a retried save the conflict may be your own. A stale or missing
+draft on `activateDialogue` answers the same code. Branch on `code`, never on
+the localised `message`.
+
+`dialogue_invalid` and `dialogue_graph_invalid` carry two more envelope fields
+on the wire, `path` (a JSON Pointer) and `rule`. This release does not surface
+them on `ApiError`; a tool that needs them reads the `400` body itself.
+
+**Exporting.** `exportDialogue({ dialogueId, revision?, layout?, ifNoneMatch?
+})` resolves to an `ExportedDialogue`: `{ kind: "body", revision, etag,
+irJson }`, the IR as the text the server sent and never parsed, or `{ kind:
+"notModified", revision, etag }` on a `304`, which is a result, not an error.
+Cache by `etag`: store `irJson` exactly as received, since the `ETag` is the
+SHA-256 of those bytes, and send the `etag` back unchanged as `ifNoneMatch`.
+A `304` still spends one unit of the rate budget. `revision` is `"active"`
+(the default) or `"draft"`; `layout: "omit"` drops every `x-` member and has
+its own `ETag`. A missing `ETag` or `Lingara-Dialogue-Revision` throws
+`TransportError("malformed_response")`. K4's retries apply: the export only
+reads.
+
+A dialogue is deleted through the platform's lifecycle routes, not this library.
 
 ## Options
 

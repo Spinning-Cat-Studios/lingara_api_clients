@@ -228,6 +228,96 @@ For higher-level helpers on your server, see the
 [Lingara embed server kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
 (the `lingara-embed` gem).
 
+## Canvases
+
+The canvas operations (`canvas:read`, `canvas:write`) live on one group,
+`client.canvases`, which uses the client's own token, retries, version pin
+and errors. Each returns a `Lingara::Response`:
+
+```ruby
+canvases = client.canvases
+page = canvases.list_canvases(status: "live", kinds: ["webhook"], limit: 20).value  # a CanvasPage
+canvas = canvases.create_canvas({name: "Hooks", recipe: "lesson_plan_ready", definition: definition}).value
+canvas = canvases.get_canvas(canvas.id).value          # draft and active inline
+canvases.rename_canvas(canvas.id, {name: "Lesson plan webhook"})
+canvases.save_canvas_draft(canvas.id, {definition: definition, draft_version: canvas.draft.draft_version})
+canvases.activate_canvas(canvas.id, {draft_version: 4, outcome: "complete", objects: {"n1" => {id: object_id}}})
+dry_run = canvases.dry_run_canvas_plan({ops: ops}).value  # 200 whether or not dry_run.ok
+canvases.page_canvases(kinds: ["webhook"]).each { |item| puts item.name }
+```
+
+`page_canvases(**filters)` follows `next_cursor` until a page says
+`has_more: false`, resending the filters on every page; it never sleeps and
+stops on the first error, and a page with `has_more` but no `next_cursor` is
+`TransportError` `:malformed_response`. A node's `fields` and `params` are
+open hashes, so a definition read and saved back keeps keys this library does
+not know.
+
+A stale `draft_version` is `409 canvas_conflict`, raised as
+`Lingara::ApiError` and **never retried**. Re-read with `get_canvas`, compare
+its draft with the one you sent (after a retried save it may be your own),
+take its `draft_version`, and decide; the library never merges or re-sends.
+A replayed `activate_canvas` at a `draft_version` already promoted answers
+`409 canvas_conflict` too, and writes nothing. Branch on `code`, show the
+message only as a fallback, and localise by code: the ten `canvas_*` codes are
+the contract, the text is not. A dry-run's `refused` verdict carries its
+`code` and an English `error` as data, never raised.
+
+A canvas is deleted through the platform's lifecycle routes, not this library.
+
+## Dialogues
+
+The stored-dialogue operations (`dialogues:read`, `dialogues:write`) live on
+one group, `client.dialogues`, which uses the client's own token, retries,
+version pin and errors. Each returns a `Lingara::Response`:
+
+```ruby
+dialogues = client.dialogues
+page = dialogues.list_dialogues(name: "market", limit: 20).value  # a DialoguePage
+dialogue = dialogues.create_dialogue({name: "Night market", definition: definition}).value
+dialogue = dialogues.get_dialogue(dialogue.id).value       # draft and active inline
+dialogues.rename_dialogue(dialogue.id, {name: "Night market keepers"})
+dialogues.save_dialogue_draft(dialogue.id, {definition: definition, draft_version: dialogue.draft.draft_version})
+dialogues.activate_dialogue(dialogue.id, {draft_version: 4})
+exported = dialogues.export_dialogue(dialogue.id, if_none_match: cached_etag).value
+dialogues.page_dialogues(name: "market").each { |item| puts item.name }
+```
+
+`page_dialogues(name:, limit:)` follows `next_cursor` until a page says
+`has_more: false`, resending the filters on every page; it never sleeps and
+stops on the first error, and a page with `has_more` but no `next_cursor` is
+`TransportError` `:malformed_response`. A definition is an open hash, so one
+read and saved back keeps keys this library does not know, `x-layout`
+included. A `warnings` entry is advice, never a refusal; a warning `code`
+this library's spec does not list fails to decode the `Dialogue`
+(`TransportError` `:malformed_response`) until the library is upgraded.
+
+A stale `draft_version` is `409 dialogue_conflict`, raised as
+`Lingara::ApiError` and **never retried**. Re-read with `get_dialogue`, take
+its `draft.draft_version` (or send `0` when `draft` is `nil`, which opens
+one), and decide; after a retried save the change may be your own, and the
+library never merges or re-sends. A replayed `activate_dialogue` answers
+`409 dialogue_conflict` too, and writes nothing. Branch on `code`, show the
+message only as a fallback, and localise by code: the `dialogue_*` codes are
+the contract, the text is not. `400 dialogue_invalid` and
+`400 dialogue_graph_invalid` carry `path` and `rule` on the wire, but this
+release does not surface them on `ApiError`: a tool that needs them reads the
+`400`'s body itself.
+
+`export_dialogue(id, revision:, layout:, if_none_match:)` answers a
+`Response` whose `value` is a `Lingara::ExportedDialogue::Body` (`revision`,
+`etag`, `ir_json`) or, when `if_none_match:` still matches, a
+`Lingara::ExportedDialogue::NotModified` (`revision`, `etag`): a `304` is an
+answer, never an error. Cache by `etag`: `ir_json` is the `dialogue.v1`
+document as canonical bytes, never parsed here, so store it exactly as
+received and send the `etag` back unchanged. A `304` still spends one unit of
+the rate budget. `revision:` (`"active"` or `"draft"`) and `layout:`
+(`"keep"` or `"omit"`) are sent only when given; a missing `ETag` or
+`Lingara-Dialogue-Revision` is `TransportError` `:malformed_response`.
+
+A dialogue is deleted through the platform's lifecycle routes, not this
+library.
+
 ## Errors
 
 Every failure is a `Lingara::Error`, one of four:

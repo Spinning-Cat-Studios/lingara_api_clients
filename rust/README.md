@@ -299,6 +299,95 @@ The [embed kits](https://github.com/Spinning-Cat-Studios/lingara_embeddable_sdk)
 build on these calls: server kits for higher-level minting and webhook
 helpers, and player kits for the engines.
 
+## Canvases
+
+The canvas operations (`canvas:read`, `canvas:write`) are on a group the
+client hands out, so every call reads `client.canvases().save_canvas_draft(…)`.
+The group borrows the client and holds no state: the token, retries, version
+pin and errors are the client's.
+
+- `list_canvases(&ListCanvasesParams { cursor, filters })` returns one
+  `CanvasPage`: `items`, `total` and `next_cursor` (both may be `None`) and
+  `has_more`. `lingara::canvas::CanvasFilters` holds `limit`, `name`,
+  `status`, `recipes`, `kinds` and `scopes`; each list is sent
+  comma-separated.
+- `page_canvases(filters)` is a `Stream<Item = Result<CanvasSummary, Error>>`
+  over every page: it follows `next_cursor` until `has_more` is false, resends
+  the filters on every page, never sleeps, and ends on the first error. A page
+  with `has_more` and no `next_cursor` is `TransportKind::MalformedResponse`.
+- `create_canvas(&body)` answers `201` with a `Canvas`, which does not echo
+  the `recipe` you sent. `get_canvas(canvas_id)` returns the draft and the
+  active revision inline; either may be `None`.
+- `rename_canvas(canvas_id, &body)` is a `PATCH`, `save_canvas_draft(canvas_id,
+  &body)` a `PUT`, and `activate_canvas(canvas_id, &body)` promotes a draft
+  with the objects your apply made.
+- `dry_run_canvas_plan(&plan)` answers `200` whether or not `ok` is true: a
+  refused op is a verdict, not an error, and its `code` and English `error`
+  are plain strings.
+
+**A conflict is an answer.** A stale `draft_version` is `409
+canvas_conflict`, returned as `Error::Api` and never retried. Re-read with
+`get_canvas`, compare its draft with the one you sent (after a retried save it
+may be your own), take `draft.draft_version`, and decide; the library never
+merges or re-sends on its own. A replayed `activate_canvas` at a
+`draft_version` already promoted also answers `409 canvas_conflict` and writes
+nothing. Branch on `code`, show `error` (the `message`) only as a fallback, and
+localise by code as the web does.
+
+A canvas is deleted through the platform's lifecycle routes, not this library.
+
+## Dialogues
+
+The stored-dialogue operations (`dialogues:read`, `dialogues:write`) are on a
+group the client hands out, so every call reads
+`client.dialogues().save_dialogue_draft(…)`. Like the canvas group it borrows
+the client and holds no state.
+
+- `list_dialogues(&ListDialoguesParams { cursor, filters })` returns one
+  `DialoguePage`: `items`, `next_cursor` (may be `None`) and `has_more`, with
+  no `total`. `lingara::dialogues::DialogueFilters` holds `limit` and `name`.
+- `page_dialogues(filters)` is a `Stream<Item = Result<DialogueSummary,
+  Error>>` over every page, with `page_canvases`' rules: it follows
+  `next_cursor`, resends the filters, never sleeps, ends on the first error,
+  and a page with `has_more` and no `next_cursor` is
+  `TransportKind::MalformedResponse`.
+- `create_dialogue(&body)` answers `201` with a `Dialogue`; its `warnings` are
+  advice, never a refusal. `get_dialogue(dialogue_id)` returns the draft and
+  the active revision inline; either may be `None`. A `definition` is an open
+  JSON object whose shape is the `dialogue.v1` schema's, so an unknown member
+  such as `x-layout` survives a read and a save.
+- `rename_dialogue` is a `PATCH`, `save_dialogue_draft` a `PUT` (send
+  `draft_version: 0` to open a draft when there is none), and
+  `activate_dialogue(dialogue_id, &ActivateDialogueRequest { draft_version })`
+  promotes the draft.
+
+**A conflict is an answer.** A stale `draft_version` is `409
+dialogue_conflict`, returned as `Error::Api` and never retried: re-read with
+`get_dialogue`, take `draft.draft_version` (or `0` when `draft` is `None`), and
+decide. After a retried save the conflict may be your own. A stale or missing
+draft on `activate_dialogue` answers the same code. Branch on `code`, never on
+the localised `message`.
+
+`dialogue_invalid` and `dialogue_graph_invalid` carry two more envelope fields
+on the wire, `path` (a JSON Pointer) and `rule`. This release does not surface
+them on `ApiError`; a tool that needs them reads the `400` body itself.
+
+The generated `DialogueWarningCode` is a closed enum, so a warning code a later
+API version adds fails to decode a `Dialogue` until this library is re-synced.
+
+**Exporting.** `export_dialogue(dialogue_id, &ExportDialogueOptions { revision,
+layout, if_none_match })` answers an `ExportedDialogue`: `Body { revision,
+etag, ir_json }`, the IR as the text the server sent and never parsed, or
+`NotModified { revision, etag }` on a `304`, which is a result, not an error.
+Cache by `etag`: store `ir_json` exactly as received, since the `ETag` is the
+SHA-256 of those bytes, and send the `etag` back unchanged as `if_none_match`.
+A `304` still spends one unit of the rate budget. `revision` is `active` (the
+default) or `draft`; `layout: omit` drops every `x-` member and has its own
+`ETag`. A missing `ETag` or `Lingara-Dialogue-Revision` is
+`TransportKind::MalformedResponse`. K4's retries apply: the export only reads.
+
+A dialogue is deleted through the platform's lifecycle routes, not this library.
+
 ## The contract
 
 This library keeps the contract every official Lingara library keeps, and

@@ -15,6 +15,7 @@ const turn = client.sendDialogueTurn({
   source_lang: "en",
   target_lang: "zh",
   level: 3,
+  pedagogy: "subtle",
   line,
   history,
 });

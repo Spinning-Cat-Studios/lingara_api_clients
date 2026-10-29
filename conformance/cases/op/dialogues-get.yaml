@@ -1,0 +1,23 @@
+id: op.dialogues-get
+title: "Getting a dialogue decodes the active revision inline and a null draft, and keeps the definition's unknown x-layout member intact"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: getDialogue
+      params: {"dialogue_id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71"}
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-simple-tarpon
+      body: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T10:30:00Z","draft":null,"active":{"revision":2,"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle","x-layout":{"greet":{"x":120,"y":40}}},"activated_at":"2026-10-28T10:30:00Z"},"warnings":[]}
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_dlget, token_type: Bearer, expires_in: 3600, scope: "dialogues:read" } }
+    - request:
+        method: GET
+        path: /v1/dialogues/4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71
+        headers: { authorization: { equals: Bearer lgr_at_dlget }, accept: { contains: application/json } }
+      response: { status: 200, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T10:30:00Z","draft":null,"active":{"revision":2,"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle","x-layout":{"greet":{"x":120,"y":40}}},"activated_at":"2026-10-28T10:30:00Z"},"warnings":[]} }

@@ -70,10 +70,11 @@ func decodeGenerateVocabularyEvent(name string, frame []byte) (GenerateVocabular
 // concrete branch. The error branch, and a Done-bodied one, are never yielded.
 type SendDialogueTurnEvent interface{ isSendDialogueTurnEvent() }
 
-func (SendDialogueTurnEventDelta) isSendDialogueTurnEvent()  {}
-func (SendDialogueTurnEventNotice) isSendDialogueTurnEvent() {}
-func (SendDialogueTurnEventDone) isSendDialogueTurnEvent()   {}
-func (SendDialogueTurnEventError) isSendDialogueTurnEvent()  {}
+func (SendDialogueTurnEventDelta) isSendDialogueTurnEvent()      {}
+func (SendDialogueTurnEventNotice) isSendDialogueTurnEvent()     {}
+func (SendDialogueTurnEventTransition) isSendDialogueTurnEvent() {}
+func (SendDialogueTurnEventDone) isSendDialogueTurnEvent()       {}
+func (SendDialogueTurnEventError) isSendDialogueTurnEvent()      {}
 
 func decodeSendDialogueTurnEvent(name string, frame []byte) (SendDialogueTurnEvent, bool, error) {
 	switch name {
@@ -83,6 +84,10 @@ func decodeSendDialogueTurnEvent(name string, frame []byte) (SendDialogueTurnEve
 		return e, true, err
 	case "notice":
 		var e SendDialogueTurnEventNotice
+		err := json.Unmarshal(frame, &e)
+		return e, true, err
+	case "transition":
+		var e SendDialogueTurnEventTransition
 		err := json.Unmarshal(frame, &e)
 		return e, true, err
 	case "done":

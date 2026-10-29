@@ -98,14 +98,19 @@ func goName(operationID string) string {
 // The eighteen client methods and routes_gen.go's keys name the same
 // operations under D3's naming rule, both ways (1.10.26w added the three
 // embed operations, 22.10.26t link and unlink).
-// Events and TailEvents are 30.9.26aa's helpers, not operations.
+// Events and TailEvents are 30.9.26aa's helpers, not operations. 16.10.26ak
+// adds the seven canvas operations on the Canvases group, whose accessor and
+// PageCanvases helper are not operations either; 29.10.26c the seven
+// dialogue operations on the Dialogues group, likewise.
 func TestOperationMethodsMatchGeneratedRoutes(t *testing.T) {
-	notOperations := map[string]bool{"Format": true, "LogValue": true, "Events": true, "TailEvents": true}
+	notOperations := map[string]bool{"Format": true, "LogValue": true, "Events": true, "TailEvents": true, "Canvases": true, "PageCanvases": true,
+		"Dialogues": true, "PageDialogues": true}
 	methods := map[string]bool{}
-	clientType := reflect.TypeOf(&Client{})
-	for i := range clientType.NumMethod() {
-		if name := clientType.Method(i).Name; !notOperations[name] {
-			methods[name] = true
+	for _, holder := range []reflect.Type{reflect.TypeOf(&Client{}), reflect.TypeOf(&Canvases{}), reflect.TypeOf(&Dialogues{})} {
+		for i := range holder.NumMethod() {
+			if name := holder.Method(i).Name; !notOperations[name] {
+				methods[name] = true
+			}
 		}
 	}
 	for id := range routes {
@@ -122,8 +127,8 @@ func TestOperationMethodsMatchGeneratedRoutes(t *testing.T) {
 			t.Errorf("*Client has %s, which is no operation in routes", name)
 		}
 	}
-	if len(routes) != 18 || len(methods) != 18 {
-		t.Errorf("%d routes and %d methods, want eighteen of each", len(routes), len(methods))
+	if len(routes) != len(methods) {
+		t.Errorf("%d routes and %d methods, want one method per route", len(routes), len(methods))
 	}
 }
 

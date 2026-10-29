@@ -1,0 +1,45 @@
+id: op.dialogues-export
+title: "A default export is a GET with no query and the id as one encoded segment, answering the bytes as sent with the revision and ETag; revision and layout are sent as the query"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: exportDialogue
+      params: {"dialogue_id":"keepers/night market"}
+    expect:
+      outcome: completed
+      body:
+        revision: 3
+        etag: '"3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e"'
+        ir_json: '{"checkpoints":[{"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}],"goal":"Greet the stranger","id":"greet","may_disclose":[]}],"facts":[],"id":"night_market_keepers","npcs":[{"id":"old_wei","name":"Old Wei"}],"pedagogy":"subtle","schema":"dialogue.v1","start":"greet","x-layout":{"greet":{"x":120,"y":40}}}'
+  - call:
+      operation: exportDialogue
+      params: {"dialogue_id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","revision":"draft","layout":"omit"}
+    expect:
+      outcome: completed
+      body:
+        revision: 4
+        etag: '"9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d"'
+        ir_json: '{"checkpoints":[{"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}],"goal":"Greet the stranger","id":"greet","may_disclose":[]}],"facts":[],"id":"night_market_keepers","npcs":[{"id":"old_wei","name":"Old Wei"}],"pedagogy":"subtle","schema":"dialogue.v1","start":"greet"}'
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_dlexport, token_type: Bearer, expires_in: 3600, scope: "dialogues:read" } }
+    - request:
+        method: GET
+        path: /v1/dialogues/keepers%2Fnight%20market/export
+        headers: { authorization: { equals: Bearer lgr_at_dlexport }, accept: { contains: application/json }, if-none-match: { absent: true } }
+      response:
+        status: 200
+        headers: { content-type: application/json, etag: '"3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e3b7e"', lingara-dialogue-revision: 3, lingara-version: 2026-10-simple-tarpon }
+        text: '{"checkpoints":[{"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}],"goal":"Greet the stranger","id":"greet","may_disclose":[]}],"facts":[],"id":"night_market_keepers","npcs":[{"id":"old_wei","name":"Old Wei"}],"pedagogy":"subtle","schema":"dialogue.v1","start":"greet","x-layout":{"greet":{"x":120,"y":40}}}'
+    - request:
+        method: GET
+        path: /v1/dialogues/4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71/export
+        query: {"revision":"draft","layout":"omit"}
+        headers: { authorization: { equals: Bearer lgr_at_dlexport } }
+      response:
+        status: 200
+        headers: { content-type: application/json, etag: '"9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d9c0d"', lingara-dialogue-revision: 4, lingara-version: 2026-10-simple-tarpon }
+        text: '{"checkpoints":[{"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}],"goal":"Greet the stranger","id":"greet","may_disclose":[]}],"facts":[],"id":"night_market_keepers","npcs":[{"id":"old_wei","name":"Old Wei"}],"pedagogy":"subtle","schema":"dialogue.v1","start":"greet"}'

@@ -75,6 +75,56 @@ module Lingara
     def link_embed_player: (String player_ref) -> Response
     def unlink_embed_player: (String player_ref) -> Response
     def send_dialogue_turn: (**untyped body) { (event) -> void } -> StreamResult
+    # ADR 16.10.26ak: the canvas operations, as a group.
+    def canvases: () -> Canvases
+    # ADR 29.10.26c: the stored-dialogue operations, as a group.
+    def dialogues: () -> Dialogues
+  end
+
+  class Dialogues
+    def initialize: (^(String, Array[String], Hash[Symbol, untyped]?, untyped) -> Response request,
+                     ^(Array[String], Hash[Symbol, String?], Hash[String, String]) -> Response export) -> void
+    def list_dialogues: (?cursor: String?, ?limit: Integer?, ?name: String?) -> Response
+    def create_dialogue: (Hash[untyped, untyped] body) -> Response
+    def get_dialogue: (String dialogue_id) -> Response
+    def rename_dialogue: (String dialogue_id, Hash[untyped, untyped] body) -> Response
+    def save_dialogue_draft: (String dialogue_id, Hash[untyped, untyped] body) -> Response
+    def activate_dialogue: (String dialogue_id, Hash[untyped, untyped] body) -> Response
+    # The Response's value is an ExportedDialogue::Body or ::NotModified.
+    def export_dialogue: (String dialogue_id, ?revision: String?, ?layout: String?, ?if_none_match: String?) -> Response
+    def page_dialogues: (**untyped filters) { (untyped) -> void } -> untyped
+                      | (**untyped filters) -> Enumerator[untyped, untyped]
+  end
+
+  # ADR 29.10.26c D6: the export's two arms.
+  module ExportedDialogue
+    def self.from: (untyped response) -> (Body | NotModified)
+
+    class Body < ::Data
+      attr_reader revision: Integer
+      attr_reader etag: String
+      attr_reader ir_json: String
+      def initialize: (revision: Integer, etag: String, ir_json: String) -> void
+    end
+
+    class NotModified < ::Data
+      attr_reader revision: Integer
+      attr_reader etag: String
+      def initialize: (revision: Integer, etag: String) -> void
+    end
+  end
+
+  class Canvases
+    def initialize: (^(String, Array[String], Hash[Symbol, untyped]?, untyped) -> Response request) -> void
+    def list_canvases: (?cursor: String?, ?limit: Integer?, ?name: String?, ?status: String?, ?recipes: Array[String]?, ?kinds: Array[String]?, ?scopes: Array[String]?) -> Response
+    def create_canvas: (Hash[untyped, untyped] body) -> Response
+    def get_canvas: (String canvas_id) -> Response
+    def rename_canvas: (String canvas_id, Hash[untyped, untyped] body) -> Response
+    def save_canvas_draft: (String canvas_id, Hash[untyped, untyped] body) -> Response
+    def activate_canvas: (String canvas_id, Hash[untyped, untyped] body) -> Response
+    def dry_run_canvas_plan: (Hash[untyped, untyped] body) -> Response
+    def page_canvases: (**untyped filters) { (untyped) -> void } -> untyped
+                     | (**untyped filters) -> Enumerator[untyped, untyped]
   end
 
   class MintedToken

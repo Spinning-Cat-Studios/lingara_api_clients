@@ -21,7 +21,8 @@ pub fn validate(case: &Case) -> Result<(), String> {
 }
 
 fn step_shape(step: &Step) -> Result<(), String> {
-    let actions = [step.call.is_some(), step.events.is_some(), step.tail.is_some()];
+    let pages = [step.page_canvases.is_some(), step.page_dialogues.is_some()];
+    let actions = [step.call.is_some(), step.events.is_some(), step.tail.is_some(), pages[0], pages[1]];
     match (actions.iter().filter(|a| **a).count(), &step.expect, step.advance_clock_s) {
         (1, Some(_), None) => {
             if step.call.as_ref().is_some_and(|c| c.parallel == Some(0)) {
@@ -33,8 +34,8 @@ fn step_shape(step: &Step) -> Result<(), String> {
             Ok(())
         }
         (0, None, Some(_)) => Ok(()),
-        (1, None, None) => Err("a call, events or tail step needs an expect".into()),
-        _ => Err("exactly one of `call`, `events` or `tail` with `expect`, or `advance_clock_s`".into()),
+        (1, None, None) => Err("a call, events, tail, page_canvases or page_dialogues step needs an expect".into()),
+        _ => Err("exactly one of `call`, `events`, `tail`, `page_canvases` or `page_dialogues` with `expect`, or `advance_clock_s`".into()),
     }
 }
 
@@ -57,8 +58,8 @@ fn exchange_shape(item: &Exchange) -> Result<(), String> {
         return Err("times: at least 1".into());
     }
     let method = item.request.method.as_str();
-    if !matches!(method, "GET" | "POST" | "PUT" | "DELETE") {
-        return Err(format!("request.method: `{method}` is not GET, POST, PUT or DELETE"));
+    if !matches!(method, "GET" | "POST" | "PUT" | "PATCH" | "DELETE") {
+        return Err(format!("request.method: `{method}` is not GET, POST, PUT, PATCH or DELETE"));
     }
     if !item.request.path.starts_with('/') || item.request.path.contains('?') {
         return Err("request.path: absolute, with the query in `query`".into());

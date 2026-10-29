@@ -4,8 +4,8 @@ package snippets
 import com.getlingara.kotlin.LingaraClient
 import com.getlingara.kotlin.embed.sendDialogueTurn
 import com.getlingara.kotlin.model.DialogueEntry
+import com.getlingara.kotlin.model.DialogueNpc
 import com.getlingara.kotlin.model.DialogueTurnRequest
-import com.getlingara.kotlin.model.Npc
 import com.getlingara.kotlin.model.SendDialogueTurnEvent
 import com.getlingara.kotlin.model.Speaker
 // lingara:end
@@ -19,7 +19,7 @@ suspend fun sendDialogueTurnSnippet(
     val line = "饺子多少钱？"
     val turn =
         DialogueTurnRequest(
-            npc = Npc(name = "Auntie Lin", persona = "a street-food vendor who likes to haggle"),
+            npc = DialogueNpc(name = "Auntie Lin", persona = "a street-food vendor who likes to haggle"),
             sourceLang = "en",
             targetLang = "zh",
             level = 3,

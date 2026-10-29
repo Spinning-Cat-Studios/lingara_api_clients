@@ -14,7 +14,10 @@ import (
 // The events steps and operations (conformance/README.md; ADR 30.9.26aa D9):
 // `events` iterates client.Events to its end, `tail` takes `take` events from
 // client.TailEvents and then closes it, and sendEvent builds its
-// InboundEvent from the case's body through the public constructors.
+// InboundEvent from the case's body through the public constructors. The
+// page_canvases step drives the canvas page helper the same way (ADR
+// 16.10.26ak D7), and the page_dialogues step the dialogue one (ADR
+// 29.10.26c D7).
 
 // helperOptions reads an events or tail step's cursor, start and types.
 func helperOptions(step map[string]any) lingara.EventsOptions {
@@ -119,6 +122,82 @@ func iterate(ctx context.Context, it eventIterator, take int) observed {
 	}
 	seen.outcome, seen.cursor = "completed", it.Cursor()
 	return seen
+}
+
+// canvasFilters reads listCanvases' or a page_canvases step's params, less
+// the cursor (ADR 16.10.26ak).
+func canvasFilters(params map[string]any) lingara.CanvasFilters {
+	limit, _ := params["limit"].(float64)
+	name, _ := params["name"].(string)
+	status, _ := params["status"].(string)
+	list := func(key string) []string {
+		values, _ := params[key].([]any)
+		return texts(values)
+	}
+	return lingara.CanvasFilters{
+		Limit: int(limit), Name: name, Status: lingara.ListCanvasesParamsStatus(status),
+		Recipes: list("recipes"), Kinds: list("kinds"), Scopes: list("scopes"),
+	}
+}
+
+// runPageCanvases runs a page_canvases step (ADR 16.10.26ak D7): the helper
+// iterated to its end, its items reported as one list under `body`, or its
+// error.
+func runPageCanvases(r *rig, step, expect map[string]any) []string {
+	r.reset()
+	params, _ := step["params"].(map[string]any)
+	seen := observed{outcome: "completed"}
+	items := []any{}
+	for item, err := range r.client.Canvases().PageCanvases(context.Background(), canvasFilters(params)) {
+		if err != nil {
+			seen = failed(err, nil, nil)
+			break
+		}
+		items = append(items, item)
+	}
+	if seen.outcome == "completed" {
+		seen.body = items
+	}
+	seen.sleeps = r.sleepsS()
+	var mismatches []string
+	for _, m := range compare(expect, seen) {
+		mismatches = append(mismatches, "page_canvases: "+m)
+	}
+	return mismatches
+}
+
+// dialogueFilters reads listDialogues' or a page_dialogues step's params,
+// less the cursor (ADR 29.10.26c).
+func dialogueFilters(params map[string]any) lingara.DialogueFilters {
+	limit, _ := params["limit"].(float64)
+	name, _ := params["name"].(string)
+	return lingara.DialogueFilters{Limit: int(limit), Name: name}
+}
+
+// runPageDialogues runs a page_dialogues step (ADR 29.10.26c D7): the helper
+// iterated to its end, its items reported as one list under `body`, or its
+// error.
+func runPageDialogues(r *rig, step, expect map[string]any) []string {
+	r.reset()
+	params, _ := step["params"].(map[string]any)
+	seen := observed{outcome: "completed"}
+	items := []any{}
+	for item, err := range r.client.Dialogues().PageDialogues(context.Background(), dialogueFilters(params)) {
+		if err != nil {
+			seen = failed(err, nil, nil)
+			break
+		}
+		items = append(items, item)
+	}
+	if seen.outcome == "completed" {
+		seen.body = items
+	}
+	seen.sleeps = r.sleepsS()
+	var mismatches []string
+	for _, m := range compare(expect, seen) {
+		mismatches = append(mismatches, "page_dialogues: "+m)
+	}
+	return mismatches
 }
 
 // compareHelper checks the three helper fields: event_ids, unknown_types and

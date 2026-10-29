@@ -1,0 +1,23 @@
+id: op.canvas-create
+title: "Creating a canvas POSTs the recipe in its JSON body and decodes the 201 Canvas, which carries no recipe"
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createCanvas
+      body: {"name":"Lesson plan webhook","recipe":"lesson_plan_ready","definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]}}
+    expect:
+      outcome: completed
+      served_version: 2026-10-simple-tarpon
+      body: {"id":"6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b","name":"Lesson plan webhook","created_at":"2026-10-20T09:00:00Z","updated_at":"2026-10-21T10:30:00Z","draft":{"revision":1,"draft_version":1,"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"objects":{}},"active":null}
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_cvcreate, token_type: Bearer, expires_in: 3600, scope: "canvas:write" } }
+    - request:
+        method: POST
+        path: /v1/canvases
+        headers: { authorization: { equals: Bearer lgr_at_cvcreate }, accept: { contains: application/json }, content-type: { contains: application/json } }
+        json: {"name":"Lesson plan webhook","recipe":"lesson_plan_ready","definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]}}
+      response: { status: 201, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"id":"6b1f0c3e-2a4d-4e8f-9b7a-1c2d3e4f5a6b","name":"Lesson plan webhook","created_at":"2026-10-20T09:00:00Z","updated_at":"2026-10-21T10:30:00Z","draft":{"revision":1,"draft_version":1,"definition":{"schema":2,"nodes":[{"id":"n1","kind":"client","position":[0.5,1.5],"fields":{"name":"Lesson server","scopes":["events:read"]}},{"id":"n2","kind":"webhook","position":[2.5,1.5],"fields":{"url":"https://hooks.example.com/lingara","event_types":["lesson_plan.ready"]}}],"edges":[{"from":"n1","to":"n2"}]},"objects":{}},"active":null} }
