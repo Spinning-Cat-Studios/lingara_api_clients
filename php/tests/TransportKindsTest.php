@@ -45,10 +45,6 @@ final class TransportKindsTest extends StacksTestCase
             ['then' => 'garbage'],
             ['write' => [substr($cut, 0, -90)], 'then' => 'reset'],
             ['write' => [ScriptedServer::sseHead(), self::started()], 'then' => 'reset'],
-            // The two token stalls outlast the 0.5 s token timeout by 2.5 s: at
-            // 1.0 s a slow runner saw the close before the timeout, as Reset.
-            ['write' => ["HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n", ['sleep' => 3.0]], 'then' => 'close'],
-            ['write' => ["HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n{\"access_", ['sleep' => 3.0]], 'then' => 'close'],
         ]);
         $client = self::client($http, $server);
         self::assertSame(TransportKind::Timeout, self::kindOf(static fn() => $client->getOpenApiDocument())->kind(), 'no headers');
@@ -61,11 +57,10 @@ final class TransportKindsTest extends StacksTestCase
         self::assertSame($expected, self::kindOf(static fn() => $tls->getOpenApiDocument())->kind(), 'garbage for a ClientHello');
         self::assertSame(TransportKind::Reset, self::kindOf(static fn() => $client->getOpenApiDocument())->kind(), 'a JSON body cut');
         self::assertSame(TransportKind::Reset, self::kindOf(static fn() => iterator_to_array($client->generateVocabulary(self::vocab())))->kind(), 'a stream cut');
-        $stalled = self::withToken($http, $server->url, 0.5);
-        self::assertSame(TransportKind::Timeout, self::kindOf(static fn() => $stalled->getUsage())->kind(), 'a token body that never starts');
-        $stalled = self::withToken($http, $server->url, 0.5);
-        self::assertSame(TransportKind::Timeout, self::kindOf(static fn() => $stalled->getUsage())->kind(), 'a token body stalled mid-way');
         $server->stop();
+        $head = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 90\r\n\r\n";
+        self::assertSame(TransportKind::Timeout, self::tokenStall($http, $head), 'a token body that never starts');
+        self::assertSame(TransportKind::Timeout, self::tokenStall($http, $head . '{"access_'), 'a token body stalled mid-way');
 
         $garbage = new ScriptedServer([['then' => 'garbage']]);
         $tlsToken = self::withToken($http, str_replace('http://', 'https://', $garbage->url));
@@ -104,6 +99,22 @@ final class TransportKindsTest extends StacksTestCase
             return $e;
         }
         self::fail('no TransportException');
+    }
+
+    /**
+     * The kind of a token exchange whose server writes $bytes and then stalls
+     * past the 0.5 s token timeout, on a server of its own: the server is
+     * single-threaded, so behind another entry's stall the request would
+     * wait in the backlog and fail before its headers, at the bound, instead.
+     * The stall outlasts the timeout by 2.5 s: at 1.0 s a slow runner saw the
+     * close before the timeout, as Reset.
+     */
+    private static function tokenStall(HttpStack $http, string $bytes): TransportKind
+    {
+        $server = new ScriptedServer([['write' => [$bytes, ['sleep' => 3.0]], 'then' => 'close']]);
+        $kind = self::kindOf(static fn() => self::withToken($http, $server->url, 0.5)->getUsage())->kind();
+        $server->stop();
+        return $kind;
     }
 
     private static function withToken(HttpStack $http, string $base, float $tokenTimeout = 30.0): Client

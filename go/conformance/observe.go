@@ -258,7 +258,7 @@ func minted(res *lingara.Result[lingara.MintedToken], err error) observed {
 	m := res.Value
 	wire := map[string]any{
 		"token": m.Token.ExposeSecret(), "expires_at": m.ExpiresAt.Format(time.RFC3339), "expires_in": int64(m.ExpiresIn / time.Second),
-		"subject": m.Subject, "scopes": m.Scopes, "account_linked": m.AccountLinked,
+		"subject": m.Subject, "scopes": m.Scopes, "account_linked": m.AccountLinked, "update_available": m.UpdateAvailable,
 	}
 	return observed{outcome: "completed", status: 200, body: wire, servedVersion: orNil(res.ServedVersion), renderings: rendered(res)}
 }

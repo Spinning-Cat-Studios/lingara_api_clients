@@ -1218,17 +1218,77 @@ pub struct EmbedToken {
     pub scopes: ::std::vec::Vec<::std::string::String>,
     pub subject: ::std::string::String,
     pub token: ::std::string::String,
+    ///Present only when the request named an `embed_version` that is behind the serving version, deprecated, or withdrawn.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub update_available: ::std::option::Option<UpdateAvailable>,
 }
 ///`EmbedTokenRequest`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct EmbedTokenRequest {
+    ///The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub embed_version: ::std::option::Option<EmbedTokenRequestEmbedVersion>,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub origin: ::std::option::Option<EmbedTokenRequestOrigin>,
     ///Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.
     pub player_ref: EmbedTokenRequestPlayerRef,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub scopes: ::std::option::Option<::std::vec::Vec<EmbedTokenRequestScopesItem>>,
+}
+///The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version.
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct EmbedTokenRequestEmbedVersion(::std::string::String);
+impl ::std::ops::Deref for EmbedTokenRequestEmbedVersion {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<EmbedTokenRequestEmbedVersion> for ::std::string::String {
+    fn from(value: EmbedTokenRequestEmbedVersion) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for EmbedTokenRequestEmbedVersion {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 20usize {
+            return Err("longer than 20 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for EmbedTokenRequestEmbedVersion {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for EmbedTokenRequestEmbedVersion {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for EmbedTokenRequestEmbedVersion {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
 }
 ///`EmbedTokenRequestOrigin`
 #[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -2648,6 +2708,73 @@ pub struct TutorTurnRequest {
     pub situation: ::std::option::Option<::std::string::String>,
     pub source_lang: ::std::string::String,
     pub target_lang: ::std::string::String,
+}
+///`UpdateAvailable`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct UpdateAvailable {
+    ///Whether the developer deprecated the version you declared.
+    pub deprecated: bool,
+    ///The version now serving, or null when no published version serves.
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub latest: ::std::option::Option<::std::string::String>,
+    ///The developer's deprecation message, verbatim and never translated, or null.
+    #[serde(deserialize_with = "::std::option::Option::deserialize")]
+    pub message: ::std::option::Option<UpdateAvailableMessage>,
+}
+///The developer's deprecation message, verbatim and never translated, or null.
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct UpdateAvailableMessage(::std::string::String);
+impl ::std::ops::Deref for UpdateAvailableMessage {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<UpdateAvailableMessage> for ::std::string::String {
+    fn from(value: UpdateAvailableMessage) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for UpdateAvailableMessage {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 280usize {
+            return Err("longer than 280 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for UpdateAvailableMessage {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for UpdateAvailableMessage {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for UpdateAvailableMessage {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
 }
 ///`Usage`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]

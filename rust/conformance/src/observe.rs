@@ -34,6 +34,7 @@ pub fn minted_result(result: Result<ApiResponse<MintedToken>, Error>) -> Observe
             let body = json!({
                 "token": res.token.expose_secret(), "expires_at": res.expires_at, "expires_in": res.expires_in.as_secs(),
                 "subject": res.subject, "scopes": res.scopes, "account_linked": res.account_linked,
+                "update_available": serde_json::to_value(&res.update_available).unwrap_or(Value::Null),
             });
             completed(&res, 200, Some(body))
         }

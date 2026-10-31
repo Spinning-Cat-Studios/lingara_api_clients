@@ -123,6 +123,59 @@ class RedactionTest {
     assertThrows(TransportException.class, () -> MintedToken.of(answer, mapper));
   }
 
+  /**
+   * 31.10.26g AC4: a well-formed notice is copied field for field, nulls kept, and a message of
+   * exactly 280 astral code points (560 UTF-16 units) is kept; none, absent or null, is empty; a
+   * malformed notice is empty and the token is still minted; a malformed token field is still
+   * malformed_response; toString shows the notice with the token redacted.
+   */
+  @Test
+  void mintedTokenUpdateAvailableIsCopiedOrDropped() throws Exception {
+    String minted = "lgr_et_redact_0123456789abcdefghijklmnopqrstuvwxyz0";
+    ObjectMapper mapper = LingaraClient.mapper();
+    String smileys = "😀".repeat(280);
+    String base =
+        "{\"token\":\""
+            + minted
+            + "\",\"expires_at\":\"2026-10-01T09:27:44Z\",\"expires_in\":900,"
+            + "\"subject\":\"lgr_sub_redact\",\"scopes\":[],\"account_linked\":false";
+    String[] kept = {
+      "{\"latest\":null,\"deprecated\":true,\"message\":\"Use 1.2.0\"}",
+      "{\"latest\":\"1.2.0\",\"deprecated\":false,\"message\":\"" + smileys + "\"}",
+    };
+    for (String notice : kept) {
+      MintedToken token =
+          MintedToken.of(mapper.readTree(base + ",\"update_available\":" + notice + "}"), mapper);
+      ObjectNode expected = (ObjectNode) mapper.readTree(notice);
+      com.getlingara.client.model.UpdateAvailable got = token.updateAvailable().orElseThrow();
+      assertEquals(expected.get("latest").textValue(), got.getLatest());
+      assertEquals(expected.get("deprecated").booleanValue(), got.getDeprecated());
+      assertEquals(expected.get("message").textValue(), got.getMessage());
+      assertTrue(token.toString().contains("updateAvailable={latest="), token.toString());
+      assertTrue(token.toString().contains("[REDACTED]") && !token.toString().contains(minted));
+    }
+    for (String none : new String[] {base + "}", base + ",\"update_available\":null}"}) {
+      assertTrue(MintedToken.of(mapper.readTree(none), mapper).updateAvailable().isEmpty());
+    }
+    String[] malformed = {
+      "5",
+      "{\"latest\":\"1.2.0\",\"message\":null}",
+      "{\"latest\":7,\"deprecated\":true,\"message\":null}",
+      "{\"latest\":null,\"deprecated\":true,\"message\":\"" + smileys + "x\"}",
+    };
+    for (String notice : malformed) {
+      MintedToken token =
+          MintedToken.of(mapper.readTree(base + ",\"update_available\":" + notice + "}"), mapper);
+      assertTrue(token.updateAvailable().isEmpty(), notice);
+      assertEquals(minted, token.token().exposeSecret());
+    }
+    String badField = base.replace("\"expires_in\":900", "\"expires_in\":\"soon\"") + "}";
+    TransportException refused =
+        assertThrows(
+            TransportException.class, () -> MintedToken.of(mapper.readTree(badField), mapper));
+    assertEquals(TransportKind.MALFORMED_RESPONSE, refused.kind());
+  }
+
   private static void assertOnlyExposeSecretIsRaw(Object holder, String raw) throws Exception {
     for (Method m : holder.getClass().getMethods()) {
       boolean accessor =

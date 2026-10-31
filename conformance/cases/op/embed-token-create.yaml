@@ -11,7 +11,7 @@ steps:
       outcome: completed
       status: 200
       served_version: 2026-10-golden-remora
-      body: { token: lgr_et_conformance00000000000000000000000000000000, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance0f1e2d3c4b5a6978, scopes: ["embed:play", "lesson_plans:read"], account_linked: false }
+      body: { token: lgr_et_conformance00000000000000000000000000000000, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance0f1e2d3c4b5a6978, scopes: ["embed:play", "lesson_plans:read"], account_linked: false, update_available: null }
 exchanges:
   items:
     - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }

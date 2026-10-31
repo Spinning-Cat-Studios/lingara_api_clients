@@ -2,12 +2,12 @@
 
 module Lingara
   # This library's released version, SemVer, sent in every User-Agent (K6).
-  VERSION = "0.2.0-alpha.6"
+  VERSION = "0.2.0-alpha.7"
 
   # The same version in RubyGems' spelling, which the gemspec uses.
-  GEM_VERSION = "0.2.0.pre.alpha.6"
+  GEM_VERSION = "0.2.0.pre.alpha.7"
 
   # The /v1 version this library's models were generated from. A response
   # served under another version logs one warning per version id.
-  GENERATED_FOR_VERSION = "2026-10-simple-tarpon"
+  GENERATED_FOR_VERSION = "2026-10-expensive-sauger"
 end

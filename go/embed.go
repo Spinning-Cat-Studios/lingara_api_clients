@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Embedding Lingara (ADR 1.10.26w): the mint, the player delete and the NPC
@@ -36,6 +38,12 @@ type MintedToken struct {
 	Scopes []string
 	// AccountLinked says whether the player has linked a Lingara account.
 	AccountLinked bool
+	// UpdateAvailable is Lingara's notice that the embed_version the
+	// request named is behind, deprecated or withdrawn, copied verbatim; nil
+	// when the request named none, the version is current, or the notice was
+	// malformed. A notice is advisory, so a bad one is dropped and never
+	// costs the token (ADR 31.10.26g D3).
+	UpdateAvailable *UpdateAvailable
 }
 
 // embedTokenFields is every field the mint's answer must carry (ADR 1.10.26w
@@ -45,11 +53,19 @@ var embedTokenFields = []string{"token", "expires_at", "expires_in", "subject", 
 // newMintedToken builds a MintedToken from the mint's raw answer. Each of the
 // six fields must be present, non-null and of its JSON type, and the token
 // must start lgr_et_. A failure is Kind MalformedResponse and carries none
-// of the body, so the token cannot leak through a cause.
+// of the body, so the token cannot leak through a cause. The notice is
+// lifted out of present first, and the typed decode reads what is left, so
+// a malformed notice cannot fail it (ADR 31.10.26g D3).
 func newMintedToken(raw []byte) (MintedToken, error) {
 	var present map[string]json.RawMessage
 	var answer EmbedToken
-	if json.Unmarshal(raw, &present) != nil || json.Unmarshal(raw, &answer) != nil {
+	if json.Unmarshal(raw, &present) != nil {
+		return MintedToken{}, malformedMint("the answer is not a JSON object")
+	}
+	notice, hasNotice := present["update_available"]
+	delete(present, "update_available")
+	rest, err := json.Marshal(present)
+	if err != nil || json.Unmarshal(rest, &answer) != nil {
 		return MintedToken{}, malformedMint("a field is not of its JSON type")
 	}
 	for _, name := range embedTokenFields {
@@ -60,10 +76,53 @@ func newMintedToken(raw []byte) (MintedToken, error) {
 	if !strings.HasPrefix(answer.Token, "lgr_et_") {
 		return MintedToken{}, malformedMint("the token is not an lgr_et_ token")
 	}
-	return MintedToken{
+	minted := MintedToken{
 		Token: NewToken(answer.Token), ExpiresAt: answer.ExpiresAt, ExpiresIn: time.Duration(answer.ExpiresIn) * time.Second,
 		Subject: answer.Subject, Scopes: answer.Scopes, AccountLinked: answer.AccountLinked,
-	}, nil
+	}
+	if hasNotice {
+		minted.UpdateAvailable = updateFrom(notice)
+	}
+	return minted, nil
+}
+
+// noticeMessageMax is the schema's maxLength, in code points (never bytes),
+// so every library agrees on a notice near the limit.
+const noticeMessageMax = 280
+
+// updateFrom converts the notice: an object whose deprecated is a boolean
+// and whose latest and message are each present and a string or null,
+// message at most 280 code points; anything else is nil (ADR 31.10.26g D3).
+// It reads the raw value by hand, since Unmarshal would zero-fill a missing
+// key; unknown keys are ignored.
+func updateFrom(raw json.RawMessage) *UpdateAvailable {
+	var notice map[string]json.RawMessage
+	if json.Unmarshal(raw, &notice) != nil || notice == nil {
+		return nil
+	}
+	var deprecated *bool
+	if value, ok := notice["deprecated"]; !ok || json.Unmarshal(value, &deprecated) != nil || deprecated == nil {
+		return nil
+	}
+	latest, ok := nullableString(notice, "latest")
+	if !ok {
+		return nil
+	}
+	message, ok := nullableString(notice, "message")
+	if !ok || (message != nil && utf8.RuneCountInString(*message) > noticeMessageMax) {
+		return nil
+	}
+	return &UpdateAvailable{Latest: latest, Deprecated: *deprecated, Message: message}
+}
+
+// nullableString reads a key that must be present and a string or null.
+func nullableString(notice map[string]json.RawMessage, key string) (*string, bool) {
+	var value *string
+	raw, ok := notice[key]
+	if !ok || json.Unmarshal(raw, &value) != nil {
+		return nil, false
+	}
+	return value, true
 }
 
 func malformedMint(reason string) error {
@@ -154,6 +213,8 @@ type mintedTokenJSON struct {
 	Subject       string    `json:"subject"`
 	Scopes        []string  `json:"scopes"`
 	AccountLinked bool      `json:"account_linked"`
+	// No omitempty: no notice is written as null.
+	UpdateAvailable *UpdateAvailable `json:"update_available"`
 }
 
 func (m MintedToken) String() string                { return m.render().plain }
@@ -164,7 +225,7 @@ func (m MintedToken) Format(f fmt.State, verb rune) { writeFormatted(f, verb, m.
 func (m MintedToken) MarshalJSON() ([]byte, error) {
 	return json.Marshal(mintedTokenJSON{
 		Token: m.Token, ExpiresAt: m.ExpiresAt, ExpiresIn: int64(m.ExpiresIn / time.Second),
-		Subject: m.Subject, Scopes: m.Scopes, AccountLinked: m.AccountLinked,
+		Subject: m.Subject, Scopes: m.Scopes, AccountLinked: m.AccountLinked, UpdateAvailable: m.UpdateAvailable,
 	})
 }
 
@@ -177,12 +238,44 @@ func (m MintedToken) LogValue() slog.Value {
 		slog.String("subject", m.Subject),
 		slog.Any("scopes", m.Scopes),
 		slog.Bool("account_linked", m.AccountLinked),
+		slog.Any("update_available", noticeLogValue(m.UpdateAvailable)),
 	)
 }
 
 func (m MintedToken) render() rendering {
 	at := m.ExpiresAt.Format(time.RFC3339)
-	detailed := fmt.Sprintf("lingara.MintedToken{Token:%s, ExpiresAt:%q, ExpiresIn:%s, Subject:%q, Scopes:%q, AccountLinked:%t}",
-		redacted, at, m.ExpiresIn, m.Subject, m.Scopes, m.AccountLinked)
+	detailed := fmt.Sprintf("lingara.MintedToken{Token:%s, ExpiresAt:%q, ExpiresIn:%s, Subject:%q, Scopes:%q, AccountLinked:%t, UpdateAvailable:%s}",
+		redacted, at, m.ExpiresIn, m.Subject, m.Scopes, m.AccountLinked, renderNotice(m.UpdateAvailable))
 	return rendering{plain: fmt.Sprintf("lingara.MintedToken(subject=%s, expires_at=%s)", m.Subject, at), detailed: detailed}
+}
+
+// renderNotice is the notice in render's detailed form: nil, or its three
+// fields with each string quoted.
+func renderNotice(u *UpdateAvailable) string {
+	if u == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("{Latest:%s, Deprecated:%t, Message:%s}", quotedOrNil(u.Latest), u.Deprecated, quotedOrNil(u.Message))
+}
+
+func quotedOrNil(s *string) string {
+	if s == nil {
+		return "nil"
+	}
+	return strconv.Quote(*s)
+}
+
+// noticeLogValue is the notice as a slog group, its strings by value rather
+// than as pointers.
+func noticeLogValue(u *UpdateAvailable) slog.Value {
+	if u == nil {
+		return slog.AnyValue(nil)
+	}
+	value := func(s *string) any {
+		if s == nil {
+			return nil
+		}
+		return *s
+	}
+	return slog.GroupValue(slog.Any("latest", value(u.Latest)), slog.Bool("deprecated", u.Deprecated), slog.Any("message", value(u.Message)))
 }

@@ -2,10 +2,10 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Lingara API",
-    "version": "2026-10-simple-tarpon",
+    "version": "2026-10-expensive-sauger",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage.",
     "x-lingara-view": {
-      "source": "backend@3258bda9aac81d3c416af8d8366cc3c50f572c3c",
+      "source": "backend@39db1f0e8846700eeb2ded1e42f43238963eb4a1",
       "from": "3.2.0"
     }
   },
@@ -497,14 +497,24 @@
               "schema": {
                 "$ref": "#/components/schemas/EmbedTokenRequest"
               },
-              "example": {
-                "player_ref": "player-1001",
-                "scopes": [
-                  "embed:play",
-                  "lesson_plans:read",
-                  "lesson_plans:write"
-                ],
-                "origin": "https://game.example.com"
+              "examples": {
+                "player": {
+                  "value": {
+                    "player_ref": "player-1001",
+                    "scopes": [
+                      "embed:play",
+                      "lesson_plans:read",
+                      "lesson_plans:write"
+                    ],
+                    "origin": "https://game.example.com"
+                  }
+                },
+                "declaring": {
+                  "value": {
+                    "player_ref": "player-1001",
+                    "embed_version": "1.1.0"
+                  }
+                }
               }
             }
           }
@@ -541,7 +551,12 @@
                     "lesson_plans:write",
                     "embed:play"
                   ],
-                  "account_linked": false
+                  "account_linked": false,
+                  "update_available": {
+                    "latest": "1.2.0",
+                    "deprecated": true,
+                    "message": "Use 1.2.0"
+                  }
                 }
               }
             }
@@ -4291,6 +4306,15 @@
             ],
             "maxLength": 255,
             "pattern": "^https?://[^/?#@ ]+$"
+          },
+          "embed_version": {
+            "description": "The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 20,
+            "pattern": "^(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})\\.(0|[1-9][0-9]{0,5})$"
           }
         },
         "additionalProperties": false,
@@ -4325,6 +4349,17 @@
           },
           "account_linked": {
             "type": "boolean"
+          },
+          "update_available": {
+            "description": "Present only when the request named an `embed_version` that is behind the serving version, deprecated, or withdrawn.",
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UpdateAvailable"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -4334,6 +4369,36 @@
           "subject",
           "scopes",
           "account_linked"
+        ]
+      },
+      "UpdateAvailable": {
+        "type": "object",
+        "properties": {
+          "latest": {
+            "description": "The version now serving, or null when no published version serves.",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "deprecated": {
+            "description": "Whether the developer deprecated the version you declared.",
+            "type": "boolean"
+          },
+          "message": {
+            "description": "The developer's deprecation message, verbatim and never translated, or null.",
+            "type": [
+              "string",
+              "null"
+            ],
+            "maxLength": 280
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "latest",
+          "deprecated",
+          "message"
         ]
       },
       "EmbedPlayerLink": {

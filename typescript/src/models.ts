@@ -68,6 +68,8 @@ export type ReactionReport = Schemas["ReactionReport"];
 // the NPC turn's request, its window entries and its stream union
 export type EmbedTokenRequest = Schemas["EmbedTokenRequest"];
 export type EmbedToken = Schemas["EmbedToken"];
+// The notice a mint carries (ADR 31.10.26g): MintedToken.updateAvailable
+export type UpdateAvailable = Schemas["UpdateAvailable"];
 export type DialogueTurnRequest = Schemas["DialogueTurnRequest"];
 export type DialogueEntry = Schemas["DialogueEntry"];
 export type Speaker = Schemas["Speaker"];

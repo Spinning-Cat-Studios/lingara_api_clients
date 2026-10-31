@@ -241,7 +241,7 @@ A game or website can vouch for its own players: your server mints each
 player a short-lived embed token, and the player's device uses it.
 
 ```rust
-let minted = client.create_embed_token(&EmbedTokenRequest { player_ref: "player-1001".parse()?, scopes: None, origin: None }).await?;
+let minted = client.create_embed_token(&EmbedTokenRequest { player_ref: "player-1001".parse()?, scopes: None, origin: None, embed_version: None }).await?;
 // store minted.subject; hand minted.token.expose_secret() (lgr_et_…) to the device
 ```
 

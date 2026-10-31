@@ -2,8 +2,11 @@ package com.getlingara.kotlin
 
 import com.getlingara.kotlin.embed.MintedToken
 import com.getlingara.kotlin.internal.ErrorMapper
+import com.getlingara.kotlin.model.UpdateAvailable
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.junit.jupiter.api.Test
@@ -13,6 +16,7 @@ import java.time.Duration
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RedactionTest {
@@ -95,6 +99,61 @@ class RedactionTest {
         renderings(refused).forEach { assertFalse(it.contains(MINTED), it) }
         val notEmbed = fields + ("token" to JsonPrimitive("lgr_at_not_an_embed_token"))
         assertFailsWith<TransportException> { MintedToken.of(JsonObject(notEmbed)) }
+    }
+
+    /**
+     * 31.10.26g AC5: a well-formed notice is copied field for field, nulls kept, and a message of
+     * exactly 280 astral code points (560 UTF-16 units) is kept; none, absent or null, is null; a
+     * malformed notice is null and the token is still minted; a malformed token field is still
+     * malformed_response; toString shows the notice with the token redacted.
+     */
+    @Test
+    fun mintedTokenUpdateAvailableIsCopiedOrDropped() {
+        val smileys = "😀".repeat(280)
+        val base =
+            mapOf(
+                "token" to JsonPrimitive(MINTED),
+                "expires_at" to JsonPrimitive("2026-10-01T09:27:44Z"),
+                "expires_in" to JsonPrimitive(900),
+                "subject" to JsonPrimitive("lgr_sub_redact"),
+                "scopes" to JsonArray(emptyList()),
+                "account_linked" to JsonPrimitive(false),
+            )
+
+        fun with(notice: JsonElement) = MintedToken.of(JsonObject(base + ("update_available" to notice)))
+
+        fun notice(vararg fields: Pair<String, JsonElement>) = JsonObject(fields.toMap())
+
+        for ((latest, deprecated, message) in listOf(Triple(null, true, "Use 1.2.0"), Triple("1.2.0", false, smileys))) {
+            val token =
+                with(
+                    notice(
+                        "latest" to JsonPrimitive(latest),
+                        "deprecated" to JsonPrimitive(deprecated),
+                        "message" to JsonPrimitive(message),
+                    ),
+                )
+            assertEquals(UpdateAvailable(latest, deprecated, message), token.updateAvailable)
+            assertTrue(token.toString().contains("updateAvailable=UpdateAvailable("), token.toString())
+            assertTrue(token.toString().contains("[REDACTED]") && !token.toString().contains(MINTED))
+        }
+        assertNull(MintedToken.of(JsonObject(base)).updateAvailable)
+        assertNull(with(JsonNull).updateAvailable)
+        val malformed =
+            listOf(
+                JsonPrimitive(5),
+                notice("latest" to JsonPrimitive("1.2.0"), "message" to JsonNull),
+                notice("latest" to JsonPrimitive(7), "deprecated" to JsonPrimitive(true), "message" to JsonNull),
+                notice("latest" to JsonNull, "deprecated" to JsonPrimitive(true), "message" to JsonPrimitive(smileys + "x")),
+            )
+        for (bad in malformed) {
+            val token = with(bad)
+            assertNull(token.updateAvailable, bad.toString())
+            assertEquals(MINTED, token.token.exposeSecret())
+        }
+        val badField = base + ("expires_in" to JsonPrimitive("soon")) + ("update_available" to JsonNull)
+        val refused = assertFailsWith<TransportException> { MintedToken.of(JsonObject(badField)) }
+        assertEquals(TransportKind.MALFORMED_RESPONSE, refused.kind)
     }
 
     private fun assertOnlyExposeSecretIsRaw(

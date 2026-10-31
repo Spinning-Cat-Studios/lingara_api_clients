@@ -26,6 +26,7 @@ import kotlinx.serialization.Contextual
  * @param playerRef Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.
  * @param scopes 
  * @param origin 
+ * @param embedVersion The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version.
  */
 @Serializable
 
@@ -39,7 +40,11 @@ public data class EmbedTokenRequest (
     val scopes: kotlin.collections.Set<EmbedTokenRequest.Scopes>? = null,
 
     @SerialName(value = "origin")
-    val origin: kotlin.String? = null
+    val origin: kotlin.String? = null,
+
+    /* The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version. */
+    @SerialName(value = "embed_version")
+    val embedVersion: kotlin.String? = null
 
 ) {
 

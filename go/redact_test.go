@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -154,5 +155,83 @@ func assertMarshalsRedacted(t *testing.T, name string, v any) {
 	raw, err := json.Marshal(v)
 	if err != nil || strings.Contains(string(raw), mintedSecret) || !strings.Contains(string(raw), redacted) {
 		t.Errorf("%s: json.Marshal gave %s, %v", name, raw, err)
+	}
+}
+
+// TestMintedTokenUpdateAvailable: 31.10.26g AC3. A well-formed notice is
+// copied field for field, nulls kept, and a message of exactly 280 astral
+// code points is kept; none, absent or null, is nil; a malformed notice is
+// nil and the token is still minted; a malformed token field is still Kind
+// MalformedResponse. %+v and LogValue show UpdateAvailable with the token
+// redacted, and json.Marshal writes it as the wire's object or null.
+func TestMintedTokenUpdateAvailable(t *testing.T) {
+	smileys := strings.Repeat("\U0001F600", 280)
+	with := func(notice string) []byte {
+		return []byte(strings.TrimSuffix(mintAnswer, "}") + `,"update_available":` + notice + "}")
+	}
+	for _, notice := range []string{
+		`{"latest":null,"deprecated":true,"message":"Use 1.2.0"}`,
+		`{"latest":"1.2.0","deprecated":false,"message":"` + smileys + `"}`,
+	} {
+		assertNoticeKept(t, notice, with(notice))
+	}
+	for _, answer := range [][]byte{[]byte(mintAnswer), with("null")} {
+		if minted, err := newMintedToken(answer); err != nil || minted.UpdateAvailable != nil {
+			t.Errorf("%s: got %v, %v, want no notice", answer, minted.UpdateAvailable, err)
+		}
+	}
+	for _, notice := range []string{
+		`5`,
+		`{"latest":"1.2.0","message":null}`,
+		`{"latest":7,"deprecated":true,"message":null}`,
+		`{"latest":null,"deprecated":true,"message":"` + smileys + `x"}`,
+	} {
+		assertNoticeDropped(t, notice, with(notice))
+	}
+	_, err := newMintedToken([]byte(strings.Replace(mintAnswer, `"expires_in":900`, `"expires_in":"soon"`, 1)))
+	var te *TransportError
+	if !errors.As(err, &te) || te.Kind != MalformedResponse {
+		t.Errorf("a malformed token field gave %v, want Kind MalformedResponse", err)
+	}
+}
+
+// assertNoticeDropped: the mint answer carrying a malformed notice still
+// mints the token, with no notice (31.10.26g AC3).
+func assertNoticeDropped(t *testing.T, notice string, answer []byte) {
+	t.Helper()
+	minted, err := newMintedToken(answer)
+	if err != nil || minted.UpdateAvailable != nil || minted.Token.ExposeSecret() != mintedSecret {
+		t.Errorf("%s: got %v, %v, want the token and no notice", notice, minted.UpdateAvailable, err)
+	}
+}
+
+// assertNoticeKept: the mint answer carrying notice keeps it, json.Marshal
+// writes it back as the wire's object, and %+v and slog show it with the
+// token redacted (31.10.26g AC3).
+func assertNoticeKept(t *testing.T, notice string, answer []byte) {
+	t.Helper()
+	minted, err := newMintedToken(answer)
+	if err != nil || minted.UpdateAvailable == nil {
+		t.Fatalf("%s: got %v, %v", notice, minted.UpdateAvailable, err)
+	}
+	raw, _ := json.Marshal(minted)
+	var wire struct {
+		UpdateAvailable json.RawMessage `json:"update_available"`
+	}
+	_ = json.Unmarshal(raw, &wire)
+	var got, want any
+	_ = json.Unmarshal(wire.UpdateAvailable, &got)
+	_ = json.Unmarshal([]byte(notice), &want)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("json.Marshal's notice is %s, want %s", wire.UpdateAvailable, notice)
+	}
+	assertNoSecret(t, "minted token with a notice", minted, []string{mintedSecret})
+	if r := fmt.Sprintf("%+v", minted); !strings.Contains(r, "UpdateAvailable:{Latest:") || !strings.Contains(r, redacted) {
+		t.Errorf("%%+v does not show the notice: %s", r)
+	}
+	var buf bytes.Buffer
+	slog.New(slog.NewJSONHandler(&buf, nil)).Info("mint", "minted", minted)
+	if !strings.Contains(buf.String(), `"update_available":{"latest":`) || strings.Contains(buf.String(), mintedSecret) {
+		t.Errorf("LogValue does not show the notice: %s", buf.String())
 	}
 }

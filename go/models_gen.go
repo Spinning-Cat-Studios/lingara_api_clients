@@ -1324,11 +1324,16 @@ type EmbedToken struct {
 	Scopes    []string `json:"scopes"`
 	Subject   string   `json:"subject"`
 	Token     string   `json:"token"`
+
+	// UpdateAvailable Present only when the request named an `embed_version` that is behind the serving version, deprecated, or withdrawn.
+	UpdateAvailable *UpdateAvailable `json:"update_available,omitempty"`
 }
 
 // EmbedTokenRequest defines model for EmbedTokenRequest.
 type EmbedTokenRequest struct {
-	Origin *string `json:"origin,omitempty"`
+	// EmbedVersion The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version.
+	EmbedVersion *string `json:"embed_version,omitempty"`
+	Origin       *string `json:"origin,omitempty"`
 
 	// PlayerRef Your own reference for the player: 1 to 128 bytes of UTF-8, with no control characters. Lingara stores only a hash of it.
 	PlayerRef string                     `json:"player_ref"`
@@ -1796,6 +1801,18 @@ type TutorTurnRequest struct {
 	Situation  *string      `json:"situation,omitempty"`
 	SourceLang string       `json:"source_lang"`
 	TargetLang string       `json:"target_lang"`
+}
+
+// UpdateAvailable defines model for UpdateAvailable.
+type UpdateAvailable struct {
+	// Deprecated Whether the developer deprecated the version you declared.
+	Deprecated bool `json:"deprecated"`
+
+	// Latest The version now serving, or null when no published version serves.
+	Latest *string `json:"latest"`
+
+	// Message The developer's deprecation message, verbatim and never translated, or null.
+	Message *string `json:"message"`
 }
 
 // Usage defines model for Usage.

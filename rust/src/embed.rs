@@ -6,11 +6,12 @@
 use std::time::Duration;
 
 use reqwest::Method;
+use serde_json::Value;
 
 use crate::client::{ApiResponse, Client};
 use crate::error::{Error, TransportKind};
 use crate::generated::streams::SEND_DIALOGUE_TURN;
-use crate::models::{DialogueTurnRequest, EmbedPlayerLink, EmbedToken, EmbedTokenRequest, SendDialogueTurnEvent};
+use crate::models::{DialogueTurnRequest, EmbedPlayerLink, EmbedToken, EmbedTokenRequest, SendDialogueTurnEvent, UpdateAvailable, UpdateAvailableMessage};
 use crate::pipeline::{Req, encode_segment};
 use crate::stream::EventStream;
 use crate::token::AccessToken;
@@ -36,9 +37,27 @@ pub struct MintedToken {
     pub scopes: Vec<String>,
     /// Whether the player has linked a Lingara account.
     pub account_linked: bool,
+    /// Lingara's notice that the `embed_version` the request named is
+    /// behind, deprecated or withdrawn, copied verbatim; `None` when the
+    /// request named none, the version is current, or the notice was
+    /// malformed. A notice is advisory, so a bad one is dropped and never
+    /// costs the token (ADR 31.10.26g D3).
+    pub update_available: Option<UpdateAvailable>,
 }
 
 impl MintedToken {
+    /// From the raw answer. The notice is lifted out before the typed
+    /// decode, so a malformed one cannot fail the other six fields (ADR
+    /// 31.10.26g D3); any of those failing is still `MalformedResponse`
+    /// with no source.
+    fn from_raw(mut raw: Value) -> Result<Self, Error> {
+        let notice = raw.as_object_mut().and_then(|answer| answer.remove("update_available"));
+        let answer: EmbedToken = serde_json::from_value(raw).map_err(|_| Error::from(TransportKind::MalformedResponse))?;
+        let mut minted = Self::from_answer(answer)?;
+        minted.update_available = notice.and_then(update_from);
+        Ok(minted)
+    }
+
     /// From the decoded answer, whose six fields serde has already required
     /// and typed. A token that is not an `lgr_et_` token is
     /// `MalformedResponse`, carrying none of the answer, so the value cannot
@@ -54,7 +73,34 @@ impl MintedToken {
             subject: answer.subject,
             scopes: answer.scopes,
             account_linked: answer.account_linked,
+            update_available: None,
         })
+    }
+}
+
+/// The notice, when it is an object whose `deprecated` is a boolean and whose
+/// `latest` and `message` are each a string or `null`, `message` at most 280
+/// code points; otherwise `None`. It reads the raw value by hand: no
+/// generated deserializer judges it (ADR 31.10.26g D3). Unknown keys are
+/// ignored, so an additive change does not drop every notice.
+fn update_from(value: Value) -> Option<UpdateAvailable> {
+    let Value::Object(mut notice) = value else { return None };
+    let deprecated = notice.get("deprecated")?.as_bool()?;
+    let latest = nullable_string(notice.remove("latest")?)?;
+    let message = match nullable_string(notice.remove("message")?)? {
+        Some(text) => Some(UpdateAvailableMessage::try_from(text).ok()?),
+        None => None,
+    };
+    Some(UpdateAvailable { deprecated, latest, message })
+}
+
+/// `Some(None)` for JSON `null`, `Some(Some(_))` for a string, `None` for
+/// anything else.
+fn nullable_string(value: Value) -> Option<Option<String>> {
+    match value {
+        Value::Null => Some(None),
+        Value::String(text) => Some(Some(text)),
+        _ => None,
     }
 }
 
@@ -69,9 +115,9 @@ impl Client {
     pub async fn create_embed_token(&self, body: &EmbedTokenRequest) -> Result<ApiResponse<MintedToken>, Error> {
         let url = self.url("/v1/embed/tokens");
         let req = Req { method: Method::POST, url: &url, body: Some(body), accept: "application/json", needs_token: true, headers: &[], retries: true };
-        let res = self.json_req::<EmbedToken, _>(&req).await?;
+        let res = self.json_req::<Value, _>(&req).await?;
         let served_version = res.served_version;
-        Ok(ApiResponse { value: MintedToken::from_answer(res.value)?, served_version })
+        Ok(ApiResponse { value: MintedToken::from_raw(res.value)?, served_version })
     }
 
     /// Deletes a player and revokes their tokens (`DELETE

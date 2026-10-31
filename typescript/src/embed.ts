@@ -5,7 +5,7 @@
 // other token (CONTRACT.md K1).
 
 import { INSPECT, REDACTED, TransportError } from "./errors.js";
-import type { EmbedToken } from "./models.js";
+import type { EmbedToken, UpdateAvailable } from "./models.js";
 
 /** A player's embed token, as `createEmbedToken` returns it. */
 export class MintedToken {
@@ -20,15 +20,23 @@ export class MintedToken {
   readonly scopes: readonly string[];
   /** Whether the player has linked a Lingara account. */
   readonly accountLinked: boolean;
+  /**
+   * Lingara's notice that the `embed_version` the request named is behind,
+   * deprecated or withdrawn, copied verbatim; `null` when the request named
+   * none, the version is current, or the notice was malformed. A notice is
+   * advisory, so a bad one is dropped and never costs the token (ADR 31.10.26g D3).
+   */
+  readonly updateAvailable: UpdateAvailable | null;
 
-  /** Built by `createEmbedToken` from a checked answer; see `mintedToken`. */
-  constructor(answer: EmbedToken) {
+  /** Built by `createEmbedToken` from a checked answer and its converted notice; see `mintedToken`. */
+  constructor(answer: EmbedToken, updateAvailable: UpdateAvailable | null = null) {
     this.#token = answer.token;
     this.expiresAt = answer.expires_at;
     this.expiresIn = answer.expires_in;
     this.subject = answer.subject;
     this.scopes = Object.freeze([...answer.scopes]);
     this.accountLinked = answer.account_linked;
+    this.updateAvailable = updateAvailable;
   }
 
   /** The `lgr_et_` bearer token, raw, to hand to the player's device. The one accessor that does not redact. */
@@ -37,8 +45,8 @@ export class MintedToken {
   }
 
   toJSON(): Record<string, unknown> {
-    const { expiresAt, expiresIn, subject, scopes, accountLinked } = this;
-    return { token: REDACTED, expiresAt, expiresIn, subject, scopes, accountLinked };
+    const { expiresAt, expiresIn, subject, scopes, accountLinked, updateAvailable } = this;
+    return { token: REDACTED, expiresAt, expiresIn, subject, scopes, accountLinked, updateAvailable };
   }
 
   [INSPECT](): string {
@@ -52,7 +60,8 @@ export class MintedToken {
 
 // Each of the mint's six fields and the check its JSON type must pass. The
 // types are erased at runtime, so a decoded body is checked here by hand.
-const FIELDS: Record<keyof EmbedToken, (value: unknown) => boolean> = {
+// The notice is not one of them: it is converted apart, and fails nothing.
+const FIELDS: Record<Exclude<keyof EmbedToken, "update_available">, (value: unknown) => boolean> = {
   token: (v) => typeof v === "string" && v.startsWith("lgr_et_"),
   expires_at: (v) => typeof v === "string",
   expires_in: (v) => Number.isInteger(v),
@@ -72,8 +81,31 @@ export function mintedToken(body: unknown): MintedToken & { readonly servedVersi
   const answer = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
   const ok = Object.entries(FIELDS).every(([name, check]) => check(answer[name]));
   if (!ok) throw new TransportError("malformed_response");
-  const minted = new MintedToken(answer as unknown as EmbedToken);
+  const minted = new MintedToken(answer as unknown as EmbedToken, updateFrom(answer["update_available"]));
   const servedVersion = answer["servedVersion"];
   if (servedVersion !== undefined) Object.defineProperty(minted, "servedVersion", { value: servedVersion, enumerable: false });
   return minted;
 }
+
+// The schema's maxLength, in code points (never UTF-16 units), so every
+// library agrees on a notice near the limit.
+const MESSAGE_MAX = 280;
+
+const nullableString = (v: unknown): v is string | null => v === null || typeof v === "string";
+
+/**
+ * The notice, when it is an object whose `deprecated` is a boolean and whose
+ * `latest` and `message` are each present and a string or `null`, `message`
+ * at most 280 code points; otherwise `null` (ADR 31.10.26g D3). Only those
+ * three keys are copied; unknown ones are ignored.
+ */
+function updateFrom(value: unknown): UpdateAvailable | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return null;
+  const notice = value as Record<string, unknown>;
+  if (!("latest" in notice) || !("message" in notice)) return null;
+  const { latest, deprecated, message } = notice;
+  if (typeof deprecated !== "boolean" || !nullableString(latest) || !nullableString(message)) return null;
+  return withinLimit(message) ? { latest, deprecated, message } : null;
+}
+
+const withinLimit = (message: string | null): boolean => message === null || [...message].length <= MESSAGE_MAX;

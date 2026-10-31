@@ -842,6 +842,8 @@ export interface components {
             player_ref: string;
             scopes?: ("events:read" | "events:write" | "lesson_plans:read" | "lesson_plans:write" | "embed:play")[] | null;
             origin?: string | null;
+            /** @description The embed version your game build runs, as MAJOR.MINOR.PATCH. Send it to be told when an update is available. Only a caller that sends it is warned about, or refused on, a yanked version. */
+            embed_version?: string | null;
         };
         EmbedToken: {
             token: string;
@@ -855,6 +857,16 @@ export interface components {
             subject: string;
             scopes: string[];
             account_linked: boolean;
+            /** @description Present only when the request named an `embed_version` that is behind the serving version, deprecated, or withdrawn. */
+            update_available?: components["schemas"]["UpdateAvailable"] | null;
+        };
+        UpdateAvailable: {
+            /** @description The version now serving, or null when no published version serves. */
+            latest: string | null;
+            /** @description Whether the developer deprecated the version you declared. */
+            deprecated: boolean;
+            /** @description The developer's deprecation message, verbatim and never translated, or null. */
+            message: string | null;
         };
         EmbedPlayerLink: {
             status: components["schemas"]["LinkStatus"];
@@ -1720,17 +1732,6 @@ export interface operations {
         };
         requestBody: {
             content: {
-                /**
-                 * @example {
-                 *       "player_ref": "player-1001",
-                 *       "scopes": [
-                 *         "embed:play",
-                 *         "lesson_plans:read",
-                 *         "lesson_plans:write"
-                 *       ],
-                 *       "origin": "https://game.example.com"
-                 *     }
-                 */
                 "application/json": components["schemas"]["EmbedTokenRequest"];
             };
         };
@@ -1756,7 +1757,12 @@ export interface operations {
                      *         "lesson_plans:write",
                      *         "embed:play"
                      *       ],
-                     *       "account_linked": false
+                     *       "account_linked": false,
+                     *       "update_available": {
+                     *         "latest": "1.2.0",
+                     *         "deprecated": true,
+                     *         "message": "Use 1.2.0"
+                     *       }
                      *     }
                      */
                     "application/json": components["schemas"]["EmbedToken"];

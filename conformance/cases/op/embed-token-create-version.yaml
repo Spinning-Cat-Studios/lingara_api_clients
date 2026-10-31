@@ -1,0 +1,25 @@
+id: op.embed-token-create-version
+title: A mint naming embed_version sends it in the request JSON
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: createEmbedToken
+      body: { player_ref: player-1006, embed_version: "1.1.0" }
+    expect:
+      outcome: completed
+      status: 200
+      body: { token: lgr_et_conformance77777777777777777777777777777777, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance6978879605142332, scopes: ["events:read", "embed:play"], account_linked: false, update_available: null }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opmintversion, token_type: Bearer, expires_in: 3600, scope: "embed:mint" } }
+    - request:
+        method: POST
+        path: /v1/embed/tokens
+        headers: { authorization: { equals: Bearer lgr_at_opmintversion }, content-type: { prefix: application/json } }
+        json: { player_ref: player-1006, embed_version: "1.1.0" }
+      response:
+        status: 200
+        json: { token: lgr_et_conformance77777777777777777777777777777777, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance6978879605142332, scopes: ["events:read", "embed:play"], account_linked: false }

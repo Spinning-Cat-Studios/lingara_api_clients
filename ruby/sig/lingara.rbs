@@ -137,9 +137,12 @@ module Lingara
     attr_reader subject: String
     attr_reader scopes: Array[String]
     attr_reader account_linked: bool
+    # ADR 31.10.26g: an UpdateAvailable or nil, untyped as every generated model is.
+    attr_reader update_available: untyped
+    MESSAGE_MAX: Integer
 
     def self.decode: (String body) -> MintedToken
-    def initialize: (token: AccessToken, expires_at: Time, expires_in: Integer, subject: String, scopes: Array[String], account_linked: bool) -> void
+    def initialize: (token: AccessToken, expires_at: Time, expires_in: Integer, subject: String, scopes: Array[String], account_linked: bool, ?update_available: untyped) -> void
   end
 
   # ADR 30.9.26aa: the event union, the verifier, the feed and the tail.

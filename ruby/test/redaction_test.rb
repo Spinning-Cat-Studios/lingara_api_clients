@@ -85,4 +85,32 @@ class RedactionTest < Minitest::Test
     wrong = MINT_ANSWER.merge(token: "lgr_at_notminted")
     assert_raises(Lingara::TransportError) { Lingara::MintedToken.decode(JSON.generate(wrong)) }
   end
+
+  # 31.10.26g AC6: a well-formed notice is copied field for field, nils
+  # kept, and a message of exactly 280 astral code points is kept; none,
+  # absent or null, is nil; a malformed notice is nil and the token is still
+  # minted; a malformed token field is still malformed_response; inspect
+  # shows the notice with the token redacted.
+  def test_minted_token_update_available_is_copied_or_dropped
+    smileys = "\u{1F600}" * 280
+    mint = ->(notice) { Lingara::MintedToken.decode(JSON.generate(MINT_ANSWER.merge(update_available: notice))) }
+    [{latest: nil, deprecated: true, message: "Use 1.2.0"}, {latest: "1.2.0", deprecated: false, message: smileys}].each do |notice|
+      minted = mint.call(notice)
+      got = minted.update_available
+      assert_equal [notice[:latest], notice[:deprecated], notice[:message]], [got.latest, got.deprecated, got.message]
+      assert_includes minted.inspect, "update_available={"
+      assert_includes minted.inspect, "[REDACTED]"
+      refute_includes minted.inspect, MINTED
+    end
+    assert_nil Lingara::MintedToken.decode(JSON.generate(MINT_ANSWER)).update_available
+    assert_nil mint.call(nil).update_available
+    [5, {latest: "1.2.0", message: nil}, {latest: 7, deprecated: true, message: nil},
+      {latest: nil, deprecated: true, message: "#{smileys}x"}].each do |notice|
+      minted = mint.call(notice)
+      assert_nil minted.update_available, notice.inspect
+      assert_equal MINTED, minted.token.expose_secret
+    end
+    error = assert_raises(Lingara::TransportError) { Lingara::MintedToken.decode(JSON.generate(MINT_ANSWER.merge(expires_in: "soon"))) }
+    assert_equal :malformed_response, error.kind
+  end
 end

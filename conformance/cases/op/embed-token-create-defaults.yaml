@@ -10,7 +10,7 @@ steps:
     expect:
       outcome: completed
       status: 200
-      body: { token: lgr_et_conformance11111111111111111111111111111111, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance1e2d3c4b5a697887, scopes: ["events:read", "embed:play"], account_linked: false }
+      body: { token: lgr_et_conformance11111111111111111111111111111111, expires_at: "2026-10-01T09:27:44Z", expires_in: 900, subject: lgr_sub_conformance1e2d3c4b5a697887, scopes: ["events:read", "embed:play"], account_linked: false, update_available: null }
 exchanges:
   items:
     - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }

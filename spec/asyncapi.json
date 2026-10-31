@@ -3,7 +3,7 @@
   "info": {
     "title": "Lingara events",
     "x-i18n": "asyncapi.info",
-    "version": "2026-10-expensive-sauger",
+    "version": "2026-10-dauntless-hoopoe",
     "description": "The events Lingara sends about your account, to a webhook endpoint you register or through the event feed and stream, and the events your game or integration can send to Lingara. Every outbound event is the same envelope on every transport."
   },
   "servers": {

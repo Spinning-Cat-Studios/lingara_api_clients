@@ -209,6 +209,10 @@ function wire(MintedToken $token): array
     return [
         'token' => $token->token->exposeSecret(), 'expires_at' => $token->expiresAt, 'expires_in' => $token->expiresIn,
         'subject' => $token->subject, 'scopes' => $token->scopes, 'account_linked' => $token->accountLinked,
+        'update_available' => $token->updateAvailable === null ? null : [
+            'latest' => $token->updateAvailable->getLatest(), 'deprecated' => $token->updateAvailable->getDeprecated(),
+            'message' => $token->updateAvailable->getMessage(),
+        ],
     ];
 }
 

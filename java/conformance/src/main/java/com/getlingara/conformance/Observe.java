@@ -207,6 +207,16 @@ final class Observe {
     out.put("subject", minted.subject());
     minted.scopes().forEach(out.putArray("scopes")::add);
     out.put("account_linked", minted.accountLinked());
+    out.putNull("update_available");
+    minted
+        .updateAvailable()
+        .ifPresent(
+            notice -> {
+              ObjectNode wire = out.putObject("update_available");
+              wire.put("latest", notice.getLatest());
+              wire.put("deprecated", notice.getDeprecated());
+              wire.put("message", notice.getMessage());
+            });
     return out;
   }
 

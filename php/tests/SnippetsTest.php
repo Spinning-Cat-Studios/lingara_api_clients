@@ -139,7 +139,8 @@ final class SnippetsTest extends TestCase
                 'previous_subject' => 'lgr_sub_snippet', 'linked_at' => '2026-11-02T18:04:11Z', 'scopes' => ['embed:play'],
                 'carried' => new \stdClass(), 'kept' => new \stdClass()]),
             $path === '/v1/embed/tokens' => FakeHttpClient::json(200, ['token' => 'lgr_et_snippet', 'expires_at' => '2026-10-01T09:27:44Z',
-                'expires_in' => 900, 'subject' => 'lgr_sub_snippet', 'scopes' => ['events:read', 'embed:play'], 'account_linked' => false]),
+                'expires_in' => 900, 'subject' => 'lgr_sub_snippet', 'scopes' => ['events:read', 'embed:play'], 'account_linked' => false,
+                'update_available' => ['latest' => '1.2.0', 'deprecated' => true, 'message' => null]]),
             str_starts_with($path, '/v1/embed/players/') => new Response(204),
             default => FakeHttpClient::sse(self::frames([
                 'delta' => ['text' => '十块钱，一盘。'], 'notice' => ['code' => 'history_trimmed', 'message' => 'Older lines were left out.'],

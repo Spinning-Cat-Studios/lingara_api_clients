@@ -141,8 +141,23 @@ at = "2026-10-28T23:26:05Z"
 [[version]]
 id = "2026-10-expensive-sauger"
 minted_at = "2026-10-28T23:26:05Z"
-state = "development"
+state = "supported"
+spec_sha256 = "74c5d8045f2e6a2ae646ab85e08fb809b4bd43d4c630a94d9db858bffa945f34"
+asyncapi_sha256 = "9dbb7e3042fa357dce4d049def5f8b5dedf2a424b644589c32fbaee1cede09b9"
 
 [[version.history]]
 state = "development"
 at = "2026-10-28T23:26:05Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-10-30T18:26:16Z"
+
+[[version]]
+id = "2026-10-dauntless-hoopoe"
+minted_at = "2026-10-30T18:26:16Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-10-30T18:26:16Z"

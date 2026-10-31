@@ -44,7 +44,8 @@ class SnippetsTest < Minitest::Test
   end
 
   MINTED = {token: "lgr_et_unit0000000000000000000000000000000000000", expires_at: "2026-10-01T09:27:44Z", expires_in: 900,
-            subject: "lgr_sub_unit", scopes: ["embed:play", "events:write"], account_linked: false}.freeze
+            subject: "lgr_sub_unit", scopes: ["embed:play", "events:write"], account_linked: false,
+            update_available: {latest: "1.2.0", deprecated: true, message: nil}}.freeze
 
   LINK = {status: "linked", subject: "lgr_sub_account", previous_subject: "lgr_sub_unit", linked_at: "2026-11-02T18:04:11Z",
           scopes: ["embed:play"], carried: {}, kept: {}}.freeze

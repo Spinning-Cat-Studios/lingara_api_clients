@@ -117,6 +117,49 @@ final class RedactionTest extends TestCase
         }
     }
 
+    /**
+     * 31.10.26g AC7: a well-formed notice is copied field for field, nulls
+     * kept, and a message of exactly 280 astral code points is kept; none,
+     * absent or null, is null; a malformed notice is null and the token is
+     * still minted; a malformed token field is still malformed_response;
+     * __debugInfo shows the notice with the token redacted.
+     */
+    public function testMintedTokenUpdateAvailableIsCopiedOrDropped(): void
+    {
+        $minted = 'lgr_et_redaction000000000000000000000000000000000';
+        $answer = ['token' => $minted, 'expires_at' => '2026-10-01T09:27:44Z', 'expires_in' => 900,
+            'subject' => 'lgr_sub_redaction', 'scopes' => [], 'account_linked' => false];
+        $smileys = str_repeat("\u{1F600}", 280);
+        $kept = [['latest' => null, 'deprecated' => true, 'message' => 'Use 1.2.0'], ['latest' => '1.2.0', 'deprecated' => false, 'message' => $smileys]];
+        $malformed = [5, ['latest' => '1.2.0', 'message' => null], ['latest' => 7, 'deprecated' => true, 'message' => null],
+            ['latest' => null, 'deprecated' => true, 'message' => $smileys . 'x']];
+        $answers = [...array_map(static fn($n) => $answer + ['update_available' => $n], [...$kept, null, ...$malformed]), $answer];
+        $bad = $answer + ['update_available' => null];
+        unset($bad['subject']);
+        $replies = array_map(static fn($a) => FakeHttpClient::json(200, $a), [...$answers, $bad]);
+        $fake = new FakeHttpClient(FakeHttpClient::token(self::TOKEN), ...$replies);
+        $client = new Client(clientId: 'lgr_cid_visible', clientSecret: self::SECRET, logger: new NullLogger(), http: $fake->stack());
+        $request = new EmbedTokenRequest(['player_ref' => 'player-1']);
+
+        foreach ($kept as $notice) {
+            $token = $client->createEmbedToken($request)->value;
+            $got = $token->updateAvailable;
+            self::assertNotNull($got);
+            self::assertSame($notice, ['latest' => $got->getLatest(), 'deprecated' => $got->getDeprecated(), 'message' => $got->getMessage()]);
+            self::assertSame($notice, $token->__debugInfo()['updateAvailable']);
+            self::assertStringContainsString('[REDACTED]', print_r($token, true));
+            self::assertStringNotContainsString($minted, print_r($token, true));
+        }
+        for ($i = 0; $i < count($malformed) + 2; $i++) {
+            $token = $client->createEmbedToken($request)->value;
+            self::assertNull($token->updateAvailable, (string) $i);
+            self::assertSame($minted, $token->token->exposeSecret());
+        }
+        $error = self::thrown(static fn() => $client->createEmbedToken($request));
+        self::assertInstanceOf(TransportException::class, $error);
+        self::assertSame(TransportKind::MalformedResponse, $error->kind());
+    }
+
     /** A network failure that echoes the request, Authorization included, as a PSR-18 exception may. */
     private static function echoingFailure(RequestInterface $request): never
     {

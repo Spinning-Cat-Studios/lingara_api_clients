@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Lingara\Internal;
 
 use Lingara\ApiResponse;
+use Lingara\Exception\TransportException;
+use Lingara\Exception\TransportKind;
 use Lingara\MintedToken;
 use Lingara\Model\EmbedPlayerLink;
 use Lingara\Model\EmbedToken;
@@ -28,13 +30,28 @@ trait EmbedCalls
      * player's device. Every call mints: nothing is cached, and K4 retries a
      * 429 or 503 with no Idempotency-Key, since two tokens are harmless.
      *
+     * The answer is decoded raw and its notice removed before the typed
+     * decode, so a malformed notice is dropped rather than failing the mint
+     * (ADR 31.10.26g D3).
+     *
      * @return ApiResponse<MintedToken>
      */
     public function createEmbedToken(EmbedTokenRequest $request): ApiResponse
     {
         $payload = json_encode(ObjectSerializer::sanitizeForSerialization($request), JSON_THROW_ON_ERROR);
-        $answer = $this->json('createEmbedToken', [], EmbedToken::class, [], [], $payload);
-        return new ApiResponse(MintedToken::fromAnswer($answer->value), $answer->servedVersion);
+        $answer = $this->json('createEmbedToken', [], \stdClass::class, [], [], $payload);
+        $raw = $answer->value;
+        $notice = MintedToken::updateFrom($raw->update_available ?? null);
+        unset($raw->update_available);
+        try {
+            $model = ObjectSerializer::deserialize($raw, EmbedToken::class);
+        } catch (\Throwable) {
+            $model = null;
+        }
+        if (!$model instanceof EmbedToken) {
+            throw new TransportException(TransportKind::MalformedResponse, 'the response body does not decode');
+        }
+        return new ApiResponse(MintedToken::fromAnswer($model, $notice), $answer->servedVersion);
     }
 
     /**

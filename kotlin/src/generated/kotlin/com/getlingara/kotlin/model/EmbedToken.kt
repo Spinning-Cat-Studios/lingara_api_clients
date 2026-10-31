@@ -15,6 +15,7 @@
 
 package com.getlingara.kotlin.model
 
+import com.getlingara.kotlin.model.UpdateAvailable
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
@@ -29,6 +30,7 @@ import kotlinx.serialization.Contextual
  * @param subject 
  * @param scopes 
  * @param accountLinked 
+ * @param updateAvailable Present only when the request named an `embed_version` that is behind the serving version, deprecated, or withdrawn.
  */
 @Serializable
 
@@ -51,7 +53,11 @@ public data class EmbedToken (
     val scopes: kotlin.collections.List<kotlin.String>,
 
     @SerialName(value = "account_linked")
-    val accountLinked: kotlin.Boolean
+    val accountLinked: kotlin.Boolean,
+
+    /* Present only when the request named an `embed_version` that is behind the serving version, deprecated, or withdrawn. */
+    @SerialName(value = "update_available")
+    val updateAvailable: UpdateAvailable? = null
 
 ) {
 

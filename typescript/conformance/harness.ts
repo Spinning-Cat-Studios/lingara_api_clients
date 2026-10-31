@@ -188,8 +188,8 @@ function callArgs(call: Call): unknown[] {
 /** A result's body in wire form: a `MintedToken` through `exposeToken`, snake_case, `expires_in` in seconds. */
 function wireBody(value: unknown): unknown {
   if (!(value instanceof MintedToken)) return value;
-  const { expiresAt, expiresIn, subject, scopes, accountLinked } = value;
-  return { token: value.exposeToken(), expires_at: expiresAt, expires_in: expiresIn, subject, scopes, account_linked: accountLinked };
+  const { expiresAt, expiresIn, subject, scopes, accountLinked, updateAvailable } = value;
+  return { token: value.exposeToken(), expires_at: expiresAt, expires_in: expiresIn, subject, scopes, account_linked: accountLinked, update_available: updateAvailable };
 }
 
 /** A completed non-stream call: its status and body in wire form (an export as D7's object, 29.10.26c). */

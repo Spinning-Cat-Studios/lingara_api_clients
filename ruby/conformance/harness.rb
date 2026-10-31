@@ -224,7 +224,13 @@ module Harness
   def wire(value)
     return value unless value.is_a?(Lingara::MintedToken)
     {"token" => value.token.expose_secret, "expires_at" => value.expires_at, "expires_in" => value.expires_in,
-     "subject" => value.subject, "scopes" => value.scopes, "account_linked" => value.account_linked}
+     "subject" => value.subject, "scopes" => value.scopes, "account_linked" => value.account_linked,
+     "update_available" => notice_wire(value.update_available)}
+  end
+
+  # The notice with the wire's three keys, nils kept, or nil when none.
+  def notice_wire(notice)
+    notice && {"latest" => notice.latest, "deprecated" => notice.deprecated, "message" => notice.message}
   end
 
   # sendEvent's InboundEvent is built from the case's {type, data} through

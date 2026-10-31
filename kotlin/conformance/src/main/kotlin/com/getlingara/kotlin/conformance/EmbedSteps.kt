@@ -10,12 +10,15 @@ import com.getlingara.kotlin.embed.unlinkEmbedPlayer
 import com.getlingara.kotlin.model.EmbedPlayerLink
 import com.getlingara.kotlin.model.EmbedTokenRequest
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -88,5 +91,16 @@ internal object EmbedSteps {
             put("subject", minted.subject)
             putJsonArray("scopes") { minted.scopes.forEach { add(it) } }
             put("account_linked", minted.accountLinked)
+            // Each null is put as JsonNull explicitly: LingaraJson would drop it.
+            val notice = minted.updateAvailable
+            if (notice == null) {
+                put("update_available", JsonNull)
+            } else {
+                putJsonObject("update_available") {
+                    put("latest", notice.latest?.let(::JsonPrimitive) ?: JsonNull)
+                    put("deprecated", notice.deprecated)
+                    put("message", notice.message?.let(::JsonPrimitive) ?: JsonNull)
+                }
+            }
         }
 }
