@@ -33,16 +33,17 @@ public final class Harness {
   /**
    * Renders a decoded model in wire form: an optional map the server never sent (a canvas node's
    * {@code params}, defaulted empty by the model) is left out, as the library leaves it out of a
-   * request (ADR 16.10.26ak D6).
+   * request (ADR 16.10.26ak D6). So is an optional list (a plan beat's {@code exits}, ADR
+   * 3.11.26n); a required one keeps its own {@code JsonInclude(ALWAYS)}.
    */
   private static ObjectMapper jsonMapper() {
     ObjectMapper mapper = new ObjectMapper();
-    mapper
-        .configOverride(java.util.Map.class)
-        .setInclude(
-            com.fasterxml.jackson.annotation.JsonInclude.Value.construct(
-                com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY,
-                com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS));
+    com.fasterxml.jackson.annotation.JsonInclude.Value nonEmpty =
+        com.fasterxml.jackson.annotation.JsonInclude.Value.construct(
+            com.fasterxml.jackson.annotation.JsonInclude.Include.NON_EMPTY,
+            com.fasterxml.jackson.annotation.JsonInclude.Include.ALWAYS);
+    mapper.configOverride(java.util.Map.class).setInclude(nonEmpty);
+    mapper.configOverride(java.util.List.class).setInclude(nonEmpty);
     return mapper;
   }
 

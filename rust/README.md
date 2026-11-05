@@ -69,7 +69,7 @@ carries `served_version()`. The last three need no credentials, so
 (`list_events`, `events`, `stream_events`, `tail_events`, `send_event` and
 `get_async_api_document`) are under [Webhooks and events](#webhooks-and-events),
 and the embed methods (`create_embed_token`, `delete_embed_player`,
-`link_embed_player`, `unlink_embed_player` and `send_dialogue_turn`) under [Embedding Lingara](#embedding-lingara).
+`link_embed_player`, `unlink_embed_player`, `send_dialogue_turn` and `plan_dialogue`) under [Embedding Lingara](#embedding-lingara).
 
 - `EventStream` implements `futures_core::Stream`, and also has its own
   `next()`, so the quick start needs no `futures` import.
@@ -285,6 +285,23 @@ let minted = client.create_embed_token(&EmbedTokenRequest { player_ref: "player-
   at once as `Error::Api` with its `retry_after`, and you decide whether to
   send it again. No retry helps `403 embed_needs_metered`, or
   `422 safety_input_flagged`, which means say something else.
+- `plan_dialogue` plans the next beats of a Procedural dialogue: call it when
+  you run one outside the embed kits (inside them, the kit calls it). It
+  answers `DialoguePlanResponse::Planned { fragment }`, a typed
+  `PlanFragment`, or `DialoguePlanResponse::Kept { reason }`. A keep is a
+  result, never an error: your frontier stands (on a first plan, walk the
+  deterministic seed). The `document` is sent as the `serde_json` value you
+  give, and no fact value is sent, only which topics and goals hold; the
+  fragment is validated by the server and the embed core
+  (`lingara-dialogue-ir`), never by the library. It is **never retried**,
+  like the turn, so a `429` or `503` is returned at once as `Error::Api`
+  with its `retry_after`. The library sets no plan timeout of its own (the
+  default client has a 30 s connect timeout and no read timeout; the server
+  keeps after 10 s): wrap the call in `tokio::time::timeout` for a bound.
+  Cost: one `embed:play` unit per call, a `Kept` and every refusal after
+  admission included. `KeptReason` and `AtomKind` are closed enums, so a
+  reason or atom a later spec adds fails the whole answer's decode
+  (`MalformedResponse`) until you upgrade.
 - `Event::PracticeCompleted` arrives through the webhook, the feed and the
   tail when your client holds `events:read` and `embed:play`; its `subject`
   names the player. `InboundEvent::WorldPracticeCompleted` sends one, with

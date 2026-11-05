@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"slices"
 	"sync/atomic"
@@ -320,5 +322,90 @@ func TestErrorEventRaisesAPIErrorWithPlanID(t *testing.T) {
 	}
 	if got := names(events); !reflect.DeepEqual(got, []string{"started"}) || script.requests.Load() != 1 {
 		t.Fatalf("yielded %v over %d requests; want only started, and no retry", got, script.requests.Load())
+	}
+}
+
+// TestPlanDialogueIsSentOnce: 3.11.26n AC4. PlanDialogue sends the body as
+// given (an x- member inside document intact), answers a typed fragment and
+// a keep, both as results, and a 503 with Retry-After is returned after one
+// request, beside the turn it shares K4's exemption with.
+func TestPlanDialogueIsSentOnce(t *testing.T) {
+	var requests atomic.Int32
+	var sent []byte
+	c := newTestClient(t, planServer(t, &requests, &sent))
+	body := DialoguePlanRequest{Document: DialogueDefinition{"schema": "dialogue.v2", "x-editor": map[string]any{"zoom": 2.0}}, Npc: "ma_ren", Reason: PlanReasonStart, IDPrefix: "p1"}
+	ctx := context.Background()
+
+	planned, err := c.PlanDialogue(ctx, body)
+	assertPlanned(t, planned, err)
+	assertEchoed(t, sent)
+	kept, err := c.PlanDialogue(ctx, body)
+	assertKept(t, kept, err)
+	_, err = c.PlanDialogue(ctx, body)
+	assertUnavailable(t, err)
+	if requests.Load() != 3 {
+		t.Fatalf("%d requests, want 3: a 503 is never retried", requests.Load())
+	}
+}
+
+// planServer answers a planned fragment, then a keep, then a 503 with
+// Retry-After, capturing the first request's body into sent.
+func planServer(t *testing.T, requests *atomic.Int32, sent *[]byte) *httptest.Server {
+	t.Helper()
+	answers := []struct {
+		status int
+		body   string
+	}{
+		{200, `{"status":"planned","fragment":{"anchor":"p1_0","beats":[{"id":"p1_0","atom":"elicit","depth":0,"sketch":false,"angle":"ask what is in the crate","exits":[{"to":"p1_1","detour":"cargo"}]}]}}`},
+		{200, `{"status":"kept","reason":"rejected"}`},
+		{503, `{"code":"unavailable","error":"Try again shortly."}`},
+	}
+	return newServer(t, &tokenEndpoint{}, func(w http.ResponseWriter, r *http.Request) {
+		n := requests.Add(1) - 1
+		if n == 0 {
+			*sent, _ = io.ReadAll(r.Body)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if answers[n].status == 503 {
+			w.Header().Set("Retry-After", "1")
+		}
+		w.WriteHeader(answers[n].status)
+		_, _ = w.Write([]byte(answers[n].body))
+	})
+}
+
+func assertPlanned(t *testing.T, planned *Result[DialoguePlanResponse], err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if arm := planned.Value; arm.Status != "planned" || arm.Fragment == nil || arm.Fragment.Beats[0].Angle == nil || (*arm.Fragment.Beats[0].Exits)[0].Detour == nil {
+		t.Fatalf("planned decoded as %+v", arm)
+	}
+}
+
+func assertEchoed(t *testing.T, sent []byte) {
+	t.Helper()
+	var echoed map[string]any
+	if err := json.Unmarshal(sent, &echoed); err != nil || !reflect.DeepEqual(echoed["document"], map[string]any{"schema": "dialogue.v2", "x-editor": map[string]any{"zoom": 2.0}}) {
+		t.Fatalf("sent %s", sent)
+	}
+}
+
+func assertKept(t *testing.T, kept *Result[DialoguePlanResponse], err error) {
+	t.Helper()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if keep := kept.Value; keep.Status != "kept" || keep.Reason == nil || *keep.Reason != KeptReasonRejected || keep.Fragment != nil {
+		t.Fatalf("kept decoded as %+v", keep)
+	}
+}
+
+func assertUnavailable(t *testing.T, err error) {
+	t.Helper()
+	var api *APIError
+	if !errors.As(err, &api) || api.Status != 503 || api.RetryAfter == nil || *api.RetryAfter != time.Second {
+		t.Fatalf("a 503 ended with %#v", err)
 	}
 }

@@ -209,6 +209,19 @@ module Lingara
       stream("sendDialogueTurn", [], body, policy: @tail_policy, &block)
     end
 
+    # Plans the next beats of a Procedural dialogue (scope embed:play, a
+    # metered payer only; ADR 3.11.26n). Returns a Response whose value is a
+    # DialoguePlanResponseOneOf (status "planned", a typed fragment) or a
+    # DialoguePlanResponseOneOf1 (status "kept", a reason): a keep is a
+    # result, never an error. The document is sent as given and nothing is
+    # validated here. Never retried, as the turn is not: each call spends one
+    # embed:play unit, a keep and every refusal after admission included, so
+    # a 429 or 503 is raised at once with its retry_after.
+    def plan_dialogue(**body)
+      operation = OPERATIONS.fetch("planDialogue")
+      json("planDialogue", [], body: payload(operation, body), policy: @tail_policy)
+    end
+
     def to_s
       inspect
     end
@@ -232,11 +245,13 @@ module Lingara
 
     # +body+ is JSON text already; +headers+ join every attempt's. +decode+
     # replaces the generated model's decoding (create_embed_token's).
-    def json(id, args, query: nil, body: nil, headers: {}, decode: nil)
+    # +policy+ is the single-attempt one for a call that must not be retried
+    # (plan_dialogue).
+    def json(id, args, query: nil, body: nil, headers: {}, decode: nil, policy: @policy)
       operation = OPERATIONS.fetch(id)
       url = url_for(operation, args, query)
       decode ||= ->(text) { Decoding.response(operation[:response], text) }
-      pipeline(operation, url, body, headers: headers) do |response, _phase, observe|
+      pipeline(operation, url, body, headers: headers, policy: policy) do |response, _phase, observe|
         served = observe.call(response)
         Response.new(value: decode.call(response.body.to_s), served_version: served)
       end

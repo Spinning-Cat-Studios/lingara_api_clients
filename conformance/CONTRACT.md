@@ -18,7 +18,7 @@ source*, *call*, *stream*.
 
 These are properties of the Lingara API that the rules below depend on.
 
-- **Operations.** Thirty-two. Twenty-eight need an access token: `generateVocabulary`
+- **Operations.** Thirty-three. Twenty-nine need an access token: `generateVocabulary`
   (scope `vocab:generate`), `createLessonPlan` (`lesson_plans:write`),
   `getLessonPlan` and `streamLessonPlan` (`lesson_plans:read`),
   `sendTutorMessage` (`tutor:converse`), `getUsage` (`usage:read`),
@@ -26,6 +26,8 @@ These are properties of the Lingara API that the rules below depend on.
   (`events:write`, plus `lesson_plans:write` when it asks for generation),
   `createEmbedToken` and `deleteEmbedPlayer` (`embed:mint`, a metered client
   only), and `sendDialogueTurn` (`embed:play`) (ADR 1.10.26w);
+  `planDialogue` (`embed:play`, a metered payer only), the next beats of a
+  Procedural dialogue, beside the turn and never on a group (ADR 3.11.26n);
   `linkEmbedPlayer` (`embed:play`, on the player's *delegated* token from
   the account's own consent, never the client's) and `unlinkEmbedPlayer`
   (`embed:mint`) (ADR 22.10.26t); and the seven canvas operations (ADR
@@ -83,12 +85,21 @@ These are properties of the Lingara API that the rules below depend on.
   `dialogue_limit_reached` and `dialogue_conflict`, and 404
   `dialogue_not_active` and `dialogue_no_draft`. `dialogue_invalid` and
   `dialogue_graph_invalid` also carry `path` and `rule` in the envelope,
-  which `ApiError` does not surface in this release. None changes a library's behaviour: every `{code, error}`
+  which `ApiError` does not surface in this release. ADR 3.11.26n's mint
+  grows `rule` to twenty words (`kind_mismatch`, `steer_target`,
+  `pool_escape`, `atom_set`) and a saved dialogue's warning `code` to six
+  (`stance_contradiction`, `steer_weak`, `schema_v2`); every save or read of
+  a revision stored as `dialogue.v2` carries `{code: schema_v2, path:
+  /schema}`. None changes a library's behaviour: every `{code, error}`
   is `ApiError`, and no library enumerates the codes. `409 canvas_conflict`
   (a stale `draft_version`) is "any other status" under K4, so never
   retried; the caller re-reads and decides. `409 dialogue_conflict` is the
   same: never retried. A `dryRunCanvasPlan` verdict's
   `code` and English `error` are data in a `200` answer, never a refusal.
+  A `planDialogue` answer is a `200` tagged by `status`: `planned` with a
+  `fragment`, or `kept` with a `reason` (`unavailable`, `timeout`,
+  `unparseable`, `rejected`). A keep is a result, never an error, and still
+  costs a unit (ADR 3.11.26n D4).
 - **Methods.** `GET`, `POST`, `PUT`, `PATCH` and `DELETE`. `PATCH` is
   `renameCanvas`'s and `renameDialogue`'s; `PUT` is `linkEmbedPlayer`'s,
   `saveCanvasDraft`'s and `saveDialogueDraft`'s. A
@@ -141,6 +152,11 @@ These are properties of the Lingara API that the rules below depend on.
   send a keepalive every 15 s; the tutor and dialogue streams send none.
   `sendDialogueTurn` is opened without K4's retries, as a tail's connection
   is: each attempt spends NPC cells, so a `429` or `503` is raised at once.
+  `planDialogue` is a JSON call sent the same way, without K4's retries:
+  each attempt spends one `embed:play` unit, and so does every refusal after
+  admission (`403`, `400`, the dark flag's `404`, the input gate's `422`, a
+  shed's `503`), so a `429` or `503` is raised at once with its
+  `retry_after` (ADR 3.11.26n D3).
 
 ## K1 — the token source
 

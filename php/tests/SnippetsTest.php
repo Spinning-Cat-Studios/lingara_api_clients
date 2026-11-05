@@ -42,7 +42,7 @@ final class SnippetsTest extends TestCase
             'getOpenApiDocument' => [], 'listApiVersions' => [], 'getApiVersion' => [self::VERSION], 'errors' => [],
             'listEvents' => [null], 'streamEvents' => [self::PLAN], 'sendEvent' => [],
             'createEmbedToken' => ['player-1001'], 'deleteEmbedPlayer' => ['guild/42'], 'sendDialogueTurn' => [],
-            'unlinkEmbedPlayer' => ['guild/42'],
+            'unlinkEmbedPlayer' => ['guild/42'], 'planDialogue' => [json_decode('{"schema":"dialogue.v2"}')],
             'listCanvases' => [], 'pageCanvases' => [], 'createCanvas' => [], 'getCanvas' => [self::CANVAS],
             'renameCanvas' => [self::CANVAS], 'saveCanvasDraft' => [self::CANVAS], 'activateCanvas' => [self::CANVAS, 4],
             'dryRunCanvasPlan' => [],
@@ -142,6 +142,8 @@ final class SnippetsTest extends TestCase
                 'expires_in' => 900, 'subject' => 'lgr_sub_snippet', 'scopes' => ['events:read', 'embed:play'], 'account_linked' => false,
                 'update_available' => ['latest' => '1.2.0', 'deprecated' => true, 'message' => null]]),
             str_starts_with($path, '/v1/embed/players/') => new Response(204),
+            $path === '/v1/embed/dialogue/plan' => FakeHttpClient::json(200, ['status' => 'planned',
+                'fragment' => ['anchor' => 'p1_0', 'beats' => [['id' => 'p1_0', 'atom' => 'open', 'depth' => 0]]]]),
             default => FakeHttpClient::sse(self::frames([
                 'delta' => ['text' => '十块钱，一盘。'], 'notice' => ['code' => 'history_trimmed', 'message' => 'Older lines were left out.'],
                 'done' => new \stdClass(),

@@ -1,0 +1,23 @@
+id: op.dialogue-plan-keep
+title: A kept plan answer decodes as the keep arm with reason rejected, carries no rule, and is a result, never an error (ADR 3.11.26n AC20)
+behaviours: [K1, K3]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: planDialogue
+      body: { document: { schema: dialogue.v2, kind: procedural, id: the_ferryman }, npc: ma_ren, reason: start, id_prefix: p1, turns: 0, beats: 0 }
+    expect:
+      outcome: completed
+      status: 200
+      body: { status: kept, reason: rejected }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opplankeep, token_type: Bearer, expires_in: 3600, scope: "embed:play" } }
+    - request:
+        method: POST
+        path: /v1/embed/dialogue/plan
+        headers: { authorization: { equals: Bearer lgr_at_opplankeep } }
+        json: { document: { schema: dialogue.v2, kind: procedural, id: the_ferryman }, npc: ma_ren, reason: start, id_prefix: p1, turns: 0, beats: 0 }
+      response: { status: 200, json: { status: kept, reason: rejected } }

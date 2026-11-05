@@ -60,4 +60,37 @@ class DialogueTest < Minitest::Test
   ensure
     server&.close
   end
+
+  PLANNED = {status: "planned", fragment: {anchor: "p1_0", beats: [
+    {id: "p1_0", atom: "elicit", depth: 0, sketch: false, angle: "ask what is in the crate",
+     exits: [{to: "p1_1", detour: "cargo"}]}
+  ]}}.freeze
+
+  # 3.11.26n AC7: plan_dialogue sends the body as given (an x- member inside
+  # the document intact), answers a typed fragment and a keep, both results,
+  # and a 503 with Retry-After is raised after one request, beside the turn
+  # it shares K4's exemption with.
+  def test_plan_dialogue_is_sent_once
+    answers = [
+      ->(conn) { conn.json(200, PLANNED) },
+      ->(conn) { conn.json(200, {status: "kept", reason: "rejected"}) },
+      ->(conn) { conn.json(503, {code: "unavailable", error: "Later."}, {"Retry-After" => "1"}) }
+    ]
+    server = Fixtures.server { |_request, conn| answers.shift.call(conn) }
+    client = server.client(**Fixtures.credentials)
+    document = {"schema" => "dialogue.v2", "x-editor" => {"zoom" => 2}}
+    body = {document: document, npc: "ma_ren", reason: "start", id_prefix: "p1", turns: 0, beats: 0}
+
+    beat = client.plan_dialogue(**body).value.fragment.beats.first
+    assert_equal ["elicit", "ask what is in the crate", "cargo"], [beat.atom, beat.angle, beat.exits.first.detour]
+    plan = server.requests.find { |r| r.path == "/v1/embed/dialogue/plan" }
+    assert_equal document, JSON.parse(plan.body)["document"]
+    kept = client.plan_dialogue(**body).value
+    assert_equal %w[kept rejected], [kept.status, kept.reason]
+    error = assert_raises(Lingara::ApiError) { client.plan_dialogue(**body) }
+    assert_equal [503, 1], [error.status, error.retry_after]
+    assert_equal 3, server.requests.count { |r| r.path == "/v1/embed/dialogue/plan" }
+  ensure
+    server&.close
+  end
 end

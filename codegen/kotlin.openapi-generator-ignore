@@ -9,3 +9,7 @@
 **/model/SendTutorMessageEvent*.kt
 **/model/StreamEventsEvent*.kt
 **/model/SendDialogueTurnEvent*.kt
+# The plan's answer (ADR 3.11.26n D4): openapi-generator merges its two arms
+# into one class that decodes neither, so it is hand-written in
+# com.getlingara.kotlin.embed instead.
+**/model/DialoguePlanResponse*.kt

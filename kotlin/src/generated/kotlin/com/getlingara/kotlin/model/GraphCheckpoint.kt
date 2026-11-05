@@ -26,6 +26,7 @@ import kotlinx.serialization.Contextual
  * @param id 
  * @param goal 
  * @param mayDisclose 
+ * @param steer The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it.
  */
 @Serializable
 
@@ -38,7 +39,11 @@ public data class GraphCheckpoint (
     val goal: kotlin.String,
 
     @SerialName(value = "may_disclose")
-    val mayDisclose: kotlin.collections.Set<kotlin.String>? = null
+    val mayDisclose: kotlin.collections.Set<kotlin.String>? = null,
+
+    /* The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it. */
+    @SerialName(value = "steer")
+    val steer: kotlin.String? = null
 
 ) {
 

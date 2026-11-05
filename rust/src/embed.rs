@@ -11,7 +11,7 @@ use serde_json::Value;
 use crate::client::{ApiResponse, Client};
 use crate::error::{Error, TransportKind};
 use crate::generated::streams::SEND_DIALOGUE_TURN;
-use crate::models::{DialogueTurnRequest, EmbedPlayerLink, EmbedToken, EmbedTokenRequest, SendDialogueTurnEvent, UpdateAvailable, UpdateAvailableMessage};
+use crate::models::{DialoguePlanRequest, DialoguePlanResponse, DialogueTurnRequest, EmbedPlayerLink, EmbedToken, EmbedTokenRequest, SendDialogueTurnEvent, UpdateAvailable, UpdateAvailableMessage};
 use crate::pipeline::{Req, encode_segment};
 use crate::stream::EventStream;
 use crate::token::AccessToken;
@@ -177,6 +177,23 @@ impl Client {
         let url = self.url(SEND_DIALOGUE_TURN.path);
         let req = Req { method: Method::POST, url: &url, body: Some(body), accept: "text/event-stream", needs_token: true, headers: &[], retries: false };
         self.open_stream(&SEND_DIALOGUE_TURN, &req).await
+    }
+
+    /// Plans the next beats of a Procedural dialogue (`POST
+    /// /v1/embed/dialogue/plan`; scope `embed:play`, a metered payer only;
+    /// ADR 3.11.26n). The answer is a typed fragment or a keep: a keep is a
+    /// result, never an error, and means keep the frontier you have. The
+    /// `document` is sent as the value given; the library validates neither
+    /// it nor the fragment, and sets no timeout of its own.
+    ///
+    /// It is never retried, as the turn is not: each call spends one
+    /// `embed:play` unit, a keep and every refusal after admission included,
+    /// so a `429` or `503` is raised at once as an `ApiError` with its
+    /// `retry_after`.
+    pub async fn plan_dialogue(&self, body: &DialoguePlanRequest) -> Result<ApiResponse<DialoguePlanResponse>, Error> {
+        let url = self.url("/v1/embed/dialogue/plan");
+        let req = Req { method: Method::POST, url: &url, body: Some(body), accept: "application/json", needs_token: true, headers: &[], retries: false };
+        self.json_req(&req).await
     }
 }
 

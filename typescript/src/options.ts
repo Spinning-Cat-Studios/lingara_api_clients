@@ -46,6 +46,11 @@ export interface CallOptions {
   signal?: AbortSignal;
 }
 
+/** A JSON result, with the `Lingara-Version` echo beside it (non-enumerable). */
+export type WithServedVersion<T> = T & { readonly servedVersion?: string };
+
+export const DEFAULT_BASE_URL = "https://api.getlingara.com";
+
 export function checkOptions(options: LingaraOptions): void {
   if (options.tokenSource && options.clientSecret !== undefined) {
     throw new LingaraError("pass either tokenSource or clientSecret, not both");

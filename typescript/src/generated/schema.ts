@@ -150,6 +150,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/embed/dialogue/plan": {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan the next beats of an NPC dialogue
+         * @description Plans the next beats of a procedural NPC dialogue. Returns a fragment, or `kept` when your current plan should stay. Needs `enable_npc_dialogue_plans`; one `embed:play` unit.
+         */
+        post: operations["planDialogue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/canvases": {
         parameters: {
             query?: never;
@@ -297,7 +320,7 @@ export interface paths {
         put?: never;
         /**
          * Create a dialogue
-         * @description Saves a new dialogue graph as a draft, checked against `dialogue.v1` and its graph rules. An account has at most 20 dialogues.
+         * @description Saves a new dialogue graph as a draft, checked against `dialogue.v1` or `dialogue.v2` and the schema's rules. An account has at most 20 dialogues.
          */
         post: operations["createDialogue"];
         delete?: never;
@@ -350,7 +373,7 @@ export interface paths {
         get?: never;
         /**
          * Save a dialogue's draft
-         * @description Replaces the draft, checked against `dialogue.v1` and its graph rules. Send the `draft_version` you last read, or 0 when there is no draft; a stale one is `409 dialogue_conflict`.
+         * @description Replaces the draft, checked against `dialogue.v1` or `dialogue.v2` and the schema's rules. Send the `draft_version` you last read, or 0 when there is no draft; a stale one is `409 dialogue_conflict`.
          */
         put: operations["saveDialogueDraft"];
         post?: never;
@@ -399,7 +422,7 @@ export interface paths {
         };
         /**
          * Export a dialogue
-         * @description Answers the `dialogue.v1` document in its canonical bytes: the active revision, or the draft with `revision=draft`; `layout=omit` drops every `x-` member. Send the `ETag` back as `If-None-Match` and an unchanged revision is `304`.
+         * @description Answers the stored document (`dialogue.v1` or `dialogue.v2`) in its canonical bytes: the active revision, or the draft with `revision=draft`; `layout=omit` drops every `x-` member. Send the `ETag` back as `If-None-Match` and an unchanged revision is `304`.
          */
         get: operations["exportDialogue"];
         put?: never;
@@ -932,6 +955,8 @@ export interface components {
             persona?: string | null;
             /** @description The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`. */
             languages?: components["schemas"]["NpcLanguage"][] | null;
+            /** @description How the character steers: `suggestibility` is how readily it follows the player off its goal, `initiative` how hard it pushes toward it (at the top, it declines every detour). Each 0–1. Needs `checkpoint`. */
+            disposition?: components["schemas"]["NpcDisposition"] | null;
         };
         NpcLanguage: {
             code: string;
@@ -940,12 +965,20 @@ export interface components {
             /** Format: uint8 */
             comprehension: number;
         };
+        NpcDisposition: {
+            /** Format: double */
+            suggestibility: number;
+            /** Format: double */
+            initiative: number;
+        };
         /** @enum {string} */
         Pedagogy: "subtle" | "none";
         GraphCheckpoint: {
             id: string;
             goal: string;
             may_disclose?: string[];
+            /** @description The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it. */
+            steer?: string | null;
         };
         GraphEdge: {
             id: string;
@@ -958,6 +991,65 @@ export interface components {
             edge: string;
             to: string;
         };
+        DialoguePlanRequest: {
+            document: components["schemas"]["DialogueDefinition"];
+            npc: string;
+            reason: components["schemas"]["PlanReason"];
+            current?: string | null;
+            frontier?: components["schemas"]["PlanFragment"] | null;
+            id_prefix: string;
+            /** @description Topics whose game condition holds now, as your game evaluated them. Fact values are never sent. */
+            open_topics?: string[];
+            goals_met?: string[];
+            visited?: components["schemas"]["VisitedBeat"][];
+            /** Format: uint16 */
+            turns: number;
+            /** Format: uint16 */
+            beats: number;
+            history?: components["schemas"]["DialogueEntry"][];
+        };
+        DialoguePlanResponse: {
+            fragment: components["schemas"]["PlanFragment"];
+            /** @constant */
+            status: "planned";
+        } | {
+            reason: components["schemas"]["KeptReason"];
+            /** @constant */
+            status: "kept";
+        };
+        PlanFragment: {
+            anchor: string;
+            beats: components["schemas"]["Beat"][];
+        };
+        Beat: {
+            id: string;
+            atom: components["schemas"]["AtomKind"];
+            /** Format: uint8 */
+            depth: number;
+            sketch?: boolean;
+            topic?: string | null;
+            goal?: string | null;
+            ending?: string | null;
+            angle?: string | null;
+            exits?: components["schemas"]["Exit"][];
+        };
+        Exit: {
+            to: string;
+            detour?: string | null;
+        };
+        /** @enum {string} */
+        AtomKind: "open" | "elicit" | "reveal" | "practise" | "close";
+        VisitedBeat: {
+            atom: components["schemas"]["AtomKind"];
+            topic?: string | null;
+        };
+        /** @enum {string} */
+        PlanReason: "start" | "crossed" | "exhausted";
+        /**
+         * @description Why no new plan came back. Keep the frontier you have: `unavailable` means no planner could answer, `timeout` that it took too long, `unparseable` that its answer could not be read, and `rejected` that its plan broke the dialogue's limits.
+         * @enum {string}
+         */
+        KeptReason: "unavailable" | "timeout" | "unparseable" | "rejected";
         CreateCanvasRequest: {
             name?: string | null;
             recipe?: components["schemas"]["CanvasRecipe"] | null;
@@ -1087,7 +1179,7 @@ export interface components {
             ok: boolean;
             verdicts: components["schemas"]["CanvasVerdict"][];
         };
-        /** @description A dialogue.v1 document. */
+        /** @description A dialogue.v1 or dialogue.v2 document. */
         DialogueDefinition: Record<string, never>;
         CreateDialogueRequest: {
             name?: string | null;
@@ -1106,8 +1198,11 @@ export interface components {
             /** Format: int32 */
             draft_version: number;
         };
-        /** @enum {string} */
-        DialogueWarningCode: "checkpoint_unreachable" | "outcome_unreachable" | "predicate_unchecked";
+        /**
+         * @description Why a saved dialogue warns. `schema_v2`: the revision is stored as `dialogue.v2` and loads only in a kit that reads `dialogue.v2`; a game on an older kit fails to load it.
+         * @enum {string}
+         */
+        DialogueWarningCode: "checkpoint_unreachable" | "outcome_unreachable" | "predicate_unchecked" | "stance_contradiction" | "steer_weak" | "schema_v2";
         DialogueWarning: {
             code: components["schemas"]["DialogueWarningCode"];
             path: string;
@@ -1116,7 +1211,7 @@ export interface components {
          * @description Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.
          * @enum {string}
          */
-        DialogueRule: "missing_member" | "unknown_member" | "id_pattern" | "bound" | "number_range" | "duplicate_id" | "unknown_target" | "outcome_name" | "undeclared_fact" | "predicate_unparsed" | "predicate_type" | "default_type" | "when_less_cycle" | "text_blank" | "text_multiline" | "text_char";
+        DialogueRule: "missing_member" | "unknown_member" | "id_pattern" | "bound" | "number_range" | "duplicate_id" | "unknown_target" | "outcome_name" | "undeclared_fact" | "predicate_unparsed" | "predicate_type" | "default_type" | "when_less_cycle" | "text_blank" | "text_multiline" | "text_char" | "kind_mismatch" | "steer_target" | "pool_escape" | "atom_set";
         DialogueDraft: {
             /** Format: int32 */
             revision: number;
@@ -1888,6 +1983,158 @@ export interface operations {
                 };
                 content?: never;
             };
+            410: components["responses"]["VersionDiscontinued"];
+            503: components["responses"]["Unavailable"];
+            "4XX": components["responses"]["Error"];
+            "5XX": components["responses"]["Error"];
+        };
+    };
+    planDialogue: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions. */
+                "Lingara-Version"?: components["parameters"]["LingaraVersion"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                /**
+                 * @example {
+                 *       "document": {
+                 *         "schema": "dialogue.v2",
+                 *         "kind": "procedural",
+                 *         "id": "the_ferryman",
+                 *         "npcs": [
+                 *           {
+                 *             "id": "ma_ren",
+                 *             "name": "Ma Ren",
+                 *             "persona": "a brisk ferrywoman who wants to cast off before dark",
+                 *             "disposition": {
+                 *               "suggestibility": 0.5,
+                 *               "initiative": 0.7
+                 *             }
+                 *           }
+                 *         ],
+                 *         "endings": [
+                 *           {
+                 *             "id": "crossed",
+                 *             "label": "Got across"
+                 *           }
+                 *         ],
+                 *         "procedural": {
+                 *           "premise": "The player needs to cross the river before dark",
+                 *           "topics": [
+                 *             {
+                 *               "id": "cargo",
+                 *               "about": "what the player is carrying across"
+                 *             },
+                 *             {
+                 *               "id": "fare",
+                 *               "about": "the price of the crossing"
+                 *             }
+                 *           ],
+                 *           "goals": [
+                 *             {
+                 *               "id": "fare_agreed",
+                 *               "describe": "a fare both sides accept",
+                 *               "when": "The player and the ferryman agree on a fare."
+                 *             }
+                 *           ],
+                 *           "atoms": [
+                 *             {
+                 *               "atom": "open"
+                 *             },
+                 *             {
+                 *               "atom": "elicit"
+                 *             },
+                 *             {
+                 *               "atom": "practise"
+                 *             },
+                 *             {
+                 *               "atom": "close"
+                 *             }
+                 *           ],
+                 *           "termination": {
+                 *             "max_turns": 40,
+                 *             "max_beats": 12,
+                 *             "success": {
+                 *               "goal": "fare_agreed",
+                 *               "ending": "crossed"
+                 *             }
+                 *           }
+                 *         }
+                 *       },
+                 *       "npc": "ma_ren",
+                 *       "reason": "start",
+                 *       "id_prefix": "p1",
+                 *       "turns": 0,
+                 *       "beats": 0,
+                 *       "history": [
+                 *         {
+                 *           "speaker": "player",
+                 *           "text": "Can you take me across?"
+                 *         }
+                 *       ]
+                 *     }
+                 */
+                "application/json": components["schemas"]["DialoguePlanRequest"];
+            };
+        };
+        responses: {
+            /** @description The next beats, or `kept` */
+            200: {
+                headers: {
+                    "Lingara-Version": components["headers"]["LingaraVersion"];
+                    Deprecation: components["headers"]["Deprecation"];
+                    Sunset: components["headers"]["Sunset"];
+                    Link: components["headers"]["Link"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "status": "planned",
+                     *       "fragment": {
+                     *         "anchor": "p1_0",
+                     *         "beats": [
+                     *           {
+                     *             "id": "p1_0",
+                     *             "atom": "open",
+                     *             "depth": 0,
+                     *             "exits": [
+                     *               {
+                     *                 "to": "p1_1"
+                     *               }
+                     *             ]
+                     *           },
+                     *           {
+                     *             "id": "p1_1",
+                     *             "atom": "elicit",
+                     *             "depth": 1,
+                     *             "topic": "cargo",
+                     *             "exits": [
+                     *               {
+                     *                 "to": "p1_2"
+                     *               }
+                     *             ]
+                     *           },
+                     *           {
+                     *             "id": "p1_2",
+                     *             "atom": "close",
+                     *             "depth": 2,
+                     *             "ending": "crossed"
+                     *           }
+                     *         ]
+                     *       }
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DialoguePlanResponse"];
+                };
+            };
+            402: components["responses"]["PaymentRequired"];
             410: components["responses"]["VersionDiscontinued"];
             503: components["responses"]["Unavailable"];
             "4XX": components["responses"]["Error"];
@@ -2927,7 +3174,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The dialogue.v1 document */
+            /** @description The dialogue document, as stored */
             200: {
                 headers: {
                     /** @description The SHA-256 of the body, quoted. */

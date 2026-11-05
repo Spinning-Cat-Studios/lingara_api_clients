@@ -35,6 +35,33 @@ func (e AppContextSlice) Valid() bool {
 	}
 }
 
+// Defines values for AtomKind.
+const (
+	AtomKindClose    AtomKind = "close"
+	AtomKindElicit   AtomKind = "elicit"
+	AtomKindOpen     AtomKind = "open"
+	AtomKindPractise AtomKind = "practise"
+	AtomKindReveal   AtomKind = "reveal"
+)
+
+// Valid indicates whether the value is a known member of the AtomKind enum.
+func (e AtomKind) Valid() bool {
+	switch e {
+	case AtomKindClose:
+		return true
+	case AtomKindElicit:
+		return true
+	case AtomKindOpen:
+		return true
+	case AtomKindPractise:
+		return true
+	case AtomKindReveal:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CanvasActivationOutcome.
 const (
 	CanvasActivationOutcomeComplete CanvasActivationOutcome = "complete"
@@ -184,15 +211,19 @@ func (e CreateLessonPlanEventStartedEvent) Valid() bool {
 
 // Defines values for DialogueRule.
 const (
+	DialogueRuleAtomSet           DialogueRule = "atom_set"
 	DialogueRuleBound             DialogueRule = "bound"
 	DialogueRuleDefaultType       DialogueRule = "default_type"
 	DialogueRuleDuplicateID       DialogueRule = "duplicate_id"
 	DialogueRuleIDPattern         DialogueRule = "id_pattern"
+	DialogueRuleKindMismatch      DialogueRule = "kind_mismatch"
 	DialogueRuleMissingMember     DialogueRule = "missing_member"
 	DialogueRuleNumberRange       DialogueRule = "number_range"
 	DialogueRuleOutcomeName       DialogueRule = "outcome_name"
+	DialogueRulePoolEscape        DialogueRule = "pool_escape"
 	DialogueRulePredicateType     DialogueRule = "predicate_type"
 	DialogueRulePredicateUnparsed DialogueRule = "predicate_unparsed"
+	DialogueRuleSteerTarget       DialogueRule = "steer_target"
 	DialogueRuleTextBlank         DialogueRule = "text_blank"
 	DialogueRuleTextChar          DialogueRule = "text_char"
 	DialogueRuleTextMultiline     DialogueRule = "text_multiline"
@@ -205,6 +236,8 @@ const (
 // Valid indicates whether the value is a known member of the DialogueRule enum.
 func (e DialogueRule) Valid() bool {
 	switch e {
+	case DialogueRuleAtomSet:
+		return true
 	case DialogueRuleBound:
 		return true
 	case DialogueRuleDefaultType:
@@ -213,15 +246,21 @@ func (e DialogueRule) Valid() bool {
 		return true
 	case DialogueRuleIDPattern:
 		return true
+	case DialogueRuleKindMismatch:
+		return true
 	case DialogueRuleMissingMember:
 		return true
 	case DialogueRuleNumberRange:
 		return true
 	case DialogueRuleOutcomeName:
 		return true
+	case DialogueRulePoolEscape:
+		return true
 	case DialogueRulePredicateType:
 		return true
 	case DialogueRulePredicateUnparsed:
+		return true
+	case DialogueRuleSteerTarget:
 		return true
 	case DialogueRuleTextBlank:
 		return true
@@ -247,6 +286,9 @@ const (
 	DialogueWarningCodeCheckpointUnreachable DialogueWarningCode = "checkpoint_unreachable"
 	DialogueWarningCodeOutcomeUnreachable    DialogueWarningCode = "outcome_unreachable"
 	DialogueWarningCodePredicateUnchecked    DialogueWarningCode = "predicate_unchecked"
+	DialogueWarningCodeSchemaV2              DialogueWarningCode = "schema_v2"
+	DialogueWarningCodeStanceContradiction   DialogueWarningCode = "stance_contradiction"
+	DialogueWarningCodeSteerWeak             DialogueWarningCode = "steer_weak"
 )
 
 // Valid indicates whether the value is a known member of the DialogueWarningCode enum.
@@ -257,6 +299,12 @@ func (e DialogueWarningCode) Valid() bool {
 	case DialogueWarningCodeOutcomeUnreachable:
 		return true
 	case DialogueWarningCodePredicateUnchecked:
+		return true
+	case DialogueWarningCodeSchemaV2:
+		return true
+	case DialogueWarningCodeStanceContradiction:
+		return true
+	case DialogueWarningCodeSteerWeak:
 		return true
 	default:
 		return false
@@ -350,6 +398,30 @@ func (e GenerateVocabularyEventStartedEvent) Valid() bool {
 	}
 }
 
+// Defines values for KeptReason.
+const (
+	KeptReasonRejected    KeptReason = "rejected"
+	KeptReasonTimeout     KeptReason = "timeout"
+	KeptReasonUnavailable KeptReason = "unavailable"
+	KeptReasonUnparseable KeptReason = "unparseable"
+)
+
+// Valid indicates whether the value is a known member of the KeptReason enum.
+func (e KeptReason) Valid() bool {
+	switch e {
+	case KeptReasonRejected:
+		return true
+	case KeptReasonTimeout:
+		return true
+	case KeptReasonUnavailable:
+		return true
+	case KeptReasonUnparseable:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LinkStatus.
 const (
 	LinkStatusExisting LinkStatus = "existing"
@@ -416,6 +488,27 @@ func (e PlanReadyStatus) Valid() bool {
 	case PlanReadyStatusComplete:
 		return true
 	case PlanReadyStatusPartial:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PlanReason.
+const (
+	PlanReasonCrossed   PlanReason = "crossed"
+	PlanReasonExhausted PlanReason = "exhausted"
+	PlanReasonStart     PlanReason = "start"
+)
+
+// Valid indicates whether the value is a known member of the PlanReason enum.
+func (e PlanReason) Valid() bool {
+	switch e {
+	case PlanReasonCrossed:
+		return true
+	case PlanReasonExhausted:
+		return true
+	case PlanReasonStart:
 		return true
 	default:
 		return false
@@ -1001,6 +1094,22 @@ type AppUninstalledData struct {
 	InstallID string `json:"install_id"`
 }
 
+// AtomKind defines model for AtomKind.
+type AtomKind string
+
+// Beat defines model for Beat.
+type Beat struct {
+	Angle  *string  `json:"angle,omitempty"`
+	Atom   AtomKind `json:"atom"`
+	Depth  uint8    `json:"depth"`
+	Ending *string  `json:"ending,omitempty"`
+	Exits  *[]Exit  `json:"exits,omitempty"`
+	Goal   *string  `json:"goal,omitempty"`
+	ID     string   `json:"id"`
+	Sketch *bool    `json:"sketch,omitempty"`
+	Topic  *string  `json:"topic,omitempty"`
+}
+
 // Canvas defines model for Canvas.
 type Canvas struct {
 	Active    *CanvasActive `json:"active"`
@@ -1141,7 +1250,7 @@ type CreateCanvasRequest struct {
 
 // CreateDialogueRequest defines model for CreateDialogueRequest.
 type CreateDialogueRequest struct {
-	// Definition A dialogue.v1 document.
+	// Definition A dialogue.v1 or dialogue.v2 document.
 	Definition DialogueDefinition `json:"definition"`
 	Name       *string            `json:"name,omitempty"`
 }
@@ -1197,17 +1306,17 @@ type Dialogue struct {
 type DialogueActive struct {
 	ActivatedAt time.Time `json:"activated_at"`
 
-	// Definition A dialogue.v1 document.
+	// Definition A dialogue.v1 or dialogue.v2 document.
 	Definition DialogueDefinition `json:"definition"`
 	Revision   int32              `json:"revision"`
 }
 
-// DialogueDefinition A dialogue.v1 document.
+// DialogueDefinition A dialogue.v1 or dialogue.v2 document.
 type DialogueDefinition = map[string]interface{}
 
 // DialogueDraft defines model for DialogueDraft.
 type DialogueDraft struct {
-	// Definition A dialogue.v1 document.
+	// Definition A dialogue.v1 or dialogue.v2 document.
 	Definition   DialogueDefinition `json:"definition"`
 	DraftVersion int32              `json:"draft_version"`
 	Revision     int32              `json:"revision"`
@@ -1221,6 +1330,9 @@ type DialogueEntry struct {
 
 // DialogueNpc defines model for DialogueNpc.
 type DialogueNpc struct {
+	// Disposition How the character steers: `suggestibility` is how readily it follows the player off its goal, `initiative` how hard it pushes toward it (at the top, it declines every detour). Each 0–1. Needs `checkpoint`.
+	Disposition *NpcDisposition `json:"disposition,omitempty"`
+
 	// Languages The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`.
 	Languages *[]NpcLanguage `json:"languages,omitempty"`
 	Name      string         `json:"name"`
@@ -1232,6 +1344,26 @@ type DialoguePage struct {
 	HasMore    bool              `json:"has_more"`
 	Items      []DialogueSummary `json:"items"`
 	NextCursor *string           `json:"next_cursor"`
+}
+
+// DialoguePlanRequest defines model for DialoguePlanRequest.
+type DialoguePlanRequest struct {
+	Beats   uint16  `json:"beats"`
+	Current *string `json:"current,omitempty"`
+
+	// Document A dialogue.v1 or dialogue.v2 document.
+	Document DialogueDefinition `json:"document"`
+	Frontier *PlanFragment      `json:"frontier,omitempty"`
+	GoalsMet *[]string          `json:"goals_met,omitempty"`
+	History  *[]DialogueEntry   `json:"history,omitempty"`
+	IDPrefix string             `json:"id_prefix"`
+	Npc      string             `json:"npc"`
+
+	// OpenTopics Topics whose game condition holds now, as your game evaluated them. Fact values are never sent.
+	OpenTopics *[]string      `json:"open_topics,omitempty"`
+	Reason     PlanReason     `json:"reason"`
+	Turns      uint16         `json:"turns"`
+	Visited    *[]VisitedBeat `json:"visited,omitempty"`
 }
 
 // DialogueRule Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.
@@ -1280,11 +1412,12 @@ type DialogueTurnRequest struct {
 
 // DialogueWarning defines model for DialogueWarning.
 type DialogueWarning struct {
+	// Code Why a saved dialogue warns. `schema_v2`: the revision is stored as `dialogue.v2` and loads only in a kit that reads `dialogue.v2`; a game on an older kit fails to load it.
 	Code DialogueWarningCode `json:"code"`
 	Path string              `json:"path"`
 }
 
-// DialogueWarningCode defines model for DialogueWarningCode.
+// DialogueWarningCode Why a saved dialogue warns. `schema_v2`: the revision is stored as `dialogue.v2` and loads only in a kit that reads `dialogue.v2`; a game on an older kit fails to load it.
 type DialogueWarningCode string
 
 // Done defines model for Done.
@@ -1367,6 +1500,12 @@ type EventPage struct {
 	NextCursor string          `json:"next_cursor"`
 }
 
+// Exit defines model for Exit.
+type Exit struct {
+	Detour *string `json:"detour,omitempty"`
+	To     string  `json:"to"`
+}
+
 // FactValue defines model for FactValue.
 type FactValue = any
 
@@ -1411,6 +1550,9 @@ type GraphCheckpoint struct {
 	Goal        string    `json:"goal"`
 	ID          string    `json:"id"`
 	MayDisclose *[]string `json:"may_disclose,omitempty"`
+
+	// Steer The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it.
+	Steer *string `json:"steer,omitempty"`
 }
 
 // GraphEdge defines model for GraphEdge.
@@ -1427,6 +1569,9 @@ type InboundEventAccepted struct {
 	Reaction  *ReactionReport `json:"reaction,omitempty"`
 	Type      string          `json:"type"`
 }
+
+// KeptReason Why no new plan came back. Keep the frontier you have: `unavailable` means no planner could answer, `timeout` that it took too long, `unparseable` that its answer could not be read, and `rejected` that its plan broke the dialogue's limits.
+type KeptReason string
 
 // LessonPlan defines model for LessonPlan.
 type LessonPlan struct {
@@ -1489,6 +1634,12 @@ type Npc struct {
 	Persona *string `json:"persona,omitempty"`
 }
 
+// NpcDisposition defines model for NpcDisposition.
+type NpcDisposition struct {
+	Initiative     float64 `json:"initiative"`
+	Suggestibility float64 `json:"suggestibility"`
+}
+
 // NpcLanguage defines model for NpcLanguage.
 type NpcLanguage struct {
 	Code          string `json:"code"`
@@ -1501,6 +1652,12 @@ type Pedagogy string
 
 // PlanFailReason defines model for PlanFailReason.
 type PlanFailReason string
+
+// PlanFragment defines model for PlanFragment.
+type PlanFragment struct {
+	Anchor string `json:"anchor"`
+	Beats  []Beat `json:"beats"`
+}
 
 // PlanPending defines model for PlanPending.
 type PlanPending struct {
@@ -1526,6 +1683,9 @@ type PlanQuestion struct {
 
 // PlanReadyStatus defines model for PlanReadyStatus.
 type PlanReadyStatus string
+
+// PlanReason defines model for PlanReason.
+type PlanReason string
 
 // PlanResult defines model for PlanResult.
 type PlanResult struct {
@@ -1605,7 +1765,7 @@ type SaveCanvasDraftRequest struct {
 
 // SaveDialogueDraftRequest defines model for SaveDialogueDraftRequest.
 type SaveDialogueDraftRequest struct {
-	// Definition A dialogue.v1 document.
+	// Definition A dialogue.v1 or dialogue.v2 document.
 	Definition   DialogueDefinition `json:"definition"`
 	DraftVersion int32              `json:"draft_version"`
 	Name         *string            `json:"name,omitempty"`
@@ -1885,6 +2045,12 @@ type VersionSummary struct {
 	SunsetAt *time.Time   `json:"sunset_at"`
 }
 
+// VisitedBeat defines model for VisitedBeat.
+type VisitedBeat struct {
+	Atom  AtomKind `json:"atom"`
+	Topic *string  `json:"topic,omitempty"`
+}
+
 // VocabExample defines model for VocabExample.
 type VocabExample struct {
 	Sentence    string `json:"sentence"`
@@ -2121,6 +2287,12 @@ type ExportDialogueParamsRevision string
 // ExportDialogueParamsLayout defines parameters for ExportDialogue.
 type ExportDialogueParamsLayout string
 
+// PlanDialogueParams defines parameters for PlanDialogue.
+type PlanDialogueParams struct {
+	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
+	LingaraVersion *LingaraVersion `json:"Lingara-Version,omitempty"`
+}
+
 // DeleteEmbedPlayerParams defines parameters for DeleteEmbedPlayer.
 type DeleteEmbedPlayerParams struct {
 	// LingaraVersion The API version to answer this request under. Without it, an access token gets the version its client is pinned to, and a request with no token gets the current version. The version still in development is reached only by naming it here. An unknown version answers `400` with code `api_version_unknown`. `GET /v1/versions` lists the versions.
@@ -2234,6 +2406,9 @@ type ActivateDialogueJSONRequestBody = ActivateDialogueRequest
 
 // SaveDialogueDraftJSONRequestBody defines body for SaveDialogueDraft for application/json ContentType.
 type SaveDialogueDraftJSONRequestBody = SaveDialogueDraftRequest
+
+// PlanDialogueJSONRequestBody defines body for PlanDialogue for application/json ContentType.
+type PlanDialogueJSONRequestBody = DialoguePlanRequest
 
 // CreateEmbedTokenJSONRequestBody defines body for CreateEmbedToken for application/json ContentType.
 type CreateEmbedTokenJSONRequestBody = EmbedTokenRequest

@@ -7,8 +7,10 @@ usage, and draw, dry-run and activate canvases (`client.canvases`: `listCanvases
 `activateCanvas`, `dryRunCanvasPlan` and the `pageCanvases` helper), and author,
 activate and export stored dialogues (`client.dialogues`: `listDialogues`,
 `createDialogue`, `getDialogue`, `renameDialogue`, `saveDialogueDraft`,
-`activateDialogue`, `exportDialogue` and the `pageDialogues` helper), from your
-own code.
+`activateDialogue`, `exportDialogue` and the `pageDialogues` helper), and plan
+the next beats of a Procedural dialogue (`planDialogue`, beside the NPC turn
+`sendDialogueTurn`; never retried, since every call spends one `embed:play`
+unit), from your own code.
 
 The libraries are pre-release: every version before 1.0.0 carries an
 `-alpha.N`, `-beta.N` or `-rc.N` suffix, and every install line pins one.

@@ -27,7 +27,8 @@ module Harness
   }.freeze
   # The embed operations (ADR 1.10.26w): the mint takes the case's body,
   # the delete its params.player_ref and answers 204.
-  EMBED_CALLS = %w[createEmbedToken deleteEmbedPlayer linkEmbedPlayer unlinkEmbedPlayer].freeze
+  # planDialogue (ADR 3.11.26n) takes the case's body, as the mint does.
+  EMBED_CALLS = %w[createEmbedToken deleteEmbedPlayer linkEmbedPlayer unlinkEmbedPlayer planDialogue].freeze
   # The embed calls whose one argument is the player_ref path parameter: the
   # method and its success status (ADR 22.10.26t D7).
   PLAYER_REF_CALLS = {
@@ -161,6 +162,7 @@ module Harness
   end
 
   def invoke_embed(client, call)
+    return result { client.plan_dialogue(**body_of(call)) } if call["operation"] == "planDialogue"
     by_player = PLAYER_REF_CALLS[call["operation"]]
     return result { client.create_embed_token(**body_of(call)) } unless by_player
 

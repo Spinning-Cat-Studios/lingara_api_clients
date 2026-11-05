@@ -1,0 +1,19 @@
+id: k4.dialogue-plan-not-retried
+title: A plan answered 503 with Retry-After is sent once, never slept on, and raised with its Retry-After (each attempt spends an embed:play unit; ADR 3.11.26n AC26)
+behaviours: [K4]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: planDialogue
+      body: { document: { schema: dialogue.v2, kind: procedural, id: the_ferryman }, npc: ma_ren, reason: start, id_prefix: p1, turns: 0, beats: 0 }
+    expect:
+      outcome: error
+      error: { variant: ApiError, fields: { status: 503, code: unavailable, retry_after: 1 } }
+      sleeps_s: []
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_k4plan, token_type: Bearer, expires_in: 3600, scope: "embed:play" } }
+    - request: { method: POST, path: /v1/embed/dialogue/plan, json: { document: { schema: dialogue.v2, kind: procedural, id: the_ferryman }, npc: ma_ren, reason: start, id_prefix: p1, turns: 0, beats: 0 } }
+      response: { status: 503, headers: { retry-after: "1" }, json: { code: unavailable, error: The planner is busy. Try again shortly. } }

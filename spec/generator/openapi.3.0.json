@@ -2,10 +2,10 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Lingara API",
-    "version": "2026-10-expensive-sauger",
+    "version": "2026-10-dauntless-hoopoe",
     "description": "Generate vocabulary lists and lesson plans, and hold tutor conversations, in the languages Lingara teaches. Each call is paid for by the client that makes it: an `allowance` client spends its owner's allowance, and a `metered` client is billed for its usage.",
     "x-lingara-view": {
-      "source": "backend@39db1f0e8846700eeb2ded1e42f43238963eb4a1",
+      "source": "backend@eace1b3bb63d501ecc2f338770860fbf4db8b747",
       "from": "3.2.0"
     }
   },
@@ -759,6 +759,191 @@
           },
           "4XX": {
             "$ref": "#/components/responses/Error"
+          },
+          "410": {
+            "$ref": "#/components/responses/VersionDiscontinued"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "5XX": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
+    "/v1/embed/dialogue/plan": {
+      "parameters": [
+        {
+          "$ref": "#/components/parameters/LingaraVersion"
+        }
+      ],
+      "post": {
+        "operationId": "planDialogue",
+        "tags": [
+          "embed"
+        ],
+        "summary": "Plan the next beats of an NPC dialogue",
+        "description": "Plans the next beats of a procedural NPC dialogue. Returns a fragment, or `kept` when your current plan should stay. Needs `enable_npc_dialogue_plans`; one `embed:play` unit.",
+        "security": [
+          {
+            "oauth2": [
+              "embed:play"
+            ]
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DialoguePlanRequest"
+              },
+              "example": {
+                "document": {
+                  "schema": "dialogue.v2",
+                  "kind": "procedural",
+                  "id": "the_ferryman",
+                  "npcs": [
+                    {
+                      "id": "ma_ren",
+                      "name": "Ma Ren",
+                      "persona": "a brisk ferrywoman who wants to cast off before dark",
+                      "disposition": {
+                        "suggestibility": 0.5,
+                        "initiative": 0.7
+                      }
+                    }
+                  ],
+                  "endings": [
+                    {
+                      "id": "crossed",
+                      "label": "Got across"
+                    }
+                  ],
+                  "procedural": {
+                    "premise": "The player needs to cross the river before dark",
+                    "topics": [
+                      {
+                        "id": "cargo",
+                        "about": "what the player is carrying across"
+                      },
+                      {
+                        "id": "fare",
+                        "about": "the price of the crossing"
+                      }
+                    ],
+                    "goals": [
+                      {
+                        "id": "fare_agreed",
+                        "describe": "a fare both sides accept",
+                        "when": "The player and the ferryman agree on a fare."
+                      }
+                    ],
+                    "atoms": [
+                      {
+                        "atom": "open"
+                      },
+                      {
+                        "atom": "elicit"
+                      },
+                      {
+                        "atom": "practise"
+                      },
+                      {
+                        "atom": "close"
+                      }
+                    ],
+                    "termination": {
+                      "max_turns": 40,
+                      "max_beats": 12,
+                      "success": {
+                        "goal": "fare_agreed",
+                        "ending": "crossed"
+                      }
+                    }
+                  }
+                },
+                "npc": "ma_ren",
+                "reason": "start",
+                "id_prefix": "p1",
+                "turns": 0,
+                "beats": 0,
+                "history": [
+                  {
+                    "speaker": "player",
+                    "text": "Can you take me across?"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The next beats, or `kept`",
+            "headers": {
+              "Lingara-Version": {
+                "$ref": "#/components/headers/LingaraVersion"
+              },
+              "Deprecation": {
+                "$ref": "#/components/headers/Deprecation"
+              },
+              "Sunset": {
+                "$ref": "#/components/headers/Sunset"
+              },
+              "Link": {
+                "$ref": "#/components/headers/Link"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DialoguePlanResponse"
+                },
+                "example": {
+                  "status": "planned",
+                  "fragment": {
+                    "anchor": "p1_0",
+                    "beats": [
+                      {
+                        "id": "p1_0",
+                        "atom": "open",
+                        "depth": 0,
+                        "exits": [
+                          {
+                            "to": "p1_1"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "p1_1",
+                        "atom": "elicit",
+                        "depth": 1,
+                        "topic": "cargo",
+                        "exits": [
+                          {
+                            "to": "p1_2"
+                          }
+                        ]
+                      },
+                      {
+                        "id": "p1_2",
+                        "atom": "close",
+                        "depth": 2,
+                        "ending": "crossed"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "4XX": {
+            "$ref": "#/components/responses/Error"
+          },
+          "402": {
+            "$ref": "#/components/responses/PaymentRequired"
           },
           "410": {
             "$ref": "#/components/responses/VersionDiscontinued"
@@ -1689,7 +1874,7 @@
           "dialogues"
         ],
         "summary": "Create a dialogue",
-        "description": "Saves a new dialogue graph as a draft, checked against `dialogue.v1` and its graph rules. An account has at most 20 dialogues.",
+        "description": "Saves a new dialogue graph as a draft, checked against `dialogue.v1` or `dialogue.v2` and the schema's rules. An account has at most 20 dialogues.",
         "security": [
           {
             "oauth2": [
@@ -1995,7 +2180,7 @@
           "dialogues"
         ],
         "summary": "Save a dialogue's draft",
-        "description": "Replaces the draft, checked against `dialogue.v1` and its graph rules. Send the `draft_version` you last read, or 0 when there is no draft; a stale one is `409 dialogue_conflict`.",
+        "description": "Replaces the draft, checked against `dialogue.v1` or `dialogue.v2` and the schema's rules. Send the `draft_version` you last read, or 0 when there is no draft; a stale one is `409 dialogue_conflict`.",
         "security": [
           {
             "oauth2": [
@@ -2249,7 +2434,7 @@
           "dialogues"
         ],
         "summary": "Export a dialogue",
-        "description": "Answers the `dialogue.v1` document in its canonical bytes: the active revision, or the draft with `revision=draft`; `layout=omit` drops every `x-` member. Send the `ETag` back as `If-None-Match` and an unchanged revision is `304`.",
+        "description": "Answers the stored document (`dialogue.v1` or `dialogue.v2`) in its canonical bytes: the active revision, or the draft with `revision=draft`; `layout=omit` drops every `x-` member. Send the `ETag` back as `If-None-Match` and an unchanged revision is `304`.",
         "security": [
           {
             "oauth2": [
@@ -2293,7 +2478,7 @@
         ],
         "responses": {
           "200": {
-            "description": "The dialogue.v1 document",
+            "description": "The dialogue document, as stored",
             "headers": {
               "ETag": {
                 "description": "The SHA-256 of the body, quoted.",
@@ -4513,6 +4698,16 @@
             },
             "minItems": 1,
             "maxItems": 8
+          },
+          "disposition": {
+            "description": "How the character steers: `suggestibility` is how readily it follows the player off its goal, `initiative` how hard it pushes toward it (at the top, it declines every detour). Each 0–1. Needs `checkpoint`.",
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/NpcDisposition"
+              }
+            ]
           }
         },
         "required": [
@@ -4546,6 +4741,28 @@
           "comprehension"
         ]
       },
+      "NpcDisposition": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "suggestibility": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "initiative": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1
+          }
+        },
+        "required": [
+          "suggestibility",
+          "initiative"
+        ]
+      },
       "Pedagogy": {
         "type": "string",
         "enum": [
@@ -4573,6 +4790,13 @@
             },
             "maxItems": 16,
             "uniqueItems": true
+          },
+          "steer": {
+            "description": "The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it.",
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 200
           }
         },
         "required": [
@@ -4632,6 +4856,258 @@
         "required": [
           "edge",
           "to"
+        ]
+      },
+      "DialoguePlanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/DialogueDefinition"
+          },
+          "npc": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 48
+          },
+          "reason": {
+            "$ref": "#/components/schemas/PlanReason"
+          },
+          "current": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "frontier": {
+            "type": "object",
+            "nullable": true,
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlanFragment"
+              }
+            ]
+          },
+          "id_prefix": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9]{0,7}$"
+          },
+          "open_topics": {
+            "description": "Topics whose game condition holds now, as your game evaluated them. Fact values are never sent.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 16
+          },
+          "goals_met": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 8
+          },
+          "visited": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VisitedBeat"
+            },
+            "maxItems": 16
+          },
+          "turns": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "beats": {
+            "type": "integer",
+            "format": "uint16",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DialogueEntry"
+            },
+            "maxItems": 12
+          }
+        },
+        "required": [
+          "document",
+          "npc",
+          "reason",
+          "id_prefix",
+          "turns",
+          "beats"
+        ]
+      },
+      "DialoguePlanResponse": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "fragment": {
+                "$ref": "#/components/schemas/PlanFragment"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "planned"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "fragment"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "reason": {
+                "$ref": "#/components/schemas/KeptReason"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "kept"
+                ]
+              }
+            },
+            "required": [
+              "status",
+              "reason"
+            ]
+          }
+        ]
+      },
+      "PlanFragment": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "anchor": {
+            "type": "string"
+          },
+          "beats": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Beat"
+            }
+          }
+        },
+        "required": [
+          "anchor",
+          "beats"
+        ]
+      },
+      "Beat": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "atom": {
+            "$ref": "#/components/schemas/AtomKind"
+          },
+          "depth": {
+            "type": "integer",
+            "format": "uint8",
+            "minimum": 0,
+            "maximum": 255
+          },
+          "sketch": {
+            "type": "boolean"
+          },
+          "topic": {
+            "type": "string",
+            "nullable": true
+          },
+          "goal": {
+            "type": "string",
+            "nullable": true
+          },
+          "ending": {
+            "type": "string",
+            "nullable": true
+          },
+          "angle": {
+            "type": "string",
+            "nullable": true
+          },
+          "exits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Exit"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "atom",
+          "depth"
+        ]
+      },
+      "Exit": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "to": {
+            "type": "string"
+          },
+          "detour": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "to"
+        ]
+      },
+      "AtomKind": {
+        "type": "string",
+        "enum": [
+          "open",
+          "elicit",
+          "reveal",
+          "practise",
+          "close"
+        ]
+      },
+      "VisitedBeat": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "atom": {
+            "$ref": "#/components/schemas/AtomKind"
+          },
+          "topic": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "atom"
+        ]
+      },
+      "PlanReason": {
+        "type": "string",
+        "enum": [
+          "start",
+          "crossed",
+          "exhausted"
+        ]
+      },
+      "KeptReason": {
+        "description": "Why no new plan came back. Keep the frontier you have: `unavailable` means no planner could answer, `timeout` that it took too long, `unparseable` that its answer could not be read, and `rejected` that its plan broke the dialogue's limits.",
+        "type": "string",
+        "enum": [
+          "unavailable",
+          "timeout",
+          "unparseable",
+          "rejected"
         ]
       },
       "CreateCanvasRequest": {
@@ -5113,9 +5589,9 @@
       },
       "DialogueDefinition": {
         "type": "object",
-        "description": "A dialogue.v1 document.",
+        "description": "A dialogue.v1 or dialogue.v2 document.",
         "externalDocs": {
-          "url": "https://getlingara.com/schemas/dialogue.v1.schema.json"
+          "url": "https://getlingara.com/schemas/dialogue.v2.schema.json"
         }
       },
       "CreateDialogueRequest": {
@@ -5182,10 +5658,14 @@
       },
       "DialogueWarningCode": {
         "type": "string",
+        "description": "Why a saved dialogue warns. `schema_v2`: the revision is stored as `dialogue.v2` and loads only in a kit that reads `dialogue.v2`; a game on an older kit fails to load it.",
         "enum": [
           "checkpoint_unreachable",
           "outcome_unreachable",
-          "predicate_unchecked"
+          "predicate_unchecked",
+          "stance_contradiction",
+          "steer_weak",
+          "schema_v2"
         ]
       },
       "DialogueWarning": {
@@ -5222,7 +5702,11 @@
           "when_less_cycle",
           "text_blank",
           "text_multiline",
-          "text_char"
+          "text_char",
+          "kind_mismatch",
+          "steer_target",
+          "pool_escape",
+          "atom_set"
         ]
       },
       "DialogueDraft": {

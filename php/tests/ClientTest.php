@@ -18,6 +18,7 @@ use Lingara\Model\CanvasDryRun;
 use Lingara\Model\CanvasPage;
 use Lingara\Model\Dialogue;
 use Lingara\Model\DialoguePage;
+use Lingara\Model\DialoguePlanResponse;
 use Lingara\Model\EmbedPlayerLink;
 use Lingara\Model\EmbedToken;
 use Lingara\Model\EventPage;
@@ -37,7 +38,7 @@ final class ClientTest extends TestCase
     private const VERSION = '2026-09-knowing-tenpounder';
 
     /**
-     * 29.9.26u AC22, 22.10.26t AC22: the thirty-two client methods and
+     * 29.9.26u AC22, 22.10.26t AC22: the thirty-three client methods and
      * Operations' keys name the same operations, both ways, and the
      * path-parameter methods take one string; each JSON method's model is
      * its operation's success schema (`202` for sendEvent, ADR 30.9.26aa D8;
@@ -81,6 +82,8 @@ final class ClientTest extends TestCase
             'createEmbedToken' => EmbedToken::class, 'deleteEmbedPlayer' => null, 'getApiVersion' => VersionDetail::class, 'getAsyncApiDocument' => null, 'getLessonPlan' => LessonPlan::class,
             'getOpenApiDocument' => null, 'getUsage' => Usage::class, 'linkEmbedPlayer' => EmbedPlayerLink::class, 'listApiVersions' => VersionList::class,
             'listEvents' => EventPage::class, 'sendEvent' => InboundEventAccepted::class, 'unlinkEmbedPlayer' => null,
+            // 3.11.26n: the row names the merged union; planDialogue decodes the arm itself.
+            'planDialogue' => DialoguePlanResponse::class,
         ];
         ksort($expected);
         self::assertSame($expected, array_map(

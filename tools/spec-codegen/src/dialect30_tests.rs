@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use crate::dialect30::{dialect30, FIELDS_31, SCHEMA_KEYS_31};
+use crate::dialect30::{dialect30, refuse_31, FIELDS_31, SCHEMA_KEYS_31};
 use crate::walk::Kind;
 
 fn view31() -> Value {
@@ -48,6 +48,13 @@ fn the_30_dialect_rewrites_nullables_and_refuses_the_rest() {
     for key in SCHEMA_KEYS_31 {
         let mut doc = view31();
         doc["components"]["schemas"]["B"][key] = json!([]);
+        if key == "const" {
+            // 5.11.26k: a `const` is now rewritten, not refused. Beside `B`'s
+            // `type: object` nothing satisfies `[]` in either dialect, so the
+            // rewrite is still faithful.
+            assert_eq!(dialect30(&doc).unwrap()["components"]["schemas"]["B"]["enum"], json!([[]]));
+            continue;
+        }
         assert_eq!(refusal(&doc), format!("/components/schemas/B/{key}: a 3.1-only schema keyword"));
     }
     for (kind, key) in FIELDS_31 {
@@ -98,6 +105,81 @@ fn types_and_bounds_with_no_30_form_are_refused() {
     let mut doc = view31();
     doc["components"]["schemas"]["A"]["properties"]["r"]["anyOf"][0]["$ref"] = json!("#/components/schemas/NoType");
     assert!(refusal(&doc).contains("has no single type for nullable to sit beside"));
+}
+
+fn with_c(schema: Value) -> Value {
+    let mut doc = view31();
+    doc["components"]["schemas"]["C"] = schema;
+    doc
+}
+
+// 5.11.26k AC1
+#[test]
+fn a_const_becomes_a_one_value_enum() {
+    let doc = with_c(json!({ "type": "string", "const": "planned" }));
+    let before = doc.clone();
+    let out = dialect30(&doc).unwrap();
+    assert_eq!(out["components"]["schemas"]["C"], json!({ "type": "string", "enum": ["planned"] }));
+    assert_eq!(doc, before, "the 3.1 input is untouched");
+
+    let out = dialect30(&with_c(json!({ "const": [] }))).unwrap();
+    assert_eq!(out["components"]["schemas"]["C"], json!({ "enum": [[]] }));
+}
+
+// 5.11.26k AC2
+#[test]
+fn a_const_beside_a_type_array_takes_both_rewrites() {
+    let out = dialect30(&with_c(json!({ "type": ["string", "null"], "const": "kept" }))).unwrap();
+    assert_eq!(out["components"]["schemas"]["C"], json!({ "type": "string", "nullable": true, "enum": ["kept"] }));
+}
+
+// 5.11.26k AC3, AC4
+#[test]
+fn a_const_with_no_exact_30_form_is_refused() {
+    assert_eq!(
+        refusal(&with_c(json!({ "type": "string", "const": null }))),
+        "/components/schemas/C/const: a null const has no 3.0 form"
+    );
+    assert_eq!(
+        refusal(&with_c(json!({ "type": "string", "const": "a", "enum": ["a", "b"] }))),
+        "/components/schemas/C/const: a const beside an enum"
+    );
+}
+
+// 5.11.26k AC5
+#[test]
+fn the_plan_answer_arms_pass_the_30_dialect() {
+    let doc = with_c(json!({
+        "oneOf": [
+            {
+                "type": "object",
+                "properties": { "fragment": { "$ref": "#/components/schemas/B" }, "status": { "type": "string", "const": "planned" } },
+                "required": ["status", "fragment"],
+            },
+            {
+                "type": "object",
+                "properties": { "reason": { "$ref": "#/components/schemas/B" }, "status": { "type": "string", "const": "kept" } },
+                "required": ["status", "reason"],
+            },
+        ],
+    }));
+    let out = dialect30(&doc).unwrap();
+    let arms = &out["components"]["schemas"]["C"]["oneOf"];
+    assert_eq!(arms[0]["properties"]["status"], json!({ "type": "string", "enum": ["planned"] }));
+    assert_eq!(arms[1]["properties"]["status"], json!({ "type": "string", "enum": ["kept"] }));
+}
+
+// 5.11.26k AC8
+#[test]
+fn refuse_31_still_refuses_a_left_over_const() {
+    // A bare document: `view31`'s own 3.1 forms would be refused first.
+    let doc = json!({
+        "openapi": "3.0.3",
+        "info": { "title": "t", "version": "1" },
+        "paths": {},
+        "components": { "schemas": { "C": { "type": "string", "const": "planned" } } },
+    });
+    assert_eq!(refuse_31(&doc).unwrap_err().0, "/components/schemas/C/const: a 3.1-only schema keyword");
 }
 
 // 30.9.26aa AC10

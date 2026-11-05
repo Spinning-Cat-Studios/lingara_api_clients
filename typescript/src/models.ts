@@ -74,6 +74,20 @@ export type DialogueTurnRequest = Schemas["DialogueTurnRequest"];
 export type DialogueEntry = Schemas["DialogueEntry"];
 export type Speaker = Schemas["Speaker"];
 export type SendDialogueTurnEvent = Schemas["SendDialogueTurnEvent"];
+export type NpcDisposition = Schemas["NpcDisposition"];
+
+// The plan of a Procedural dialogue (ADR 3.11.26n): its request, whose
+// `document` is opened as `definition` is below, and its answer, a typed
+// fragment or a keep (tagged by `status`)
+export type DialoguePlanRequest = Omit<Schemas["DialoguePlanRequest"], "document"> & { document: DialogueDefinition };
+export type DialoguePlanResponse = Schemas["DialoguePlanResponse"];
+export type PlanReason = Schemas["PlanReason"];
+export type KeptReason = Schemas["KeptReason"];
+export type PlanFragment = Schemas["PlanFragment"];
+export type Beat = Schemas["Beat"];
+export type Exit = Schemas["Exit"];
+export type AtomKind = Schemas["AtomKind"];
+export type VisitedBeat = Schemas["VisitedBeat"];
 
 // A player's link to a Lingara account (ADR 22.10.26t): linkEmbedPlayer's
 // answer, returned as generated since it carries no secret

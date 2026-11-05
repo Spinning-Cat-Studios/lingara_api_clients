@@ -2,9 +2,9 @@
 //!
 //! Some generators read 3.0 better than 3.1, so the view is also written in
 //! 3.0.3. It is a second, mechanical pass over Schema Objects only: the two
-//! nullable forms the bundle uses and a `$ref` with siblings are rewritten,
-//! and every form 3.0 cannot say is refused with its JSON pointer rather than
-//! approximated.
+//! nullable forms the bundle uses, a `$ref` with siblings and a `const`
+//! (ADR 5.11.26k) are rewritten, and every form 3.0 cannot say is refused
+//! with its JSON pointer rather than approximated.
 
 use serde_json::{Map, Value};
 
@@ -47,7 +47,11 @@ fn rewrite_schemas(doc: &mut Value) -> Result<(), Refusal> {
     for site in sites(doc).into_iter().filter(|s| s.kind == Kind::Schema) {
         // A rewritten parent's `anyOf` children no longer resolve: skipped.
         let Some(schema) = doc.pointer(&site.pointer).and_then(Value::as_object) else { continue };
-        if let Some(new) = rewrite_one(doc, schema, &site.pointer)? {
+        // `const_30` composes with the first-match rewrites (5.11.26k §1):
+        // the slot is written when either step produced a new map.
+        let rewritten = rewrite_one(doc, schema, &site.pointer)?;
+        let consted = const_30(rewritten.as_ref().unwrap_or(schema), &site.pointer)?;
+        if let Some(new) = consted.or(rewritten) {
             if let Some(slot) = doc.pointer_mut(&site.pointer) {
                 *slot = Value::Object(new);
             }
@@ -151,6 +155,29 @@ fn type_array_30(s: &Map<String, Value>, types: &[Value], ptr: &str) -> Result<M
         }
     }
     Ok(out)
+}
+
+/// `const: v` → `enum: [v]`, which accepts exactly the same values
+/// (ADR 5.11.26k), and the spelling `lift.rs` already writes for a stream
+/// event's tag. A `null` const and a const beside an `enum` have no exact
+/// 3.0 form and are refused.
+fn const_30(s: &Map<String, Value>, ptr: &str) -> Result<Option<Map<String, Value>>, Refusal> {
+    let Some(value) = s.get("const") else { return Ok(None) };
+    if value.is_null() {
+        return Err(Refusal(format!("{ptr}/const: a null const has no 3.0 form")));
+    }
+    if s.contains_key("enum") {
+        return Err(Refusal(format!("{ptr}/const: a const beside an enum")));
+    }
+    let mut out = Map::new();
+    for (k, v) in s {
+        if k == "const" {
+            out.insert("enum".into(), Value::Array(vec![v.clone()]));
+        } else {
+            out.insert(k.clone(), v.clone());
+        }
+    }
+    Ok(Some(out))
 }
 
 /// Refuse every 3.1-only form left after the rewrite.

@@ -1,0 +1,49 @@
+id: op.dialogue-plan
+title: A crossed plan is sent as given, an x- member inside its document intact, and a planned answer decodes into a typed fragment with a detour exit, a sketch and an angle (ADR 3.11.26n AC19)
+behaviours: [K1]
+client:
+  credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
+steps:
+  - call:
+      operation: planDialogue
+      body:
+        document: { schema: dialogue.v2, kind: procedural, id: the_ferryman, npcs: [ { id: ma_ren, name: Ma Ren } ], procedural: { premise: The player needs to cross the river before dark }, x-editor: { zoom: 2 } }
+        npc: ma_ren
+        reason: crossed
+        current: p1_1
+        frontier: { anchor: p1_0, beats: [ { id: p1_0, atom: open, depth: 0, exits: [ { to: p1_1 } ] }, { id: p1_1, atom: elicit, depth: 1, topic: fare } ] }
+        id_prefix: p2
+        open_topics: [ fare ]
+        visited: [ { atom: open }, { atom: elicit, topic: fare } ]
+        turns: 4
+        beats: 2
+        history: [ { speaker: player, text: How much to cross? } ]
+    expect:
+      outcome: completed
+      status: 200
+      served_version: 2026-10-dauntless-hoopoe
+      body: { status: planned, fragment: { anchor: p1_1, beats: [ { id: p2_0, atom: practise, depth: 2, sketch: false, topic: fare, angle: haggle over the fare, exits: [ { to: p2_1 }, { to: p2_2, detour: cargo } ] }, { id: p2_1, atom: close, depth: 3, sketch: true, ending: crossed }, { id: p2_2, atom: reveal, depth: 3, sketch: true, topic: cargo } ] } }
+exchanges:
+  items:
+    - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
+      response: { status: 200, json: { access_token: lgr_at_opplan, token_type: Bearer, expires_in: 3600, scope: "embed:play" } }
+    - request:
+        method: POST
+        path: /v1/embed/dialogue/plan
+        headers: { authorization: { equals: Bearer lgr_at_opplan }, accept: { contains: application/json }, content-type: { contains: application/json } }
+        json:
+          document: { schema: dialogue.v2, kind: procedural, id: the_ferryman, npcs: [ { id: ma_ren, name: Ma Ren } ], procedural: { premise: The player needs to cross the river before dark }, x-editor: { zoom: 2 } }
+          npc: ma_ren
+          reason: crossed
+          current: p1_1
+          frontier: { anchor: p1_0, beats: [ { id: p1_0, atom: open, depth: 0, exits: [ { to: p1_1 } ] }, { id: p1_1, atom: elicit, depth: 1, topic: fare } ] }
+          id_prefix: p2
+          open_topics: [ fare ]
+          visited: [ { atom: open }, { atom: elicit, topic: fare } ]
+          turns: 4
+          beats: 2
+          history: [ { speaker: player, text: How much to cross? } ]
+      response:
+        status: 200
+        headers: { lingara-version: 2026-10-dauntless-hoopoe }
+        json: { status: planned, fragment: { anchor: p1_1, beats: [ { id: p2_0, atom: practise, depth: 2, sketch: false, topic: fare, angle: haggle over the fare, exits: [ { to: p2_1 }, { to: p2_2, detour: cargo } ] }, { id: p2_1, atom: close, depth: 3, sketch: true, ending: crossed }, { id: p2_2, atom: reveal, depth: 3, sketch: true, topic: cargo } ] } }

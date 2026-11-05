@@ -20,9 +20,9 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * 
+ * Why a saved dialogue warns. `schema_v2`: the revision is stored as `dialogue.v2` and loads only in a kit that reads `dialogue.v2`; a game on an older kit fails to load it.
  *
- * Values: CHECKPOINT_UNREACHABLE,OUTCOME_UNREACHABLE,PREDICATE_UNCHECKED
+ * Values: CHECKPOINT_UNREACHABLE,OUTCOME_UNREACHABLE,PREDICATE_UNCHECKED,STANCE_CONTRADICTION,STEER_WEAK,SCHEMA_V2
  */
 @Serializable
 public enum class DialogueWarningCode(public val value: kotlin.String) {
@@ -34,7 +34,16 @@ public enum class DialogueWarningCode(public val value: kotlin.String) {
     OUTCOME_UNREACHABLE("outcome_unreachable"),
 
     @SerialName(value = "predicate_unchecked")
-    PREDICATE_UNCHECKED("predicate_unchecked");
+    PREDICATE_UNCHECKED("predicate_unchecked"),
+
+    @SerialName(value = "stance_contradiction")
+    STANCE_CONTRADICTION("stance_contradiction"),
+
+    @SerialName(value = "steer_weak")
+    STEER_WEAK("steer_weak"),
+
+    @SerialName(value = "schema_v2")
+    SCHEMA_V2("schema_v2");
 
     /**
      * Override [toString()] to avoid using the enum variable name as the value, and instead use

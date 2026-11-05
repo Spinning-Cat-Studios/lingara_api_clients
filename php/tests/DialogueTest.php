@@ -7,7 +7,14 @@ namespace Lingara\Tests;
 use Lingara\Client;
 use Lingara\Dialogue\ExportedDialogue\Body;
 use Lingara\Dialogue\ExportedDialogue\NotModified;
+use Lingara\Exception\ApiException;
+use Lingara\Model\AtomKind;
+use Lingara\Model\DialoguePlanRequest;
+use Lingara\Model\DialoguePlanResponseOneOf;
+use Lingara\Model\DialoguePlanResponseOneOf1;
 use Lingara\Model\DialogueSummary;
+use Lingara\Model\KeptReason;
+use Lingara\Model\PlanReason;
 use Lingara\Model\DialogueWarningCode;
 use Lingara\Model\RenameDialogueRequest;
 use Lingara\Model\SaveDialogueDraftRequest;
@@ -80,6 +87,48 @@ final class DialogueTest extends TestCase
         self::assertSame('name=market&limit=1', $first->getUri()->getQuery());
         self::assertSame('cursor=dl1&name=market&limit=1', $second->getUri()->getQuery());
         self::assertCount(8, $fake->requests);
+    }
+
+    /**
+     * 3.11.26n AC8: planDialogue sends the body as given (an x- member
+     * inside the document intact), answers a typed fragment and a keep, both
+     * results, and a 503 with Retry-After is thrown after one request,
+     * beside the turn it shares K4's exemption with.
+     */
+    public function testPlanDialogueIsSentOnce(): void
+    {
+        $planned = '{"status":"planned","fragment":{"anchor":"p1_0","beats":[{"id":"p1_0","atom":"elicit","depth":0,"sketch":false,'
+            . '"angle":"ask what is in the crate","exits":[{"to":"p1_1","detour":"cargo"}]}]}}';
+        $fake = new FakeHttpClient(
+            FakeHttpClient::token(),
+            FakeHttpClient::json(200, $planned),
+            FakeHttpClient::json(200, '{"status":"kept","reason":"rejected"}'),
+            FakeHttpClient::json(503, '{"code":"unavailable","error":"Later."}', ['Retry-After' => '1']),
+        );
+        $client = new Client(clientId: 'lgr_cid_x', clientSecret: 'lgr_cs_x', logger: new NullLogger(), http: $fake->stack());
+        $document = json_decode('{"schema":"dialogue.v2","x-editor":{"zoom":2}}');
+        $request = new DialoguePlanRequest(['document' => $document, 'npc' => 'ma_ren', 'reason' => PlanReason::START, 'id_prefix' => 'p1', 'turns' => 0, 'beats' => 0]);
+
+        $planned = $client->planDialogue($request)->value;
+        self::assertInstanceOf(DialoguePlanResponseOneOf::class, $planned);
+        $beat = $planned->getFragment()->getBeats()[0];
+        $exit = ($beat->getExits() ?? [])[0] ?? null;
+        self::assertSame([AtomKind::ELICIT, 'ask what is in the crate', 'cargo'], [$beat->getAtom(), $beat->getAngle(), $exit?->getDetour()]);
+        $sent = self::body($fake->requests[1]);
+        self::assertInstanceOf(\stdClass::class, $sent);
+        self::assertEquals($document, $sent->document);
+
+        $kept = $client->planDialogue($request)->value;
+        self::assertInstanceOf(DialoguePlanResponseOneOf1::class, $kept);
+        self::assertSame(['kept', KeptReason::REJECTED], [$kept->getStatus(), $kept->getReason()]);
+
+        try {
+            $client->planDialogue($request);
+            self::fail('a 503 was not thrown');
+        } catch (ApiException $e) {
+            self::assertSame([503, 1], [$e->status(), $e->retryAfter()]);
+        }
+        self::assertCount(4, $fake->requests);
     }
 
     private static function body(RequestInterface $request): mixed

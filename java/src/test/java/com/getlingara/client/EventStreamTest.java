@@ -10,8 +10,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.getlingara.client.internal.Streams;
+import com.getlingara.client.model.AtomKind;
+import com.getlingara.client.model.Beat;
 import com.getlingara.client.model.CreateLessonPlanEvent;
+import com.getlingara.client.model.DialoguePlanRequest;
 import com.getlingara.client.model.GenerateVocabularyEvent;
+import com.getlingara.client.model.KeptReason;
+import com.getlingara.client.model.PlanReason;
 import com.getlingara.client.model.SendDialogueTurnEvent;
 import com.getlingara.client.model.SendTutorMessageEvent;
 import com.getlingara.client.model.StreamLessonPlanEvent;
@@ -344,5 +349,64 @@ class EventStreamTest {
     assertEquals(1, drain(vocab(afterDone)).size());
     assertFalse(afterDone.readAfterFail);
     assertEquals(1, afterDone.reads.get());
+  }
+
+  private static final String PLANNED =
+      "{\"status\":\"planned\",\"fragment\":{\"anchor\":\"p1_0\",\"beats\":[{\"id\":\"p1_0\","
+          + "\"atom\":\"elicit\",\"depth\":0,\"sketch\":false,\"angle\":\"ask what is in the"
+          + " crate\",\"exits\":[{\"to\":\"p1_1\",\"detour\":\"cargo\"}]}]}}";
+
+  /**
+   * 3.11.26n AC5: {@code planDialogue} sends the body as given (an {@code x-} member inside the
+   * document intact), answers a typed fragment and a keep, both results, and a {@code 503} with
+   * {@code Retry-After} is thrown after one request, beside the turn it shares K4's exemption with.
+   */
+  @Test
+  void planDialogueIsSentOnce() throws Exception {
+    Fakes.Handler plans =
+        Fakes.script(
+            e -> Fakes.json(e, 200, PLANNED),
+            e -> Fakes.json(e, 200, "{\"status\":\"kept\",\"reason\":\"rejected\"}"),
+            Fakes.status(
+                503, "Retry-After", "1", "{\"code\":\"unavailable\",\"error\":\"Later.\"}"));
+    try (Fakes.Server server =
+        new Fakes.Server()
+            .on("/oauth/token", Fakes.token("lgr_at_plan", 3600))
+            .on("/v1/embed/dialogue/plan", plans)) {
+      LingaraClient client =
+          LingaraClient.builder()
+              .baseUrl(server.uri())
+              .tokenUrl(server.uri("/oauth/token"))
+              .clientCredentials("lgr_cid_test", "lgr_cs_test")
+              .build();
+      DialoguePlanRequest body =
+          new DialoguePlanRequest()
+              .document(
+                  java.util.Map.of(
+                      "schema", "dialogue.v2", "x-editor", java.util.Map.of("zoom", 2)))
+              .npc("ma_ren")
+              .reason(PlanReason.START)
+              .idPrefix("p1")
+              .turns(0)
+              .beats(0);
+
+      DialoguePlanResponse answer = client.planDialogue(body).body();
+      assertEquals("planned", answer.status());
+      Beat beat = answer.fragment().getBeats().get(0);
+      assertEquals(AtomKind.ELICIT, beat.getAtom());
+      assertEquals("ask what is in the crate", beat.getAngle());
+      assertEquals("cargo", beat.getExits().get(0).getDetour());
+      JsonNode sent = MAPPER.readTree(server.seen.get(server.seen.size() - 1).body());
+      assertEquals(2, sent.at("/document/x-editor/zoom").asInt());
+
+      assertEquals(
+          new DialoguePlanResponse("kept", null, KeptReason.REJECTED),
+          client.planDialogue(body).body());
+
+      ApiException refused = assertThrows(ApiException.class, () -> client.planDialogue(body));
+      assertEquals(503, refused.status());
+      assertEquals(Optional.of(Duration.ofSeconds(1)), refused.retryAfter());
+      assertEquals(3, server.hits("/v1/embed/dialogue/plan"));
+    }
   }
 }

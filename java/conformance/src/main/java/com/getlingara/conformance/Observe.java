@@ -10,6 +10,7 @@ import com.getlingara.client.MaintenanceException;
 import com.getlingara.client.MintedToken;
 import com.getlingara.client.OAuthException;
 import com.getlingara.client.TransportException;
+import com.getlingara.client.model.DialoguePlanRequest;
 import com.getlingara.client.model.DialogueTurnRequest;
 import com.getlingara.client.model.EmbedTokenRequest;
 import com.getlingara.client.model.LessonPlanCreateRequest;
@@ -158,6 +159,8 @@ final class Observe {
             result(() -> c.unlinkEmbedPlayer(call.path("params").path("player_ref").asText()));
         unlinked.status = unlinked.status == null ? null : 204;
         return unlinked;
+      case "planDialogue":
+        return result(() -> c.planDialogue(body(call, DialoguePlanRequest.class)));
       default:
         Supplier<ApiResponse<?>> canvas = EventSteps.canvasCall(c, call);
         if (canvas != null) {

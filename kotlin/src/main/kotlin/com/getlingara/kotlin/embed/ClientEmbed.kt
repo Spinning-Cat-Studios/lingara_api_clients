@@ -9,6 +9,7 @@ import com.getlingara.kotlin.internal.Call
 import com.getlingara.kotlin.internal.LingaraJson
 import com.getlingara.kotlin.internal.Streams
 import com.getlingara.kotlin.internal.encodeSegment
+import com.getlingara.kotlin.model.DialoguePlanRequest
 import com.getlingara.kotlin.model.DialogueTurnRequest
 import com.getlingara.kotlin.model.EmbedPlayerLink
 import com.getlingara.kotlin.model.EmbedTokenRequest
@@ -86,4 +87,18 @@ public suspend fun LingaraClient.sendDialogueTurn(body: DialogueTurnRequest): Ev
     val call = Call(route.method, route.path, json.toByteArray(), "text/event-stream", true)
     call.once = true
     return requests.open(route, call)
+}
+
+/**
+ * Plans the next beats of a Procedural dialogue (scope `embed:play`, a metered payer only; ADR
+ * 3.11.26n): a typed fragment or a keep, both results. The `document` is sent as given; the library
+ * validates neither it nor the fragment, and sets no timeout of its own. Like the turn it is sent
+ * once with no K4 retries: each call spends one `embed:play` unit, a keep and every refusal after
+ * admission included, so a `429` or `503` is thrown at once with its `retryAfter`.
+ */
+public suspend fun LingaraClient.planDialogue(body: DialoguePlanRequest): ApiResponse<DialoguePlanResponse> {
+    val json = LingaraJson.encodeToString(DialoguePlanRequest.serializer(), body)
+    val call = Call("POST", "/v1/embed/dialogue/plan", json.toByteArray(), "application/json", true)
+    call.once = true
+    return requests.json(call, DialoguePlanResponse.serializer())
 }

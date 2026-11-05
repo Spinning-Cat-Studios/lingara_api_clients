@@ -51,11 +51,11 @@ const usage = await client.getUsage();
 console.log(usage.servedVersion, usage.allowance);
 ```
 
-Eighteen methods, each named after its `operationId`: `generateVocabulary`,
+Nineteen methods, each named after its `operationId`: `generateVocabulary`,
 `createLessonPlan`, `streamLessonPlan`, `sendTutorMessage`,
 `sendDialogueTurn` and `streamEvents` return an `EventStream`;
 `getLessonPlan`, `getUsage`, `listEvents`, `sendEvent`, `createEmbedToken`,
-`deleteEmbedPlayer`, `linkEmbedPlayer`, `unlinkEmbedPlayer`,
+`deleteEmbedPlayer`, `linkEmbedPlayer`, `unlinkEmbedPlayer`, `planDialogue`,
 `getOpenApiDocument`, `getAsyncApiDocument`, `listApiVersions` and
 `getApiVersion` return a promise. The last four need no credentials. Every
 method takes `{ signal?: AbortSignal }` last. The `events` and `tailEvents`
@@ -206,6 +206,19 @@ const minted = await client.createEmbedToken({ player_ref: "player-1001" });
   once as an `ApiError` with its `retryAfter`, and you decide whether to send
   it again. No retry helps `403 embed_needs_metered`, or
   `422 safety_input_flagged`, which means say something else.
+- `planDialogue` plans the next beats of a Procedural dialogue: call it when
+  you run one outside the embed kits (inside them, the kit calls it). It
+  answers `{ status: "planned", fragment }`, the fragment typed, or
+  `{ status: "kept", reason }`. A keep is a result, never an error: your
+  frontier stands (on a first plan, walk the deterministic seed). The
+  `document` is sent as given and no fact value is sent, only which topics
+  and goals hold; the fragment is validated by the server and the embed core
+  (`lingara-dialogue-ir`), never by the library. It is **never retried**,
+  like the turn, so a `429` or `503` is thrown at once with its
+  `retryAfter`. The library sets no plan timeout of its own: the server
+  keeps after 10 s, and you pass a `signal` if you want a bound. Cost: one
+  `embed:play` unit per call, a `kept` and every refusal after admission
+  included.
 - `practice.completed` arrives through the webhook, the feed and the tail
   when your client holds `events:read` and `embed:play`; its `subject` names
   the player. `InboundEvent.worldPracticeCompleted(data)` sends one, with

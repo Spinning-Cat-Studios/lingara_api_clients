@@ -156,8 +156,23 @@ at = "2026-10-30T18:26:16Z"
 [[version]]
 id = "2026-10-dauntless-hoopoe"
 minted_at = "2026-10-30T18:26:16Z"
-state = "development"
+state = "supported"
+spec_sha256 = "c5a264c2cac9ddda381f18a6eb21bfae40df77e4e87c02f473d29dd08b0b933f"
+asyncapi_sha256 = "bb9dd8f2179d3b155fde9a01925732e536ef6af6836ec0a45fae6c5dbf60675a"
 
 [[version.history]]
 state = "development"
 at = "2026-10-30T18:26:16Z"
+
+[[version.history]]
+state = "supported"
+at = "2026-11-05T09:28:48Z"
+
+[[version]]
+id = "2026-11-current-crayfish"
+minted_at = "2026-11-05T09:28:48Z"
+state = "development"
+
+[[version.history]]
+state = "development"
+at = "2026-11-05T09:28:48Z"

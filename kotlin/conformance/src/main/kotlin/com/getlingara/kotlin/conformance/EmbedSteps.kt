@@ -2,11 +2,14 @@ package com.getlingara.kotlin.conformance
 
 import com.getlingara.kotlin.ApiResponse
 import com.getlingara.kotlin.LingaraClient
+import com.getlingara.kotlin.embed.DialoguePlanResponse
 import com.getlingara.kotlin.embed.MintedToken
 import com.getlingara.kotlin.embed.createEmbedToken
 import com.getlingara.kotlin.embed.deleteEmbedPlayer
 import com.getlingara.kotlin.embed.linkEmbedPlayer
+import com.getlingara.kotlin.embed.planDialogue
 import com.getlingara.kotlin.embed.unlinkEmbedPlayer
+import com.getlingara.kotlin.model.DialoguePlanRequest
 import com.getlingara.kotlin.model.EmbedPlayerLink
 import com.getlingara.kotlin.model.EmbedTokenRequest
 import kotlinx.serialization.json.JsonElement
@@ -24,7 +27,8 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * The embedding JSON calls (ADR 1.10.26w D8, 22.10.26t): `createEmbedToken`'s [MintedToken] has no
  * serializer, so its body is reported in wire form through the exposing accessor; `linkEmbedPlayer`
- * reports its generated [EmbedPlayerLink]; and `deleteEmbedPlayer`'s and `unlinkEmbedPlayer`'s
+ * reports its generated [EmbedPlayerLink], and `planDialogue` its hand-written
+ * [DialoguePlanResponse] (ADR 3.11.26n); and `deleteEmbedPlayer`'s and `unlinkEmbedPlayer`'s
  * success is a `204` with no body. It is also where `Observe`'s JSON dispatch
  * ends: a canvas operation goes on to `EventSteps.canvasCall` (ADR 16.10.26ak), a dialogue one to
  * `DialogueSteps.call` (ADR 29.10.26c), and any other name is reported as an operation the harness
@@ -41,6 +45,7 @@ internal object EmbedSteps {
             "deleteEmbedPlayer" -> observe { c.deleteEmbedPlayer(playerRef(call)) }
             "linkEmbedPlayer" -> observe { c.linkEmbedPlayer(playerRef(call)) }
             "unlinkEmbedPlayer" -> observe { c.unlinkEmbedPlayer(playerRef(call)) }
+            "planDialogue" -> observe { c.planDialogue(Observe.body(call, DialoguePlanRequest.serializer())) }
             else ->
                 EventSteps.canvasCall(c, call, operation)
                     ?: DialogueSteps.call(c, call, operation)
@@ -75,6 +80,7 @@ internal object EmbedSteps {
                 when (result) {
                     is MintedToken -> wire(result)
                     is EmbedPlayerLink -> HarnessJson.encodeToJsonElement(EmbedPlayerLink.serializer(), result)
+                    is DialoguePlanResponse -> HarnessJson.encodeToJsonElement(DialoguePlanResponse.serializer(), result)
                     else -> null
                 }
             servedVersion = response.servedVersion

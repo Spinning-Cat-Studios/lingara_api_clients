@@ -212,6 +212,23 @@ a `429` or `503` raises `Lingara::ApiError` at once with its `retry_after`,
 and you decide whether to send the turn again. No retry helps
 `403 embed_needs_metered` or `422 safety_input_flagged` (say something else).
 
+`client.plan_dialogue(document:, npc:, reason:, id_prefix:, turns:, beats:, ...)`
+plans the next beats of a Procedural dialogue: call it when you run one
+outside the embed kits (inside them, the kit calls it). Its `value` is a
+`Lingara::DialoguePlanResponseOneOf` (`status` `"planned"`, a typed
+`fragment`) or a `Lingara::DialoguePlanResponseOneOf1` (`status` `"kept"`, a
+`reason`). A keep is a result, never an error: your frontier stands (on a
+first plan, walk the deterministic seed). The `document:` is sent as given
+and no fact value is sent, only which topics and goals hold; the fragment is
+validated by the server and the embed core (`lingara-dialogue-ir`), never by
+the library. It is **never retried**, like the turn, so a `429` or `503`
+raises `Lingara::ApiError` at once with its `retry_after`. The library sets
+no plan timeout of its own (the server keeps after 10 s). Cost: one
+`embed:play` unit per call, a `kept` and every refusal after admission
+included. `KeptReason` and `AtomKind` are closed, so a reason or atom a later
+spec adds fails the whole answer's decode (`:malformed_response`) until you
+upgrade.
+
 `practice.completed` arrives typed as `Lingara::Events::PracticeCompleted` on
 the feed, the tail and webhooks, and your client needs `events:read` and
 `embed:play` to hear it. A game reports practice with

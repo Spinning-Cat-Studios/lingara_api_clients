@@ -56,12 +56,12 @@ if err != nil {
 fmt.Println(usage.Value.Allowance, usage.ServedVersion)
 ```
 
-Eighteen methods, each the `operationId` with its first letter upper-cased and
+Nineteen methods, each the `operationId` with its first letter upper-cased and
 Go's initialisms applied. Every one takes a `context.Context` first. The
 events operations (`ListEvents`, `StreamEvents`, `SendEvent`) and their
 helpers are under [Webhooks and events](#webhooks-and-events), and the embed
 operations (`CreateEmbedToken`, `DeleteEmbedPlayer`, `LinkEmbedPlayer`,
-`UnlinkEmbedPlayer`, `SendDialogueTurn`) under
+`UnlinkEmbedPlayer`, `SendDialogueTurn`, `PlanDialogue`) under
 [Embedding Lingara](#embedding-lingara). The seven canvas operations live on a
 group, `client.Canvases()`, under [Canvases](#canvases), and the seven
 dialogue operations on `client.Dialogues()`, under [Dialogues](#dialogues).
@@ -284,6 +284,18 @@ minted, err := client.CreateEmbedToken(ctx, lingara.EmbedTokenRequest{PlayerRef:
   with its `RetryAfter`, and you decide whether to send it again. No retry
   helps `403 embed_needs_metered`, or `422 safety_input_flagged`, which means
   say something else.
+- `PlanDialogue` plans the next beats of a Procedural dialogue: call it when
+  you run one outside the embed kits (inside them, the kit calls it). Its
+  `DialoguePlanResponse` has `Status` `"planned"` with a typed `Fragment`, or
+  `"kept"` with a `Reason`. A keep is a result, never an error: your frontier
+  stands (on a first plan, walk the deterministic seed). The `Document` is
+  sent as given and no fact value is sent, only which topics and goals hold;
+  the fragment is validated by the server and the embed core
+  (`lingara-dialogue-ir`), never by the library. It is **never retried**,
+  like the turn, so a `429` or `503` is returned at once with its
+  `RetryAfter`. The library sets no plan timeout of its own (the server keeps
+  after 10 s): give `ctx` a deadline for a bound. Cost: one `embed:play` unit
+  per call, a `kept` and every refusal after admission included.
 - `PracticeCompleted` arrives through the webhook, the feed and the tail when
   your client holds `events:read` and `embed:play`; its `Subject` names the
   player. `InboundWorldPracticeCompleted` sends one, with `events:write` and

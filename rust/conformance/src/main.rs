@@ -212,6 +212,7 @@ async fn invoke(rig: &Rig, call: &Value) -> Result<Observed, String> {
         "linkEmbedPlayer" => json_result(c.link_embed_player(&param(call, "player_ref")?).await),
         "unlinkEmbedPlayer" => empty_result(c.unlink_embed_player(&param(call, "player_ref")?).await),
         "sendDialogueTurn" => stream(c.send_dialogue_turn(&input(call, "body")?).await, cancel).await,
+        "planDialogue" => json_result(c.plan_dialogue(&input(call, "body")?).await),
         op @ ("listCanvases" | "createCanvas" | "getCanvas" | "renameCanvas" | "saveCanvasDraft" | "activateCanvas" | "dryRunCanvasPlan") => {
             canvas::call(c, op, call).await?
         }

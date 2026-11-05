@@ -8,3 +8,7 @@
 **/model/SendTutorMessageEvent*.java
 **/model/StreamEventsEvent*.java
 **/model/SendDialogueTurnEvent*.java
+# The plan's answer (ADR 3.11.26n D4): openapi-generator's oneOf class needs
+# the ApiClient and JSON support files this build does not generate, so it is
+# hand-written in com.getlingara.client instead.
+**/model/DialoguePlanResponse*.java

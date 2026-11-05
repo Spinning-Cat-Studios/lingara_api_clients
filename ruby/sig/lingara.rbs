@@ -75,6 +75,9 @@ module Lingara
     def link_embed_player: (String player_ref) -> Response
     def unlink_embed_player: (String player_ref) -> Response
     def send_dialogue_turn: (**untyped body) { (event) -> void } -> StreamResult
+    # ADR 3.11.26n: plan_dialogue's Response holds a DialoguePlanResponseOneOf
+    # (planned) or a DialoguePlanResponseOneOf1 (kept).
+    def plan_dialogue: (**untyped body) -> Response
     # ADR 16.10.26ak: the canvas operations, as a group.
     def canvases: () -> Canvases
     # ADR 29.10.26c: the stored-dialogue operations, as a group.

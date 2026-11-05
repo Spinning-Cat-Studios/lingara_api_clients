@@ -388,6 +388,7 @@ final class Client
     /**
      * $model is the operation's success schema, as Operations names it, or
      * \stdClass for a bare `type: object`; ClientTest holds the two together.
+     * $retry false sends one attempt (planDialogue's, ADR 3.11.26n D3).
      *
      * @template T of object
      *
@@ -398,11 +399,11 @@ final class Client
      *
      * @return ApiResponse<T>
      */
-    private function json(string $operationId, array $args, string $model, array $query = [], array $headers = [], ?string $payload = null): ApiResponse
+    private function json(string $operationId, array $args, string $model, array $query = [], array $headers = [], ?string $payload = null, bool $retry = true): ApiResponse
     {
         $operation = Operations::OPERATIONS[$operationId];
         $url = $this->url($operation['path'], $operation['pathParams'], $args, $query);
-        [$response, $token] = $this->send($operationId, $url, $payload, $headers);
+        [$response, $token] = $this->send($operationId, $url, $payload, $headers, $retry);
         $served = $this->deprecations->observe($response, $url);
         $body = $this->transport()->readAll($response->getBody(), $this->streamIdleTimeout, self::secrets($token));
         return new ApiResponse(Json::model($model, $body), $served);

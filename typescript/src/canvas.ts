@@ -11,7 +11,7 @@
 // English `error` are data. There is no delete: a canvas is deleted through
 // the platform's lifecycle routes, not this library.
 
-import type { CallOptions, WithServedVersion } from "./client.js";
+import type { CallOptions, WithServedVersion } from "./options.js";
 import { TransportError } from "./errors.js";
 import type {
   ActivateCanvasRequest,

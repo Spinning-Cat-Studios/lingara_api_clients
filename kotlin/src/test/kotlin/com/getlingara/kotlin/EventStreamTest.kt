@@ -1,8 +1,13 @@
 package com.getlingara.kotlin
 
+import com.getlingara.kotlin.embed.planDialogue
 import com.getlingara.kotlin.internal.Streams
+import com.getlingara.kotlin.model.AtomKind
 import com.getlingara.kotlin.model.CreateLessonPlanEvent
+import com.getlingara.kotlin.model.DialoguePlanRequest
 import com.getlingara.kotlin.model.GenerateVocabularyEvent
+import com.getlingara.kotlin.model.KeptReason
+import com.getlingara.kotlin.model.PlanReason
 import com.getlingara.kotlin.model.SendDialogueTurnEvent
 import com.getlingara.kotlin.model.StreamLessonPlanEvent
 import com.getlingara.kotlin.model.VocabRequest
@@ -13,6 +18,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import org.junit.jupiter.api.Test
 import java.io.InputStream
 import java.util.concurrent.CountDownLatch
@@ -234,6 +244,57 @@ class EventStreamTest {
             assertEquals(1, drain(vocab(afterDone)).size)
             assertFalse(afterDone.readAfterFail)
             assertEquals(1, afterDone.reads.get())
+        }
+
+    /**
+     * 3.11.26n AC6: `planDialogue` sends the body as given (an `x-` member inside the document
+     * intact), answers a typed fragment and a keep, both results, and a `503` with `Retry-After` is
+     * thrown after one request, beside the turn it shares K4's exemption with.
+     */
+    @Test
+    fun `planDialogue is sent once`() =
+        runBlocking {
+            val planned =
+                "{\"status\":\"planned\",\"fragment\":{\"anchor\":\"p1_0\",\"beats\":[{\"id\":\"p1_0\"," +
+                    "\"atom\":\"elicit\",\"depth\":0,\"sketch\":false,\"angle\":\"ask what is in the crate\"," +
+                    "\"exits\":[{\"to\":\"p1_1\",\"detour\":\"cargo\"}]}]}}"
+            val plans =
+                Fakes.script(
+                    { Fakes.json(it, 200, planned) },
+                    { Fakes.json(it, 200, "{\"status\":\"kept\",\"reason\":\"rejected\"}") },
+                    Fakes.status(503, "Retry-After", "1", "{\"code\":\"unavailable\",\"error\":\"Later.\"}"),
+                )
+            FakeServer()
+                .on("/oauth/token", Fakes.token("lgr_at_plan", 3600))
+                .on("/v1/embed/dialogue/plan", plans)
+                .use { server ->
+                    val client =
+                        LingaraClient {
+                            baseUrl = server.uri()
+                            tokenUrl = server.uri("/oauth/token")
+                            clientCredentials("lgr_cid_test", "lgr_cs_test")
+                        }
+                    val document =
+                        buildJsonObject {
+                            put("schema", "dialogue.v2")
+                            putJsonObject("x-editor") { put("zoom", 2) }
+                        }
+                    val body = DialoguePlanRequest(document, "ma_ren", PlanReason.START, "p1", 0, 0)
+
+                    val fragment = client.planDialogue(body).body.fragment!!
+                    assertEquals(AtomKind.ELICIT, fragment.beats[0].atom)
+                    assertEquals("ask what is in the crate", fragment.beats[0].angle)
+                    assertEquals("cargo", fragment.beats[0].exits!![0].detour)
+                    val sent = Json.parseToJsonElement(server.seen.last().body).jsonObject
+                    assertEquals(document, sent["document"])
+
+                    val kept = client.planDialogue(body).body
+                    assertEquals("kept" to KeptReason.REJECTED, kept.status to kept.reason)
+
+                    val refused = assertFailsWith<ApiException> { client.planDialogue(body) }
+                    assertEquals(503 to 1.seconds, refused.status to refused.retryAfter)
+                    assertEquals(3, server.hits("/v1/embed/dialogue/plan"))
+                }
         }
 
     companion object {

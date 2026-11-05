@@ -20,6 +20,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             name: "Auntie Lin".parse()?,
             persona: Some("a street-food vendor who likes to haggle".parse()?),
             languages: None,
+            disposition: None,
         },
         source_lang: "en".into(),
         target_lang: "zh".into(),

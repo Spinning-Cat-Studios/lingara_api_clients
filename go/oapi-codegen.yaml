@@ -13,7 +13,8 @@ output-options:
   skip-prune: true
   # oapi-codegen's oneOf output imports its runtime package. go/codegen writes
   # these six as sealed interfaces in streams_gen.go instead; the event tail's
-  # union is ADR 30.9.26aa D7's, the NPC turn's ADR 1.10.26w D6's.
+  # union is ADR 30.9.26aa D7's, the NPC turn's ADR 1.10.26w D6's. The plan's
+  # answer, the seventh, is hand-written in embed.go (ADR 3.11.26n D4).
   exclude-schemas:
     - GenerateVocabularyEvent
     - CreateLessonPlanEvent
@@ -21,6 +22,7 @@ output-options:
     - SendTutorMessageEvent
     - StreamEventsEvent
     - SendDialogueTurnEvent
+    - DialoguePlanResponse
   # The default maps format uuid to a type from the runtime package.
   type-mapping:
     string:

@@ -56,6 +56,8 @@ class SnippetsTest < Minitest::Test
     return ((request.method == "PUT") ? conn.json(200, LINK) : conn.text(204, "")) if request.path.end_with?("/link")
     case request.path
     when "/v1/embed/tokens" then conn.json(200, MINTED)
+    when "/v1/embed/dialogue/plan"
+      conn.json(200, {status: "planned", fragment: {anchor: "p1_0", beats: [{id: "p1_0", atom: "open", depth: 0}]}})
     when "/v1/embed/dialogue/turns"
       conn.sse
       conn.event("delta", {text: "十块钱，"})
@@ -199,6 +201,7 @@ class SnippetsTest < Minitest::Test
       LingaraSnippets.link_embed_player(LingaraSnippets.delegated_client("lgr_at_delegated", base_url: server.url))
       LingaraSnippets.unlink_embed_player(client)
       assert_equal "十块钱，一盘。", LingaraSnippets.send_dialogue_turn(client).last[:text]
+      assert_equal "planned", LingaraSnippets.plan_dialogue(client, {"schema" => "dialogue.v2"}).status
       run_canvas_snippets(client)
       run_dialogue_snippets(client)
     end
@@ -212,7 +215,7 @@ class SnippetsTest < Minitest::Test
     link = server.requests.find { |r| r.method == "PUT" }
     assert_equal "Bearer lgr_at_delegated", link.headers["authorization"]
     snippet_methods = LingaraSnippets.singleton_methods.sort
-    assert_equal 37, snippet_methods.size
+    assert_equal 38, snippet_methods.size
   ensure
     server&.close
   end

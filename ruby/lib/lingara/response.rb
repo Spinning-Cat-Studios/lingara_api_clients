@@ -24,7 +24,12 @@ module Lingara
       value = JSON.parse(body)
       return value if model.nil? && value.is_a?(Hash)
       raise TransportError.new(:malformed_response, "the response body is not a JSON object") unless value.is_a?(Hash)
-      Lingara.const_get(model).build_from_hash(value)
+      klass = Lingara.const_get(model)
+      return klass.build_from_hash(value) unless klass.respond_to?(:openapi_one_of)
+      # A oneOf answer (planDialogue's, ADR 3.11.26n) is a module whose build
+      # picks the arm, nil when none fits. It matches keys against each arm's
+      # symbol attribute list, so the top level is given symbol keys.
+      klass.build(value.transform_keys(&:to_sym)) || raise("no arm of #{model} fits")
     rescue Lingara::Error
       raise
     rescue

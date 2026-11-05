@@ -237,6 +237,15 @@ final class Operations
             'response' => \Lingara\Model\EventPage::class,
             'stream' => null,
         ],
+        'planDialogue' => [
+            'method' => 'POST',
+            'path' => '/v1/embed/dialogue/plan',
+            'pathParams' => [],
+            'needsToken' => true,
+            'request' => \Lingara\Model\DialoguePlanRequest::class,
+            'response' => \Lingara\Model\DialoguePlanResponse::class,
+            'stream' => null,
+        ],
         'renameCanvas' => [
             'method' => 'PATCH',
             'path' => '/v1/canvases/{canvas_id}',

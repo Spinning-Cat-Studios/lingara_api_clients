@@ -204,6 +204,15 @@ module Lingara
       response: "EventPage",
       stream: nil
     }.freeze,
+    "planDialogue" => {
+      method: "POST",
+      path: "/v1/embed/dialogue/plan",
+      path_params: [].freeze,
+      needs_token: true,
+      request_body: "DialoguePlanRequest",
+      response: "DialoguePlanResponse",
+      stream: nil
+    }.freeze,
     "renameCanvas" => {
       method: "PATCH",
       path: "/v1/canvases/{canvas_id}",

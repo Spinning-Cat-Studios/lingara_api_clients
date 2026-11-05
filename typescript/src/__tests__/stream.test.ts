@@ -2,10 +2,11 @@ import { readFileSync } from "node:fs";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { Lingara } from "../client.js";
 import { ApiError, TransportError } from "../errors.js";
 import { STREAMS, type StreamOperation } from "../generated/streams.js";
 import { EventStream, outcomeOf, type OpenedStream } from "../stream.js";
-import { pushable, type Pushable } from "./fixtures/fakeFetch.js";
+import { fakeFetch, json, pushable, tokenOk, type Pushable } from "./fixtures/fakeFetch.js";
 
 type AnyEvent = { event: string; data: unknown };
 
@@ -199,5 +200,29 @@ describe("EventStream", () => {
     const unknown = pushable();
     unknown.push(frame("sparkle", { x: 1 }) + "event: sparkle\ndata: not json\n\n" + frame("done", {}));
     expect(await drain(streamOver(unknown).stream)).toEqual([]);
+  });
+
+  /**
+   * 3.11.26n AC2 — planDialogue is sent once and answers fragment or keep: the body goes as given (an
+   * `x-` member in the document intact), `planned` and `kept` are both results, and a 503 with
+   * Retry-After is raised after one request, beside the turn it shares K4's exemption with.
+   */
+  it("3.11.26n AC2 — planDialogue is sent once and answers fragment or keep", async () => {
+    const fragment = { anchor: "p1_0", beats: [{ id: "p1_0", atom: "elicit", depth: 0, sketch: false, angle: "ask what is in the crate", exits: [{ to: "p1_1", detour: "cargo" }] }] };
+    const fake = fakeFetch(
+      tokenOk("t"),
+      () => json(200, { status: "planned", fragment }),
+      () => json(200, { status: "kept", reason: "rejected" }),
+      () => json(503, { code: "unavailable", error: "Try again shortly." }, { "retry-after": "1" }),
+    );
+    const client = new Lingara({ clientId: "lgr_cid_unit", clientSecret: "lgr_cs_unit", fetch: fake.fetch });
+    const body = { document: { schema: "dialogue.v2", kind: "procedural", "x-editor": { zoom: 2 } }, npc: "ma_ren", reason: "start" as const, id_prefix: "p1", turns: 0, beats: 0 };
+    const planned = await client.planDialogue(body);
+    expect(planned.status === "planned" && planned.fragment).toEqual(fragment);
+    expect(JSON.parse(fake.calls[1]!.body!)).toEqual(body);
+    expect(fake.calls[1]!.url).toMatch(/\/v1\/embed\/dialogue\/plan$/);
+    expect(await client.planDialogue(body)).toEqual({ status: "kept", reason: "rejected" });
+    await expect(client.planDialogue(body)).rejects.toMatchObject({ status: 503, code: "unavailable", retryAfter: 1 });
+    expect(fake.calls.length).toBe(4);
   });
 });

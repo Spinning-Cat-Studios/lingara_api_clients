@@ -117,3 +117,37 @@ async fn a_player_delete_sends_no_body_and_reads_none() {
     assert_eq!((sent.method.as_str(), sent.path.as_str()), ("DELETE", "/v1/embed/players/guild%2F42%20%28%C3%A9%29%2A"));
     assert_eq!((sent.header("content-type"), sent.body.as_str()), (None, ""));
 }
+
+const PLANNED: &str = r#"{"status":"planned","fragment":{"anchor":"p1_0","beats":[{"id":"p1_0","atom":"elicit","depth":0,"sketch":false,"angle":"ask what is in the crate","exits":[{"to":"p1_1","detour":"cargo"}]}]}}"#;
+
+/// 3.11.26n AC3: `plan_dialogue` sends the body as given, the `document`
+/// the `serde_json::Value` it was handed (an `x-` member intact); a
+/// `planned` answer decodes as a typed `PlanFragment` and a `kept` as the
+/// keep arm, both results; and a `503` with `Retry-After` is raised after
+/// one request, its `Req` having `retries: false` as the turn's does.
+#[tokio::test]
+async fn plan_dialogue_is_never_retried_and_decodes_the_fragment() {
+    use crate::models::{AtomKind, DialoguePlanRequest, DialoguePlanResponse, KeptReason};
+    let server = FakeServer::start(|_, n| match n {
+        0 => Reply::json(200, PLANNED),
+        1 => Reply::json(200, r#"{"status":"kept","reason":"rejected"}"#),
+        _ => Reply::with(503, &[("content-type", "application/json"), ("retry-after", "1")], r#"{"code":"unavailable","error":"Try again shortly."}"#),
+    })
+    .await;
+    let c = client(&server);
+    let sent = serde_json::json!({"document": {"schema": "dialogue.v2", "kind": "procedural", "x-editor": {"zoom": 2}}, "npc": "ma_ren", "reason": "start", "id_prefix": "p1", "turns": 0, "beats": 0});
+    let body: DialoguePlanRequest = serde_json::from_value(sent.clone()).unwrap();
+
+    let DialoguePlanResponse::Planned { fragment } = c.plan_dialogue(&body).await.unwrap().value else { panic!("not planned") };
+    let beat = &fragment.beats[0];
+    assert_eq!((beat.atom, beat.sketch, beat.angle.as_deref()), (AtomKind::Elicit, Some(false), Some("ask what is in the crate")));
+    assert_eq!(beat.exits[0].detour.as_deref(), Some("cargo"));
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&server.requests()[0].body).unwrap(), sent);
+
+    let kept = c.plan_dialogue(&body).await.unwrap().value;
+    assert!(matches!(kept, DialoguePlanResponse::Kept { reason: KeptReason::Rejected }), "{kept:?}");
+
+    let err = c.plan_dialogue(&body).await.unwrap_err();
+    assert!(matches!(&err, Error::Api(e) if e.status == 503 && e.retry_after == Some(Duration::from_secs(1))), "{err:?}");
+    assert_eq!(server.requests().len(), 3);
+}

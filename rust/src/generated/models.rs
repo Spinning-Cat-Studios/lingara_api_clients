@@ -115,6 +115,93 @@ pub struct AppUninstalledData {
     pub client_id: ::std::string::String,
     pub install_id: ::std::string::String,
 }
+///`AtomKind`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum AtomKind {
+    #[serde(rename = "open")]
+    Open,
+    #[serde(rename = "elicit")]
+    Elicit,
+    #[serde(rename = "reveal")]
+    Reveal,
+    #[serde(rename = "practise")]
+    Practise,
+    #[serde(rename = "close")]
+    Close,
+}
+impl ::std::fmt::Display for AtomKind {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Open => f.write_str("open"),
+            Self::Elicit => f.write_str("elicit"),
+            Self::Reveal => f.write_str("reveal"),
+            Self::Practise => f.write_str("practise"),
+            Self::Close => f.write_str("close"),
+        }
+    }
+}
+impl ::std::str::FromStr for AtomKind {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "open" => Ok(Self::Open),
+            "elicit" => Ok(Self::Elicit),
+            "reveal" => Ok(Self::Reveal),
+            "practise" => Ok(Self::Practise),
+            "close" => Ok(Self::Close),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for AtomKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for AtomKind {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`Beat`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Beat {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub angle: ::std::option::Option<::std::string::String>,
+    pub atom: AtomKind,
+    pub depth: u8,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub ending: ::std::option::Option<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub exits: ::std::vec::Vec<Exit>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub goal: ::std::option::Option<::std::string::String>,
+    pub id: ::std::string::String,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub sketch: ::std::option::Option<bool>,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub topic: ::std::option::Option<::std::string::String>,
+}
 ///`Canvas`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct Canvas {
@@ -604,7 +691,7 @@ pub struct DialogueActive {
     pub definition: DialogueDefinition,
     pub revision: i32,
 }
-///A dialogue.v1 document.
+///A dialogue.v1 or dialogue.v2 document.
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct DialogueDefinition(
@@ -703,6 +790,9 @@ impl<'de> ::serde::Deserialize<'de> for DialogueEntryText {
 ///`DialogueNpc`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct DialogueNpc {
+    ///How the character steers: `suggestibility` is how readily it follows the player off its goal, `initiative` how hard it pushes toward it (at the top, it declines every detour). Each 0–1. Needs `checkpoint`.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub disposition: ::std::option::Option<NpcDisposition>,
     ///The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`.
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub languages: ::std::option::Option<::std::vec::Vec<NpcLanguage>>,
@@ -832,6 +922,153 @@ pub struct DialoguePage {
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub next_cursor: ::std::option::Option<::std::string::String>,
 }
+///`DialoguePlanRequest`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct DialoguePlanRequest {
+    pub beats: u16,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub current: ::std::option::Option<DialoguePlanRequestCurrent>,
+    pub document: DialogueDefinition,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub frontier: ::std::option::Option<PlanFragment>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub goals_met: ::std::vec::Vec<::std::string::String>,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub history: ::std::vec::Vec<DialogueEntry>,
+    pub id_prefix: ::std::string::String,
+    pub npc: DialoguePlanRequestNpc,
+    ///Topics whose game condition holds now, as your game evaluated them. Fact values are never sent.
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub open_topics: ::std::vec::Vec<::std::string::String>,
+    pub reason: PlanReason,
+    pub turns: u16,
+    #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
+    pub visited: ::std::vec::Vec<VisitedBeat>,
+}
+///`DialoguePlanRequestCurrent`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct DialoguePlanRequestCurrent(::std::string::String);
+impl ::std::ops::Deref for DialoguePlanRequestCurrent {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<DialoguePlanRequestCurrent> for ::std::string::String {
+    fn from(value: DialoguePlanRequestCurrent) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for DialoguePlanRequestCurrent {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 24usize {
+            return Err("longer than 24 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for DialoguePlanRequestCurrent {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DialoguePlanRequestCurrent {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for DialoguePlanRequestCurrent {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`DialoguePlanRequestNpc`
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct DialoguePlanRequestNpc(::std::string::String);
+impl ::std::ops::Deref for DialoguePlanRequestNpc {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<DialoguePlanRequestNpc> for ::std::string::String {
+    fn from(value: DialoguePlanRequestNpc) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for DialoguePlanRequestNpc {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 48usize {
+            return Err("longer than 48 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for DialoguePlanRequestNpc {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for DialoguePlanRequestNpc {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for DialoguePlanRequestNpc {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///`DialoguePlanResponse`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(tag = "status")]
+pub enum DialoguePlanResponse {
+    #[serde(rename = "planned")]
+    Planned { fragment: PlanFragment },
+    #[serde(rename = "kept")]
+    Kept { reason: KeptReason },
+}
 ///Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.
 #[derive(
     ::serde::Deserialize,
@@ -878,6 +1115,14 @@ pub enum DialogueRule {
     TextMultiline,
     #[serde(rename = "text_char")]
     TextChar,
+    #[serde(rename = "kind_mismatch")]
+    KindMismatch,
+    #[serde(rename = "steer_target")]
+    SteerTarget,
+    #[serde(rename = "pool_escape")]
+    PoolEscape,
+    #[serde(rename = "atom_set")]
+    AtomSet,
 }
 impl ::std::fmt::Display for DialogueRule {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -898,6 +1143,10 @@ impl ::std::fmt::Display for DialogueRule {
             Self::TextBlank => f.write_str("text_blank"),
             Self::TextMultiline => f.write_str("text_multiline"),
             Self::TextChar => f.write_str("text_char"),
+            Self::KindMismatch => f.write_str("kind_mismatch"),
+            Self::SteerTarget => f.write_str("steer_target"),
+            Self::PoolEscape => f.write_str("pool_escape"),
+            Self::AtomSet => f.write_str("atom_set"),
         }
     }
 }
@@ -923,6 +1172,10 @@ impl ::std::str::FromStr for DialogueRule {
             "text_blank" => Ok(Self::TextBlank),
             "text_multiline" => Ok(Self::TextMultiline),
             "text_char" => Ok(Self::TextChar),
+            "kind_mismatch" => Ok(Self::KindMismatch),
+            "steer_target" => Ok(Self::SteerTarget),
+            "pool_escape" => Ok(Self::PoolEscape),
+            "atom_set" => Ok(Self::AtomSet),
             _ => Err("invalid value".into()),
         }
     }
@@ -1108,7 +1361,7 @@ pub struct DialogueWarning {
     pub code: DialogueWarningCode,
     pub path: ::std::string::String,
 }
-///`DialogueWarningCode`
+///Why a saved dialogue warns. `schema_v2`: the revision is stored as `dialogue.v2` and loads only in a kit that reads `dialogue.v2`; a game on an older kit fails to load it.
 #[derive(
     ::serde::Deserialize,
     ::serde::Serialize,
@@ -1128,6 +1381,12 @@ pub enum DialogueWarningCode {
     OutcomeUnreachable,
     #[serde(rename = "predicate_unchecked")]
     PredicateUnchecked,
+    #[serde(rename = "stance_contradiction")]
+    StanceContradiction,
+    #[serde(rename = "steer_weak")]
+    SteerWeak,
+    #[serde(rename = "schema_v2")]
+    SchemaV2,
 }
 impl ::std::fmt::Display for DialogueWarningCode {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
@@ -1135,6 +1394,9 @@ impl ::std::fmt::Display for DialogueWarningCode {
             Self::CheckpointUnreachable => f.write_str("checkpoint_unreachable"),
             Self::OutcomeUnreachable => f.write_str("outcome_unreachable"),
             Self::PredicateUnchecked => f.write_str("predicate_unchecked"),
+            Self::StanceContradiction => f.write_str("stance_contradiction"),
+            Self::SteerWeak => f.write_str("steer_weak"),
+            Self::SchemaV2 => f.write_str("schema_v2"),
         }
     }
 }
@@ -1147,6 +1409,9 @@ impl ::std::str::FromStr for DialogueWarningCode {
             "checkpoint_unreachable" => Ok(Self::CheckpointUnreachable),
             "outcome_unreachable" => Ok(Self::OutcomeUnreachable),
             "predicate_unchecked" => Ok(Self::PredicateUnchecked),
+            "stance_contradiction" => Ok(Self::StanceContradiction),
+            "steer_weak" => Ok(Self::SteerWeak),
+            "schema_v2" => Ok(Self::SchemaV2),
             _ => Err("invalid value".into()),
         }
     }
@@ -1493,6 +1758,14 @@ pub struct EventPage {
     pub items: ::std::vec::Vec<EventEnvelope>,
     pub next_cursor: ::std::string::String,
 }
+///`Exit`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct Exit {
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub detour: ::std::option::Option<::std::string::String>,
+    pub to: ::std::string::String,
+}
 ///`FactValue`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 #[serde(untagged)]
@@ -1621,6 +1894,9 @@ pub struct GraphCheckpoint {
     pub id: ::std::string::String,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub may_disclose: ::std::option::Option<::std::vec::Vec<::std::string::String>>,
+    ///The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it.
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub steer: ::std::option::Option<GraphCheckpointSteer>,
 }
 ///`GraphCheckpointGoal`
 #[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -1668,6 +1944,63 @@ impl ::std::convert::TryFrom<::std::string::String> for GraphCheckpointGoal {
     }
 }
 impl<'de> ::serde::Deserialize<'de> for GraphCheckpointGoal {
+    fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
+    where
+        D: ::serde::Deserializer<'de>,
+    {
+        ::std::string::String::deserialize(deserializer)?
+            .parse()
+            .map_err(|e: self::error::ConversionError| {
+                <D::Error as ::serde::de::Error>::custom(e.to_string())
+            })
+    }
+}
+///The one outcome the character should drive toward, as plain-language text. The other edges are never shown to it.
+#[derive(::serde::Serialize, Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[serde(transparent)]
+pub struct GraphCheckpointSteer(::std::string::String);
+impl ::std::ops::Deref for GraphCheckpointSteer {
+    type Target = ::std::string::String;
+    fn deref(&self) -> &::std::string::String {
+        &self.0
+    }
+}
+impl ::std::convert::From<GraphCheckpointSteer> for ::std::string::String {
+    fn from(value: GraphCheckpointSteer) -> Self {
+        value.0
+    }
+}
+impl ::std::str::FromStr for GraphCheckpointSteer {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        if value.chars().count() > 200usize {
+            return Err("longer than 200 characters".into());
+        }
+        if value.chars().count() < 1usize {
+            return Err("shorter than 1 characters".into());
+        }
+        Ok(Self(value.to_string()))
+    }
+}
+impl ::std::convert::TryFrom<&str> for GraphCheckpointSteer {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for GraphCheckpointSteer {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl<'de> ::serde::Deserialize<'de> for GraphCheckpointSteer {
     fn deserialize<D>(deserializer: D) -> ::std::result::Result<Self, D::Error>
     where
         D: ::serde::Deserializer<'de>,
@@ -1752,6 +2085,69 @@ pub struct InboundEventAccepted {
     pub reaction: ::std::option::Option<ReactionReport>,
     #[serde(rename = "type")]
     pub type_: ::std::string::String,
+}
+///Why no new plan came back. Keep the frontier you have: `unavailable` means no planner could answer, `timeout` that it took too long, `unparseable` that its answer could not be read, and `rejected` that its plan broke the dialogue's limits.
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum KeptReason {
+    #[serde(rename = "unavailable")]
+    Unavailable,
+    #[serde(rename = "timeout")]
+    Timeout,
+    #[serde(rename = "unparseable")]
+    Unparseable,
+    #[serde(rename = "rejected")]
+    Rejected,
+}
+impl ::std::fmt::Display for KeptReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Unavailable => f.write_str("unavailable"),
+            Self::Timeout => f.write_str("timeout"),
+            Self::Unparseable => f.write_str("unparseable"),
+            Self::Rejected => f.write_str("rejected"),
+        }
+    }
+}
+impl ::std::str::FromStr for KeptReason {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "unavailable" => Ok(Self::Unavailable),
+            "timeout" => Ok(Self::Timeout),
+            "unparseable" => Ok(Self::Unparseable),
+            "rejected" => Ok(Self::Rejected),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for KeptReason {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for KeptReason {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
 }
 ///`LessonPlan`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -1871,6 +2267,13 @@ pub struct Npc {
     pub name: NpcName,
     #[serde(skip_serializing_if = "::std::option::Option::is_none")]
     pub persona: ::std::option::Option<NpcPersona>,
+}
+///`NpcDisposition`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct NpcDisposition {
+    pub initiative: f64,
+    pub suggestibility: f64,
 }
 ///`NpcLanguage`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
@@ -2157,6 +2560,13 @@ impl ::std::convert::TryFrom<::std::string::String> for PlanFailReason {
         value.parse()
     }
 }
+///`PlanFragment`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct PlanFragment {
+    pub anchor: ::std::string::String,
+    pub beats: ::std::vec::Vec<Beat>,
+}
 ///`PlanPending`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
 pub struct PlanPending {
@@ -2230,6 +2640,65 @@ impl ::std::convert::TryFrom<&str> for PlanReadyStatus {
     }
 }
 impl ::std::convert::TryFrom<::std::string::String> for PlanReadyStatus {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: ::std::string::String,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+///`PlanReason`
+#[derive(
+    ::serde::Deserialize,
+    ::serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    Eq,
+    Hash,
+    Ord,
+    PartialEq,
+    PartialOrd
+)]
+pub enum PlanReason {
+    #[serde(rename = "start")]
+    Start,
+    #[serde(rename = "crossed")]
+    Crossed,
+    #[serde(rename = "exhausted")]
+    Exhausted,
+}
+impl ::std::fmt::Display for PlanReason {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        match *self {
+            Self::Start => f.write_str("start"),
+            Self::Crossed => f.write_str("crossed"),
+            Self::Exhausted => f.write_str("exhausted"),
+        }
+    }
+}
+impl ::std::str::FromStr for PlanReason {
+    type Err = self::error::ConversionError;
+    fn from_str(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        match value {
+            "start" => Ok(Self::Start),
+            "crossed" => Ok(Self::Crossed),
+            "exhausted" => Ok(Self::Exhausted),
+            _ => Err("invalid value".into()),
+        }
+    }
+}
+impl ::std::convert::TryFrom<&str> for PlanReason {
+    type Error = self::error::ConversionError;
+    fn try_from(
+        value: &str,
+    ) -> ::std::result::Result<Self, self::error::ConversionError> {
+        value.parse()
+    }
+}
+impl ::std::convert::TryFrom<::std::string::String> for PlanReason {
     type Error = self::error::ConversionError;
     fn try_from(
         value: ::std::string::String,
@@ -2949,6 +3418,14 @@ pub struct VersionSummary {
     pub state: VersionState,
     #[serde(deserialize_with = "::std::option::Option::deserialize")]
     pub sunset_at: ::std::option::Option<::std::string::String>,
+}
+///`VisitedBeat`
+#[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]
+#[serde(deny_unknown_fields)]
+pub struct VisitedBeat {
+    pub atom: AtomKind,
+    #[serde(skip_serializing_if = "::std::option::Option::is_none")]
+    pub topic: ::std::option::Option<::std::string::String>,
 }
 ///`VocabExample`
 #[derive(::serde::Deserialize, ::serde::Serialize, Clone, Debug)]

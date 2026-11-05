@@ -35,10 +35,15 @@ use Lingara\Internal\Operations;
 use Lingara\MintedToken;
 use Lingara\Model\DialogueEntry;
 use Lingara\Model\DialogueNpc;
+use Lingara\Model\DialoguePlanRequest;
 use Lingara\Model\DialogueTurnRequest;
 use Lingara\Model\EmbedTokenRequest;
+use Lingara\Model\GraphCheckpoint;
 use Lingara\Model\LessonPlanCreateRequest;
+use Lingara\Model\NpcDisposition;
 use Lingara\Model\Pedagogy;
+use Lingara\Model\PlanFragment;
+use Lingara\Model\PlanReason;
 use Lingara\Model\Speaker;
 use Lingara\Model\TutorTurnRequest;
 use Lingara\Model\VocabRequest;
@@ -152,6 +157,7 @@ function invoke(Client $client, int $step): array
             'deleteEmbedPlayer' => completed($client->deleteEmbedPlayer((string) ($call['params']['player_ref'] ?? '')), 204),
             'linkEmbedPlayer' => completed($client->linkEmbedPlayer((string) ($call['params']['player_ref'] ?? ''))),
             'unlinkEmbedPlayer' => completed($client->unlinkEmbedPlayer((string) ($call['params']['player_ref'] ?? '')), 204),
+            'planDialogue' => completed($client->planDialogue(dialoguePlan($body))),
             'getLessonPlan' => completed($client->getLessonPlan($id)),
             'getApiVersion' => completed($client->getApiVersion($id)),
             'getUsage' => completed($client->getUsage()),
@@ -172,7 +178,13 @@ function invoke(Client $client, int $step): array
  */
 function dialogueTurn(array $body): DialogueTurnRequest
 {
+    if (isset($body['npc']['disposition'])) {
+        $body['npc']['disposition'] = new NpcDisposition($body['npc']['disposition']);
+    }
     $body['npc'] = new DialogueNpc($body['npc']);
+    if (isset($body['checkpoint'])) {
+        $body['checkpoint'] = new GraphCheckpoint($body['checkpoint']);
+    }
     if (isset($body['pedagogy'])) {
         $body['pedagogy'] = Pedagogy::from($body['pedagogy']);
     }
@@ -183,6 +195,21 @@ function dialogueTurn(array $body): DialogueTurnRequest
         );
     }
     return new DialogueTurnRequest($body);
+}
+
+/**
+ * A case body as DialoguePlanRequest (ADR 3.11.26n): the generated getters
+ * are typed, so the document becomes an object, the reason its enum and the
+ * frontier its model. Lists of plain arrays serialize as they are.
+ */
+function dialoguePlan(array $body): DialoguePlanRequest
+{
+    $body['document'] = json_decode(json_encode($body['document'], JSON_THROW_ON_ERROR), false, 512, JSON_THROW_ON_ERROR);
+    $body['reason'] = PlanReason::from($body['reason']);
+    if (isset($body['frontier'])) {
+        $body['frontier'] = new PlanFragment($body['frontier']);
+    }
+    return new DialoguePlanRequest($body);
 }
 
 /**

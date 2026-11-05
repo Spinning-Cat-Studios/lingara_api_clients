@@ -20,6 +20,7 @@ import com.getlingara.client.internal.SpecVersion;
 import com.getlingara.client.internal.Streams;
 import com.getlingara.client.internal.UserAgent;
 import com.getlingara.client.model.CreateLessonPlanEvent;
+import com.getlingara.client.model.DialoguePlanRequest;
 import com.getlingara.client.model.DialogueTurnRequest;
 import com.getlingara.client.model.EmbedPlayerLink;
 import com.getlingara.client.model.EmbedTokenRequest;
@@ -315,6 +316,16 @@ public final class LingaraClient {
             Map.of(),
             true);
     return stream(route, call, Streams::decodeSendDialogueTurn);
+  }
+
+  /**
+   * Plans the next beats of a Procedural dialogue; never retried, like the turn (see the README).
+   *
+   * @param body the plan request
+   * @return a fragment or a keep, both results
+   */
+  public ApiResponse<DialoguePlanResponse> planDialogue(DialoguePlanRequest body) {
+    return EmbedCalls.planDialogue(pipeline, body);
   }
 
   // ── Canvases (ADR 16.10.26ak) ─────────────────────────────────────────────────────────────

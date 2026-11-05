@@ -1,5 +1,5 @@
 id: op.dialogues-save-draft
-title: "Saving a dialogue draft sends a PUT to the draft path with the definition and draft_version and decodes the Dialogue"
+title: "Saving a dialogue draft sends a PUT to the draft path with the definition and draft_version and decodes the Dialogue; a dialogue.v2 Procedural definition passes through unchanged and its schema_v2 warning decodes (ADR 3.11.26n AC28)"
 behaviours: [K1]
 client:
   credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
@@ -13,6 +13,14 @@ steps:
       status: 200
       served_version: 2026-10-simple-tarpon
       body: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T11:00:00Z","draft":{"revision":3,"draft_version":5,"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"}},"active":null,"warnings":[]}
+  - call:
+      operation: saveDialogueDraft
+      params: {"dialogue_id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71"}
+      body: {"definition":{"schema":"dialogue.v2","kind":"procedural","id":"the_ferryman","npcs":[{"id":"ma_ren","name":"Ma Ren","disposition":{"suggestibility":0.5,"initiative":0.75}}],"endings":[{"id":"crossed","label":"Got across"}],"procedural":{"premise":"The player needs to cross the river before dark","topics":[{"id":"fare","about":"the price of the crossing"}],"atoms":[{"atom":"open"},{"atom":"practise"},{"atom":"close"}],"termination":{"max_turns":40,"max_beats":12}},"x-editor":{"zoom":2}},"draft_version":5}
+    expect:
+      outcome: completed
+      status: 200
+      body: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T12:00:00Z","draft":{"revision":4,"draft_version":6,"definition":{"schema":"dialogue.v2","kind":"procedural","id":"the_ferryman","npcs":[{"id":"ma_ren","name":"Ma Ren","disposition":{"suggestibility":0.5,"initiative":0.75}}],"endings":[{"id":"crossed","label":"Got across"}],"procedural":{"premise":"The player needs to cross the river before dark","topics":[{"id":"fare","about":"the price of the crossing"}],"atoms":[{"atom":"open"},{"atom":"practise"},{"atom":"close"}],"termination":{"max_turns":40,"max_beats":12}},"x-editor":{"zoom":2}}},"active":null,"warnings":[{"code":"schema_v2","path":"/schema"}]}
 exchanges:
   items:
     - request: { method: POST, path: /oauth/token, form: { grant_type: client_credentials } }
@@ -23,3 +31,9 @@ exchanges:
         headers: { authorization: { equals: Bearer lgr_at_dlsave }, accept: { contains: application/json }, content-type: { contains: application/json } }
         json: {"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"},"draft_version":4}
       response: { status: 200, headers: { lingara-version: 2026-10-simple-tarpon }, json: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T11:00:00Z","draft":{"revision":3,"draft_version":5,"definition":{"schema":"dialogue.v1","id":"night_market_keepers","start":"greet","npcs":[{"id":"old_wei","name":"Old Wei"}],"checkpoints":[{"id":"greet","goal":"Greet the stranger","may_disclose":[],"edges":[{"id":"thanked","to":"success","when":"the player says thank you"}]}],"facts":[],"pedagogy":"subtle"}},"active":null,"warnings":[]} }
+    - request:
+        method: PUT
+        path: /v1/dialogues/4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71/draft
+        headers: { authorization: { equals: Bearer lgr_at_dlsave }, content-type: { contains: application/json } }
+        json: {"definition":{"schema":"dialogue.v2","kind":"procedural","id":"the_ferryman","npcs":[{"id":"ma_ren","name":"Ma Ren","disposition":{"suggestibility":0.5,"initiative":0.75}}],"endings":[{"id":"crossed","label":"Got across"}],"procedural":{"premise":"The player needs to cross the river before dark","topics":[{"id":"fare","about":"the price of the crossing"}],"atoms":[{"atom":"open"},{"atom":"practise"},{"atom":"close"}],"termination":{"max_turns":40,"max_beats":12}},"x-editor":{"zoom":2}},"draft_version":5}
+      response: { status: 200, json: {"id":"4c8e2f1a-9b3d-4e7f-8a6c-2d1e0f9b8a71","name":"Night market","created_at":"2026-10-28T09:00:00Z","updated_at":"2026-10-28T12:00:00Z","draft":{"revision":4,"draft_version":6,"definition":{"schema":"dialogue.v2","kind":"procedural","id":"the_ferryman","npcs":[{"id":"ma_ren","name":"Ma Ren","disposition":{"suggestibility":0.5,"initiative":0.75}}],"endings":[{"id":"crossed","label":"Got across"}],"procedural":{"premise":"The player needs to cross the river before dark","topics":[{"id":"fare","about":"the price of the crossing"}],"atoms":[{"atom":"open"},{"atom":"practise"},{"atom":"close"}],"termination":{"max_turns":40,"max_beats":12}},"x-editor":{"zoom":2}}},"active":null,"warnings":[{"code":"schema_v2","path":"/schema"}]} }

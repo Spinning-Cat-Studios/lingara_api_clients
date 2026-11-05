@@ -15,6 +15,7 @@
 
 package com.getlingara.kotlin.model
 
+import com.getlingara.kotlin.model.NpcDisposition
 import com.getlingara.kotlin.model.NpcLanguage
 
 import kotlinx.serialization.Serializable
@@ -27,6 +28,7 @@ import kotlinx.serialization.Contextual
  * @param name 
  * @param persona 
  * @param languages The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`.
+ * @param disposition How the character steers: `suggestibility` is how readily it follows the player off its goal, `initiative` how hard it pushes toward it (at the top, it declines every detour). Each 0–1. Needs `checkpoint`.
  */
 @Serializable
 
@@ -40,7 +42,11 @@ public data class DialogueNpc (
 
     /* The languages this character knows, each with how well it speaks and how well it understands, on the same 1–9 scale as `level`. Use the same codes as `source_lang` and `target_lang`. A language not listed is one the character neither speaks nor understands. The character answers in `target_lang` if it is listed, else in `source_lang` if that is, else in its strongest language, which must then be one Lingara offers as a target language. Leave the list out and the character speaks `target_lang`. */
     @SerialName(value = "languages")
-    val languages: kotlin.collections.List<NpcLanguage>? = null
+    val languages: kotlin.collections.List<NpcLanguage>? = null,
+
+    /* How the character steers: `suggestibility` is how readily it follows the player off its goal, `initiative` how hard it pushes toward it (at the top, it declines every detour). Each 0–1. Needs `checkpoint`. */
+    @SerialName(value = "disposition")
+    val disposition: NpcDisposition? = null
 
 ) {
 

@@ -219,6 +219,19 @@ $minted = $client->createEmbedToken(new EmbedTokenRequest(['player_ref' => 'play
   you decide whether to send it again. No retry helps
   `403 embed_needs_metered`, or `422 safety_input_flagged`, which means say
   something else.
+- `planDialogue()` plans the next beats of a Procedural dialogue: call it when
+  you run one outside the embed kits (inside them, the kit calls it). Its
+  `value` is a `DialoguePlanResponseOneOf` (`getStatus()` `planned`, a typed
+  `getFragment()`) or a `DialoguePlanResponseOneOf1` (`kept`, a
+  `getReason()`). A keep is a result, never an error: your frontier stands
+  (on a first plan, walk the deterministic seed). The `document` is sent as
+  given and no fact value is sent, only which topics and goals hold; the
+  fragment is validated by the server and the embed core
+  (`lingara-dialogue-ir`), never by the library. It is **never retried**,
+  like the turn, so a `429` or `503` is thrown at once with its
+  `retryAfter()`. The library sets no plan timeout of its own (the server
+  keeps after 10 s). Cost: one `embed:play` unit per call, a `kept` and every
+  refusal after admission included.
 - `PracticeCompleted` arrives through the webhook, the feed and the tail when
   your client holds `events:read` and `embed:play`; its `subject` names the
   player. `InboundEvent::worldPracticeCompleted()` sends one, with

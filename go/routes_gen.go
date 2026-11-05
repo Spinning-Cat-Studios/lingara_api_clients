@@ -29,6 +29,7 @@ var routes = map[string]route{
 	"listCanvases":        {method: "GET", path: "/v1/canvases", needsToken: true},
 	"listDialogues":       {method: "GET", path: "/v1/dialogues", needsToken: true},
 	"listEvents":          {method: "GET", path: "/v1/events", needsToken: true},
+	"planDialogue":        {method: "POST", path: "/v1/embed/dialogue/plan", needsToken: true},
 	"renameCanvas":        {method: "PATCH", path: "/v1/canvases/{canvas_id}", needsToken: true},
 	"renameDialogue":      {method: "PATCH", path: "/v1/dialogues/{dialogue_id}", needsToken: true},
 	"saveCanvasDraft":     {method: "PUT", path: "/v1/canvases/{canvas_id}/draft", needsToken: true},

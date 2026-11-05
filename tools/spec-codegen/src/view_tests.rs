@@ -29,7 +29,7 @@ const UNIONS: [&str; 6] = [
     "StreamEventsEvent",
     "SendDialogueTurnEvent",
 ];
-const REMAINING: [&str; 26] = [
+const REMAINING: [&str; 27] = [
     "getLessonPlan",
     "getUsage",
     "getOpenApiDocument",
@@ -56,6 +56,7 @@ const REMAINING: [&str; 26] = [
     "saveDialogueDraft",
     "activateDialogue",
     "exportDialogue",
+    "planDialogue",
 ];
 
 fn operation_ids(doc: &Value) -> Vec<&str> {
@@ -105,7 +106,8 @@ fn the_vendored_spec_names_how_each_stream_ends() {
 // 29.9.26m AC8; 1.10.26w adds the embed mint's stream and two operations;
 // 22.10.26t AC9 adds linkEmbedPlayer and unlinkEmbedPlayer; 2026-10-simple-tarpon
 // adds the seven canvas operations (16.10.26ak) and the seven dialogue ones
-// (29.10.26c), all plain JSON: the stream count does not move
+// (29.10.26c), all plain JSON: the stream count does not move; and
+// 2026-10-dauntless-hoopoe adds planDialogue (3.11.26n), plain JSON too
 #[test]
 fn the_vendored_spec_yields_six_streams_and_twelve_operations() {
     let (spec, catalogue) = vendored_pair();

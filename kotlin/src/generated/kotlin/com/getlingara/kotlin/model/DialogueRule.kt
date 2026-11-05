@@ -22,7 +22,7 @@ import kotlinx.serialization.Serializable
 /**
  * Which check a `dialogue_invalid` or `dialogue_graph_invalid` refusal failed, beside its `path`.
  *
- * Values: MISSING_MEMBER,UNKNOWN_MEMBER,ID_PATTERN,BOUND,NUMBER_RANGE,DUPLICATE_ID,UNKNOWN_TARGET,OUTCOME_NAME,UNDECLARED_FACT,PREDICATE_UNPARSED,PREDICATE_TYPE,DEFAULT_TYPE,WHEN_LESS_CYCLE,TEXT_BLANK,TEXT_MULTILINE,TEXT_CHAR
+ * Values: MISSING_MEMBER,UNKNOWN_MEMBER,ID_PATTERN,BOUND,NUMBER_RANGE,DUPLICATE_ID,UNKNOWN_TARGET,OUTCOME_NAME,UNDECLARED_FACT,PREDICATE_UNPARSED,PREDICATE_TYPE,DEFAULT_TYPE,WHEN_LESS_CYCLE,TEXT_BLANK,TEXT_MULTILINE,TEXT_CHAR,KIND_MISMATCH,STEER_TARGET,POOL_ESCAPE,ATOM_SET
  */
 @Serializable
 public enum class DialogueRule(public val value: kotlin.String) {
@@ -73,7 +73,19 @@ public enum class DialogueRule(public val value: kotlin.String) {
     TEXT_MULTILINE("text_multiline"),
 
     @SerialName(value = "text_char")
-    TEXT_CHAR("text_char");
+    TEXT_CHAR("text_char"),
+
+    @SerialName(value = "kind_mismatch")
+    KIND_MISMATCH("kind_mismatch"),
+
+    @SerialName(value = "steer_target")
+    STEER_TARGET("steer_target"),
+
+    @SerialName(value = "pool_escape")
+    POOL_ESCAPE("pool_escape"),
+
+    @SerialName(value = "atom_set")
+    ATOM_SET("atom_set");
 
     /**
      * Override [toString()] to avoid using the enum variable name as the value, and instead use

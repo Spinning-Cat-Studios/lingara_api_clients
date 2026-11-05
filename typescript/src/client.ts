@@ -1,4 +1,4 @@
-// The client: the eighteen operations, the event helpers and the request
+// The client: the nineteen operations, the event helpers and the request
 // pipeline (CONTRACT.md K1–K6, K5a); the canvas and dialogue groups are
 // canvas.ts's and dialogue.ts's. Its options live in options.ts.
 
@@ -13,6 +13,7 @@ import type { InboundEvent } from "./generated/events.js";
 import { STREAMS, type StreamOperation } from "./generated/streams.js";
 import type {
   CreateLessonPlanEvent,
+  DialoguePlanRequest,
   DialogueTurnRequest,
   EmbedPlayerLink,
   EmbedTokenRequest,
@@ -26,7 +27,7 @@ import type {
   TutorTurnRequest,
   VocabRequest,
 } from "./models.js";
-import { checkOptions, credentialsFrom, retryPolicy, type CallOptions, type LingaraOptions } from "./options.js";
+import { DEFAULT_BASE_URL, checkOptions, credentialsFrom, retryPolicy, type CallOptions, type LingaraOptions, type WithServedVersion } from "./options.js";
 import type { JsonOk, NoContent, Send, StreamInput } from "./request.js";
 import { parseRetryAfter, withRetries, withTokenRetry, type RetryPolicy } from "./retry.js";
 import { EventStream, type OpenedStream } from "./stream.js";
@@ -34,13 +35,6 @@ import { ClientCredentials, type TokenSource } from "./token.js";
 import { encodeSegment, fetchOnce, transportFailure, type FetchLike } from "./transport.js";
 import { userAgent } from "./userAgent.js";
 import { VersionObserver } from "./version.js";
-
-export type { CallOptions, LingaraOptions } from "./options.js";
-
-/** A JSON result, with the `Lingara-Version` echo beside it (non-enumerable). */
-export type WithServedVersion<T> = T & { readonly servedVersion?: string };
-
-export const DEFAULT_BASE_URL = "https://api.getlingara.com";
 
 /** The Lingara API. Server-side only: Node, Deno and Bun. */
 export class Lingara {
@@ -178,6 +172,11 @@ export class Lingara {
    */
   sendDialogueTurn(body: DialogueTurnRequest, options: CallOptions = {}): EventStream<SendDialogueTurnEvent> {
     return this.#stream("sendDialogueTurn", { body, retries: false }, options);
+  }
+
+  /** The next beats of a Procedural dialogue (`embed:play`), a fragment or a keep; never retried, like the turn (README). */
+  planDialogue(body: DialoguePlanRequest, options: CallOptions = {}): Promise<WithServedVersion<JsonOk<"planDialogue">>> {
+    return this.#json("/v1/embed/dialogue/plan", true, options, { method: "POST", body, retries: false });
   }
 
   // --- JSON ----------------------------------------------------------------

@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The request pipeline behind every {@code /v1} call (ADR 29.9.26r D4, D5): auth and K1's one 401
@@ -138,6 +139,9 @@ public final class Pipeline {
     mapper.configOverride(List.class).setInclude(nonEmpty);
     // The same for an optional map the caller never set: CanvasNode.params (ADR 16.10.26ak D6).
     mapper.configOverride(Map.class).setInclude(nonEmpty);
+    // And an optional set: GraphCheckpoint.mayDisclose, unset on the turn's checkpoint (ADR
+    // 3.11.26n).
+    mapper.configOverride(Set.class).setInclude(nonEmpty);
     return mapper;
   }
 

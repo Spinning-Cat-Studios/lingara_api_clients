@@ -1,12 +1,12 @@
 id: op.dialogue-turn-stream
-title: An NPC turn yields each delta and the notice, and ends on done without yielding it
+title: An NPC turn, its npc carrying a disposition and its checkpoint a steer, with an edge to a named ending, is sent as given, yields each delta and the notice, and ends on done without yielding it (ADR 3.11.26n AC27)
 behaviours: [K1, K5]
 client:
   credentials: { client_id: lgr_cid_conformance00000000000, client_secret: lgr_cs_conformance00000000000000000000000000000000, auth: basic }
 steps:
   - call:
       operation: sendDialogueTurn
-      body: { npc: { name: Auntie Lin, persona: a street-food vendor who likes to haggle }, source_lang: en, target_lang: zh, level: 3, line: 饺子多少钱？, history: [ { speaker: npc, text: 来来来，刚出锅的饺子！ } ], pedagogy: subtle }
+      body: { npc: { name: Auntie Lin, persona: a street-food vendor who likes to haggle, disposition: { suggestibility: 0.5, initiative: 0.75 } }, source_lang: en, target_lang: zh, level: 3, line: 饺子多少钱？, history: [ { speaker: npc, text: 来来来，刚出锅的饺子！ } ], pedagogy: subtle, checkpoint: { id: haggle, goal: Agree a price for the dumplings, steer: Get the player to pay ten yuan a plate }, edges: [ { id: paid, to: bought_dumplings, when: the player agrees to pay } ] }
     expect:
       outcome: completed
       events:
@@ -21,7 +21,7 @@ exchanges:
         method: POST
         path: /v1/embed/dialogue/turns
         headers: { authorization: { equals: Bearer lgr_at_opdialogue }, accept: { contains: text/event-stream } }
-        json: { npc: { name: Auntie Lin, persona: a street-food vendor who likes to haggle }, source_lang: en, target_lang: zh, level: 3, line: 饺子多少钱？, history: [ { speaker: npc, text: 来来来，刚出锅的饺子！ } ], pedagogy: subtle }
+        json: { npc: { name: Auntie Lin, persona: a street-food vendor who likes to haggle, disposition: { suggestibility: 0.5, initiative: 0.75 } }, source_lang: en, target_lang: zh, level: 3, line: 饺子多少钱？, history: [ { speaker: npc, text: 来来来，刚出锅的饺子！ } ], pedagogy: subtle, checkpoint: { id: haggle, goal: Agree a price for the dumplings, steer: Get the player to pay ten yuan a plate }, edges: [ { id: paid, to: bought_dumplings, when: the player agrees to pay } ] }
       response:
         status: 200
         sse:

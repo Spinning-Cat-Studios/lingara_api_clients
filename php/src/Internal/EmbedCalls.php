@@ -8,6 +8,9 @@ use Lingara\ApiResponse;
 use Lingara\Exception\TransportException;
 use Lingara\Exception\TransportKind;
 use Lingara\MintedToken;
+use Lingara\Model\DialoguePlanRequest;
+use Lingara\Model\DialoguePlanResponseOneOf;
+use Lingara\Model\DialoguePlanResponseOneOf1;
 use Lingara\Model\EmbedPlayerLink;
 use Lingara\Model\EmbedToken;
 use Lingara\Model\EmbedTokenRequest;
@@ -43,15 +46,54 @@ trait EmbedCalls
         $raw = $answer->value;
         $notice = MintedToken::updateFrom($raw->update_available ?? null);
         unset($raw->update_available);
+        return new ApiResponse(MintedToken::fromAnswer(self::typed($raw, EmbedToken::class), $notice), $answer->servedVersion);
+    }
+
+    /**
+     * Plans the next beats of a Procedural dialogue (scope embed:play, a
+     * metered payer only; ADR 3.11.26n). The value is a
+     * DialoguePlanResponseOneOf (status `planned`, a typed fragment) or a
+     * DialoguePlanResponseOneOf1 (status `kept`, a reason): a keep is a
+     * result, never an error. The document is sent as given and nothing is
+     * validated here. Never retried, as the turn is not: each call spends
+     * one embed:play unit, a keep and every refusal after admission
+     * included, so a 429 or 503 is thrown at once with its retryAfter.
+     *
+     * The generated DialoguePlanResponse merges the two arms and rewrites
+     * `planned` to an unknown status, so the answer is decoded raw and its
+     * arm picked by `status`.
+     *
+     * @return ApiResponse<DialoguePlanResponseOneOf|DialoguePlanResponseOneOf1>
+     */
+    public function planDialogue(DialoguePlanRequest $request): ApiResponse
+    {
+        $payload = json_encode(ObjectSerializer::sanitizeForSerialization($request), JSON_THROW_ON_ERROR);
+        $answer = $this->json('planDialogue', [], \stdClass::class, [], [], $payload, false);
+        $arm = ($answer->value->status ?? null) === 'kept' ? DialoguePlanResponseOneOf1::class : DialoguePlanResponseOneOf::class;
+        return new ApiResponse(self::typed($answer->value, $arm), $answer->servedVersion);
+    }
+
+    /**
+     * A raw answer as the generated $class, or MalformedResponse carrying
+     * none of it.
+     *
+     * @template T of object
+     *
+     * @param class-string<T> $class
+     *
+     * @return T
+     */
+    private static function typed(\stdClass $raw, string $class): object
+    {
         try {
-            $model = ObjectSerializer::deserialize($raw, EmbedToken::class);
+            $model = ObjectSerializer::deserialize($raw, $class);
         } catch (\Throwable) {
             $model = null;
         }
-        if (!$model instanceof EmbedToken) {
+        if (!$model instanceof $class) {
             throw new TransportException(TransportKind::MalformedResponse, 'the response body does not decode');
         }
-        return new ApiResponse(MintedToken::fromAnswer($model, $notice), $answer->servedVersion);
+        return $model;
     }
 
     /**

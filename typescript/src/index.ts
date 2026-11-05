@@ -1,7 +1,8 @@
 // @lingara/api: the public surface.
 
-export { Lingara, DEFAULT_BASE_URL } from "./client.js";
-export type { CallOptions, LingaraOptions, WithServedVersion } from "./client.js";
+export { Lingara } from "./client.js";
+export { DEFAULT_BASE_URL } from "./options.js";
+export type { CallOptions, LingaraOptions, WithServedVersion } from "./options.js";
 export { ClientCredentials, DEFAULT_TOKEN_URL } from "./token.js";
 export type { ClientCredentialsOptions, TokenSource } from "./token.js";
 export { ApiError, LingaraError, MaintenanceError, OAuthError, TransportError } from "./errors.js";

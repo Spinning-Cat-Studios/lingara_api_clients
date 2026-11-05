@@ -142,6 +142,8 @@ func invokeWithInput(ctx context.Context, c *lingara.Client, operation string, c
 		return result(c.LinkEmbedPlayer(ctx, playerRef(params)))
 	case "unlinkEmbedPlayer":
 		return noContent(c.UnlinkEmbedPlayer(ctx, playerRef(params)))
+	case "planDialogue":
+		return result(c.PlanDialogue(ctx, body[lingara.DialoguePlanRequest](call)))
 	}
 	return invokeCanvas(ctx, c, operation, call)
 }

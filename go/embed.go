@@ -204,6 +204,36 @@ func (c *Client) SendDialogueTurn(ctx context.Context, body DialogueTurnRequest)
 	return openStream(ctx, c, streamCall{operationID: "sendDialogueTurn", body: body, single: true}, decodeSendDialogueTurnEvent)
 }
 
+// DialoguePlanResponse is PlanDialogue's answer, tagged by Status: "planned"
+// with Fragment, or "kept" with Reason. Hand-written because oapi-codegen's
+// oneOf would import its runtime package (ADR 3.11.26n D4).
+type DialoguePlanResponse struct {
+	Status   string        `json:"status"`
+	Fragment *PlanFragment `json:"fragment,omitempty"`
+	Reason   *KeptReason   `json:"reason,omitempty"`
+}
+
+// PlanDialogue plans the next beats of a Procedural dialogue (scope
+// embed:play, a metered payer only; ADR 3.11.26n). The answer is a fragment
+// (Status "planned") or a keep (Status "kept"): a keep is a result, never an
+// error, and means keep the frontier you have. The document is sent as
+// given; the library validates neither it nor the fragment, and sets no
+// timeout of its own.
+//
+// It is never retried, as SendDialogueTurn is not: each call spends one
+// embed:play unit, a keep and every refusal after admission included, so a
+// 429 or 503 is returned at once as an *APIError with its RetryAfter.
+func (c *Client) PlanDialogue(ctx context.Context, body DialoguePlanRequest) (*Result[DialoguePlanResponse], error) {
+	payload, err := json.Marshal(body)
+	if err != nil {
+		return nil, fmt.Errorf("lingara: planDialogue: encoding the request body: %w", err)
+	}
+	rt := routes["planDialogue"]
+	return sendJSON[DialoguePlanResponse](ctx, c, request{
+		method: rt.method, url: c.url(rt.path, ""), body: payload, accept: "application/json", needsToken: rt.needsToken, single: true,
+	})
+}
+
 // mintedTokenJSON is a MintedToken's JSON form: the wire's names, the token
 // redacted by Token's own MarshalJSON.
 type mintedTokenJSON struct {
